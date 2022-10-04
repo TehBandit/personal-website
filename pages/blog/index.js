@@ -63,6 +63,7 @@ const Blog = ({ posts }) => {
   return (
     showBlog.current && (
       <>
+        <Cursor />
         <Head>
           <title>Blog</title>
         </Head>

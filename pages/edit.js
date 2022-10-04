@@ -149,6 +149,7 @@ const Edit = () => {
   return (
     <div className="container mx-auto">
       <Header></Header>
+      <Cursor />
       <div className="mt-10">
         <div
           className={`${
