@@ -200,7 +200,7 @@ const Edit = () => {
               onClick={() => setCurrentTabs("RESUME")}
               type={currentTabs === "RESUME" && "primary"}
             >
-              Resume
+              resume
             </Button>
           </div>
         </div>

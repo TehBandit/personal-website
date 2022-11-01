@@ -68,7 +68,7 @@ const Blog = ({ posts }) => {
           <title>Blog</title>
         </Head>
         <div className="container mx-auto mb-10">
-          <Header isBlog={true}></Header>
+          <Header></Header>
           <div className="mt-10">
             <h1
               ref={text}

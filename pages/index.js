@@ -10,6 +10,7 @@ import Head from "next/head";
 import Button from "../components/Button";
 import Link from "next/link";
 import Cursor from "../components/Cursor";
+import { useTheme } from "next-themes";
 
 // Local Data
 import data from "../data/portfolio.json";
@@ -22,6 +23,8 @@ export default function Home() {
   const textTwo = useRef();
   const textThree = useRef();
   const textFour = useRef();
+  const { theme } = useTheme();
+  
 
   // Handling Scroll
   const handleWorkScroll = () => {
@@ -64,45 +67,49 @@ export default function Home() {
           handleAboutScroll={handleAboutScroll}
         />
         <div className="laptop:mt-20 mt-10">
-          <div className="mt-5">
-            <h1
-              ref={textOne}
-              className="text-3xl tablet:text-6xl laptop:text-6xl laptopl:text-8xl p-1 tablet:p-2 text-bold w-4/5 mob:w-full laptop:w-4/5"
-            >
-              {data.headerTaglineOne}
-            </h1>
-            <h1
-              ref={textTwo}
-              className="text-3xl tablet:text-6xl laptop:text-6xl laptopl:text-8xl p-1 tablet:p-2 text-bold w-full laptop:w-4/5"
-            >
-              {data.headerTaglineTwo}
-            </h1>
-            <h1
-              ref={textThree}
-              className="text-3xl tablet:text-6xl laptop:text-6xl laptopl:text-8xl p-1 tablet:p-2 text-bold w-full laptop:w-4/5"
-            >
-              {data.headerTaglineThree}
-            </h1>
-            <h1
-              ref={textFour}
-              className="text-3xl tablet:text-6xl laptop:text-6xl laptopl:text-8xl p-1 tablet:p-2 text-bold w-full laptop:w-4/5"
-            >
-              {data.headerTaglineFour}
-            </h1>
+          <div className="flex justify-start align-middle">
+            <div className="">
+              <img src="https://pbs.twimg.com/profile_images/1481111130789629956/HJYE97br_400x400.jpg" alt="me" className={`rounded-full mr-16 border-8 border-double ${theme === "dark" ? "border-white" : "border-black"}`}></img>
+            </div>
+            <div className="mt-5">
+              <h1
+                ref={textOne}
+                className="text-3xl tablet:text-6xl laptop:text-6xl laptopl:text-8xl p-1 tablet:p-2 text-bold mob:w-full"
+              >
+                {data.headerTaglineOne}
+              </h1>
+              <h1
+                ref={textTwo}
+                className="text-3xl tablet:text-6xl laptop:text-6xl laptopl:text-8xl p-1 tablet:p-2 text-bold w-full"
+              >
+                {data.headerTaglineTwo}
+              </h1>
+              <h1
+                ref={textThree}
+                className="text-xl tablet:text-6xl laptop:text-6xl laptopl:text-6xl p-1 tablet:p-2 text-bold w-full"
+              >
+                {data.headerTaglineThree}
+              </h1>
+              <h1
+                ref={textFour}
+                className="text-xl tablet:text-6xl laptop:text-6xl laptopl:text-6xl p-1 tablet:p-2 text-bold w-full"
+              >
+                {data.headerTaglineFour}
+              </h1>
+            </div>
           </div>
-
           <Socials className="mt-2 laptop:mt-5" />
         </div>
 
         <div className="mt-10 laptop:mt-10 p-2 laptop:p-0" ref={aboutRef}>
-          <h1 className="text-2xl text-bold">about me</h1>
-          <p className="tablet:m-10 mt-2 text-xl italic w-full">
+          <h1 className="text-2xl font-medium border-b-2 border-b-white-500 w-1/12">about me</h1>
+          <p className="tablet:m-10 mt-2 text-xl italic w-11/12">
             {data.aboutpara}
           </p>
         </div>
 
         <div className="mt-50 p-2 laptop:p-0" ref={workRef}>
-          <h1 className="text-2xl text-bold">what i do</h1>
+          <h1 className="text-2xl font-medium border-b-2 border-b-white-500 w-1/12">what i do</h1>
 
           <div className="mt-5 laptop:mt-10 grid grid-cols-1 tablet:grid-cols-3 gap-1">
             {data.projects.map((project) => (
