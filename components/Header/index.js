@@ -71,16 +71,21 @@ const Header = ({ handleWorkScroll, handleAboutScroll, isBlog }) => {
                 <div className="grid grid-cols-1">
                   {/* <Button onClick={handleWorkScroll}>work</Button>
                   <Button onClick={handleAboutScroll}>about</Button> */}
+
+
+
                   {showBlog && (
                     <Button onClick={() => router.push("/blog")}>blog</Button>
                   )}
+
+
                   {showResume && (
                     <Button
                       onClick={() =>
-                        window.open("mailto:taylor.marcus99@gmail.com")
+                        router.push("/resume")
                       }
                     >
-                      Resume
+                      resume
                     </Button>
                   )}
 
@@ -133,9 +138,15 @@ const Header = ({ handleWorkScroll, handleAboutScroll, isBlog }) => {
           <div className="flex">
             {/* <Button onClick={handleWorkScroll}>work</Button>
             <Button onClick={handleAboutScroll}>about</Button> */}
-            {showBlog && (
+
+
+            {/* ADD BLOG BACK LATER (home page) */}
+
+            {/* {showBlog && (
               <Button onClick={() => router.push("/blog")}>blog</Button>
-            )}
+            )} */}
+
+
             {showResume && (
               <Button
                 onClick={() => router.push("/resume")}
