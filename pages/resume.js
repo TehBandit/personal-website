@@ -15,14 +15,6 @@ import { name } from "../data/portfolio.json";
 const Resume = () => {
   const router = useRouter();
   const { theme } = useTheme();
-  const [mount, setMount] = useState(false);
-
-  useEffect(() => {
-    setMount(true);
-    if (!showResume) {
-      router.push("/");
-    }
-  }, []);
   return ( 
       <div className="relative">
         <div className="gradient-circle"></div>
