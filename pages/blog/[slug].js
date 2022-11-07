@@ -9,7 +9,6 @@ import { stagger } from "../../animations";
 import Button from "../../components/Button";
 import BlogEditor from "../../components/BlogEditor";
 import { useRouter } from "next/router";
-import Cursor from "../../components/Cursor";
 
 const BlogPost = ({ post }) => {
   const [showEditor, setShowEditor] = useState(false);

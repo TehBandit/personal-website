@@ -9,7 +9,6 @@ import Footer from "../components/Footer";
 import Head from "next/head";
 import Button from "../components/Button";
 import Link from "next/link";
-import Cursor from "../components/Cursor";
 import { useTheme } from "next-themes";
 
 // Local Data

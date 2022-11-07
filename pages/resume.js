@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-// import Cursor from "../components/Cursor";
 import Head from "next/head";
 import Header from "../components/Header";
+import Socials from "../components/Socials";
 // import ProjectResume from "../components/ProjectResume";
 // import Socials from "../components/Socials";
 import Button from "../components/Button";
@@ -10,13 +10,17 @@ import { useTheme } from "next-themes";
 import { SocialIcon } from 'react-social-icons';
 // // Data
 import { name } from "../data/portfolio.json";
-// import { resume } from "../data/portfolio.json";
+import data from "../data/portfolio.json";
 
 const Resume = () => {
   const router = useRouter();
   const { theme } = useTheme();
   return ( 
       <div className="relative">
+
+      <Head>
+        <title>{data.name} resume</title>
+      </Head>
         <div className="gradient-circle"></div>
         {/* <div className="gradient-circle-bottom"></div> */}
         
@@ -34,9 +38,7 @@ const Resume = () => {
                   <div className="ml-3 text-2xl font-bold pt-2 -mb-2 ">marcus taylor</div>
                   {/* probably hide the twitter later */}
                   {/* <SocialIcon url="https://twitter.com/stinkywittlerat" bgColor="#1e293b" className="scale-50" /> */}
-                  <SocialIcon url="https://github.com/TehBandit" bgColor="#1e293b" className="scale-50" />
-                  <SocialIcon url="https://instagram.com/artworkbymarcus" bgColor="#1e293b" className="scale-50" />
-                  <SocialIcon url="https://linkedin.com/in/taylor-marcus/" bgColor="#1e293b" className="scale-50" />
+                  <Socials className="" color={`${theme === "dark" ? "#FAF9F6" : "#313639"}`} />
                 </div>
               </div>
               
@@ -101,8 +103,8 @@ const Resume = () => {
               </div>
             </div>
           </div>
-            <div className="bg-emerald-600 px-4 py-2 rounded-tr-full rounded-br-full w-fit flex justify-center mt-4 drop-shadow-xl">
-              <a className="font-bold flex content-end pr-2" href='/images/lorem-ipsum.pdf' download>Download as PDF</a>
+            <div className="bg-emerald-600 px-4 py-2 rounded-tr-full rounded-br-full w-fit flex justify-center mt-4 drop-shadow-xl hover:scale-110 transition-all ease-out duration-300">
+              <a className="font-bold flex content-end pr-2" href='/images/Marcus Resume.pdf' download>Download as PDF</a>
             </div>
         </div>
       </div>

@@ -6,7 +6,6 @@ import { useTheme } from "next-themes";
 
 // Data
 import yourData from "../data/portfolio.json";
-import Cursor from "../components/Cursor";
 
 const Edit = () => {
   // states
