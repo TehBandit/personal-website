@@ -30,13 +30,9 @@ const CharacterCreator = () => {
   const [charName, setCharName] = useState("");
   const [level, setLevel] = useState(1);
   const [prof, setProf] = useState(2);
-  const [playerClass, setplayerClass] = useState("Barbarian");
+  const [playerClass, setPlayerClass] = useState("");
   const [open, setOpen] = useState(false);
   const [clicked, setClicked] = useState(false);
-
-  function classNames(...classes) {
-    return classes.filter(Boolean).join(" ");
-  }
 
   function rollDice(faces) {
     let x = Math.floor(Math.random() * faces) + 1;
@@ -145,6 +141,63 @@ const CharacterCreator = () => {
     download(pdfBytes, "characer sheet", "application/pdf");
   }
 
+  function handleClass(currentClass) {
+    if (currentClass == "Barbarian") {
+      setStats(orderStats(stats, 0, 2));
+    }
+    if (currentClass == "Bard") {
+      setStats(orderStats(stats, 5, 1));
+    }
+    if (currentClass == "Cleric") {
+      setStats(orderStats(stats, 4, 2));
+    }
+    if (currentClass == "Druid") {
+      setStats(orderStats(stats, 4, 2));
+    }
+    if (currentClass == "Fighter") {
+      setStats(orderStats(stats, 0, 2));
+    }
+    if (currentClass == "Monk") {
+      setStats(orderStats(stats, 1, 4));
+    }
+    if (currentClass == "Paladin") {
+      setStats(orderStats(stats, 0, 5));
+    }
+    if (currentClass == "Ranger") {
+      setStats(orderStats(stats, 1, 4));
+    }
+    if (currentClass == "Rogue") {
+      setStats(orderStats(stats, 1, 5));
+    }
+    if (currentClass == "Sorcerer") {
+      setStats(orderStats(stats, 5, 2));
+    }
+    if (currentClass == "Warlock") {
+      setStats(orderStats(stats, 5, 2));
+    }
+    if (currentClass == "Wizard") {
+      setStats(orderStats(stats, 3, 2));
+    }
+
+  }
+
+  function orderStats(stats, firstHighest, secondHighest) {
+    var indexOfMax = stats.indexOf(Math.max(...stats));
+    let otherStats = Array.from(stats);
+    otherStats[indexOfMax] = 0;
+    var indexOfSecondMax = otherStats.indexOf(Math.max(...otherStats));
+
+    var tmp = stats[firstHighest];
+    stats[firstHighest] = stats[indexOfMax];
+    stats[indexOfMax] = tmp;
+
+    tmp = stats[secondHighest];
+    stats[secondHighest] = stats[indexOfSecondMax];
+    stats[indexOfSecondMax] = tmp;
+
+    return stats;
+  }
+
   return (
     <div className="relative">
       <Head>
@@ -195,25 +248,44 @@ const CharacterCreator = () => {
               onClick={(e) => e.stopPropagation()}
             />
           </form>
-            {/* <Dropdown
+          {/* <Dropdown
               className="rounded-md"
               placeholder="Class..."
               options={["Barbarian", "Bard", "Cleric"]}
               value="Select a class..."
               onChange={(value) => console.log(value)}
             /> */}
-            <select
-              className="absolute w-[51%] right-[8vw] top-[2%] pl-1 text-gray-400 bg-slate-800 border-2 border-white rounded-md"
+          <select
+            className="absolute w-[43.5%] right-[8vw] top-[2%] pl-1 text-gray-400 bg-slate-800 border-2 border-white rounded-md"
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              setPlayerClass(e.target.value);
+              console.log(e.target.value);
+              handleClass(e.target.value);
+            }}
+          >
+            <option
               onClick={(e) => e.stopPropagation()}
+              className={`italic ${playerClass == "" ? "" : "hidden"}`}
             >
-              <option className="italic">Select a class...</option>
-              <option>Babarian</option>
-              <option>Bard</option>
-              <option>Cleric</option>
-            </select>
+              Select a class...
+            </option>
+            <option>Barbarian</option>
+            <option>Bard</option>
+            <option>Cleric</option>
+            <option>Druid</option>
+            <option>Fighter</option>
+            <option>Monk</option>
+            <option>Paladin</option>
+            <option>Ranger</option>
+            <option>Rogue</option>
+            <option>Sorcerer</option>
+            <option>Warlock</option>
+            <option>Wizard</option>
+          </select>
 
           <button
-            class="absolute py-1 rounded-sm font-bold text-white group right-[16vw] top-[12%] w-[30%]"
+            className="absolute py-1 rounded-sm font-bold text-white group right-[16vw] top-[12%] w-[30%]"
             onClick={(e) => {
               e.stopPropagation();
               setStats(rollMultipleStats(6));
@@ -222,12 +294,12 @@ const CharacterCreator = () => {
             <span className="absolute transform w-[58%] h-[58%] scale-[1.7] pl-[62%] pt-[3%]">
               <BsDice1 className="bg-slate-800 rounded-sm transition duration-300 ease-out group-hover:rotate-90 group-hover:animate-waving-hand group-hover:translate-x-4 group-hover:-translate-y-1" />
             </span>
-            <span class="absolute w-full h-full border-2 border-white rounded-md top-0 left-0 bg-slate-900"></span>
-            <span class="relative">Roll Stats</span>
+            <span className="absolute w-full h-full border-2 border-white rounded-md top-0 left-0 bg-slate-900"></span>
+            <span className="relative">Roll Stats</span>
           </button>
 
           <button
-            class="absolute w-[30%] py-1 rounded-sm font-bold text-white group right-[5vw] top-[12%]"
+            className="absolute w-[30%] py-1 rounded-sm font-bold text-white group right-[5vw] top-[12%]"
             onClick={(e) => {
               e.stopPropagation();
               setLevel(level + 1);
@@ -236,11 +308,11 @@ const CharacterCreator = () => {
             <span className="absolute transform w-[58%] h-[58%] scale-[1.7] pl-[59%] pt-[3%]">
               <BsDice3 className="bg-slate-800 rounded-sm transition duration-300 ease-out group-hover:rotate-90 group-hover:animate-waving-hand group-hover:translate-x-4 group-hover:-translate-y-1" />
             </span>
-            <span class="absolute w-full h-full border-2 border-white rounded-md top-0 left-0 bg-slate-900"></span>
-            <span class="relative">Level Up</span>
+            <span className="absolute w-full h-full border-2 border-white rounded-md top-0 left-0 bg-slate-900"></span>
+            <span className="relative">Level Up</span>
           </button>
           <button
-            class="absolute w-[30%] py-1 rounded-sm font-bold text-white group right-[16vw] top-[18%]"
+            className="absolute w-[30%] py-1 rounded-sm font-bold text-white group right-[16vw] top-[18%]"
             onClick={(e) => {
               e.stopPropagation();
             }}
@@ -248,8 +320,8 @@ const CharacterCreator = () => {
             <span className="absolute transform w-[58%] h-[58%] scale-[1.7] pl-[58%] pt-[3%]">
               <BsDice6 className="bg-slate-800 rounded-sm transition duration-300 ease-out group-hover:rotate-90 group-hover:animate-waving-hand group-hover:translate-x-4 group-hover:-translate-y-1" />
             </span>
-            <span class="absolute w-full h-full border-2 border-white rounded-md top-0 left-0 bg-slate-900"></span>
-            <span class="relative">Testing</span>
+            <span className="absolute w-full h-full border-2 border-white rounded-md top-0 left-0 bg-slate-900"></span>
+            <span className="relative">Testing</span>
           </button>
         </div>
 

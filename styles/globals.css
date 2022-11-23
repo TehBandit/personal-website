@@ -15,6 +15,9 @@ body {
 input:placeholder-shown {
   font-style: italic;
 }
+input:placeholder-shown {
+  font-style: italic;
+}
 
 .gradient-circle {
   position: absolute;
