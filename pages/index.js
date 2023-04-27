@@ -100,6 +100,17 @@ export default function Home() {
           </div>
         </div>
 
+        <div className="mt-10 laptop:mt-10 p-2 laptop:p-0">
+          <h1 className="text-2xl font-medium border-b-2 border-b-white-500 w-1/3">first update since i havent implemented the blog page yet</h1>
+          <p className="tablet:m-10 mt-2 text-xl italic w-11/12">
+            first update on a project in progress:
+            <br></br>
+            <br></br>
+            we are so back
+            <img src="https://i.imgur.com/z0iXOun.png"></img>
+          </p>
+        </div>
+
         <div className="mt-10 laptop:mt-10 p-2 laptop:p-0" ref={aboutRef}>
           <h1 className="text-2xl font-medium border-b-2 border-b-white-500 w-1/12">about me</h1>
           <p className="tablet:m-10 mt-2 text-xl italic w-11/12">
