@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+#root {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  font-family: 'Inter', sans-serif;
+  background-color: #f8f9fa;
+  background-image:
+    /* circles that only repeat up to 79px */
+    radial-gradient(circle, rgba(128, 128, 128, 0.5) 20%, transparent 21%),
+    radial-gradient(circle, rgba(87, 81, 81, 0.5) 17%, transparent 21%),
+    linear-gradient(
+      90deg,
+      transparent 79px,
+      rgba(230, 53, 47, 0.5) 79px,   /* red line */
+      rgba(255, 255, 255, 0.5) 81px, /* white strip */
+      transparent 81px
+    ),
+    linear-gradient(
+      rgba(0, 191, 255, 0.1) 0.1em,
+      transparent 0.1em
+    );
+
+  /* tile size for each layer */
+  background-size:
+    80px 15em,   /* circle pattern */
+    76px 15em,   /* circle pattern */
+    100% 2.5em,  /* red line stripe */
+    100% 2.5em;  /* horizontal grid */
+
+  /* position each layer */
+  background-position:
+    left top,
+    left top,
+    left top,
+    left top;
+
+  /* repeat rules */
+  background-repeat:
+    repeat-y,   /* repeat circles vertically only */
+    repeat-y,
+    repeat,
+    repeat;
+}
+
+/* adds dropshadow to header */
+header {
+  background-color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.social-link {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.3s, transform 0.3s;
+  }
+
+.social-link:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.1);
+  }
+
+.content-area {
+  @apply p-4;
+}
+
+.beyond-red-line {
+  @apply pl-24 pr-4;
+}
+
+.divider {
+  @apply p-4;
+}
+
+.typoEffect {
+  @apply underline underline-offset-6 decoration-wavy decoration-red-500 decoration-1;
+}
+
