@@ -29,7 +29,7 @@ function BlogPost({
         </div>
         <div className="font-semibold text-2xl my-1">{title}</div>
         <div>{desc}</div>
-        <div className="pt-4">
+        <div className="pt-4 text-blue-500">
           <Link to={slug}>read full post →</Link>
         </div>
       </div>

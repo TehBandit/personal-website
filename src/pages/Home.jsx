@@ -29,7 +29,7 @@ function Home() {
             </ReactTyped>
             <p className="text-6xl pt-4">
               brooklyn-based
-              developer, artist, <span className="typoEffect">day-trader</span>*
+              artist, activist, <span className="typoEffect">sceintist</span>*
             </p>
           </div>
         </div>

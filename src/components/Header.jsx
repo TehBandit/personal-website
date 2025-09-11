@@ -29,14 +29,14 @@ function Header() {
                         {/* <Link to="/blog">contact</Link>
                         <Link to="/blog">shop</Link> */}
                         {/* Social Links */}
-                        <a 
+                        {/* <a 
                         href="https://x.com/stinkywittlerat" 
                         className="social-link"
                         aria-label="Twitter"
                         target="_blank" 
                         rel="noopener noreferrer">
                             <Twitter size={20} className="text-text-secondary" />
-                        </a>
+                        </a> */}
                         <a 
                         href="https://www.linkedin.com/in/taylor-marcus/" 
                         className="social-link"

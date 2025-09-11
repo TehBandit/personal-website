@@ -6,7 +6,7 @@
   padding: 0;
 }
 
-html, body {
+body {
   font-family: 'Inter', sans-serif;
   background-color: #f8f9fa;
   background-image:
@@ -45,6 +45,8 @@ html, body {
     repeat-y,
     repeat,
     repeat;
+
+  @apply lowercase;
 }
 
 /* adds dropshadow to header */
