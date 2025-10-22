@@ -14,10 +14,10 @@ function Home() {
     <>
       <Header />
       <div className="beyond-red-line">
-        <div className="text-8xl flex items-center bg-gray-100/60 pr-4 rounded-2xl shadow-xl">
+        <div className="flex items-center bg-gray-100/60 rounded-2xl shadow-xl w-full p-[2vw]">
           {/* About Me */}
           <Profile />
-          <div className="ml-16">
+          <div className="ml-16 lg:text-8xl text-3xl flex-shrink flex-wrap break-words min-w-0">
             <ReactTyped
               strings={["mingus.", "shmigly.", "minkris.", "marcus."]}
               typeSpeed={50}
@@ -27,26 +27,26 @@ function Home() {
             >
               <input type="text" />
             </ReactTyped>
-            <p className="text-6xl pt-4">
-              brooklyn-based
-              artist, activist, <span className="typoEffect">sceintist</span>*
+            <p className="pt-4 lg:text-4xl text-xl">
+              brooklyn-based artist, activist,{" "}
+              <span className="typoEffect">unc</span>
             </p>
           </div>
         </div>
 
         {/* Blog Highlight */}
         {/* TBD: Update divider styling */}
-        <div className="divider">
-        <Divider
-          orientation="left"
-          style={{ borderColor: "#8ec5ff", fontSize: "22px" }}
-          type="horizontal"
-          size="large"
-        >
-          latest blog post
-        </Divider>
-        </div>
-        <div className="translate-y-1/3">
+        {/* <div className="divider">
+          <Divider
+            orientation="left"
+            style={{ borderColor: "#8ec5ff", fontSize: "22px" }}
+            type="horizontal"
+            size="large"
+          >
+            latest blog post
+          </Divider>
+        </div> */}
+        {/* <div className="translate-y-1/3">
           <BlogPost
             title={posts[0].meta.title}
             desc={posts[0].meta.desc}
@@ -54,18 +54,20 @@ function Home() {
             tag={posts[0].meta.tag}
             slug={"/blog/" + posts[0].meta.slug}
           />
-        </div>
-        <div className="divider pl-[-4px]">
-        <Divider
-          orientation="left"
-          style={{ borderColor: "#8ec5ff", fontSize: "22px" }}
-          type="horizontal"
-          size="large"
-        >
-          more content
-        </Divider>
-        <div className="flex items-center bg-white rounded-2xl shadow-xl text-2xl p-4 italic">coming soon...</div>
-        </div>
+        </div> */}
+        {/* <div className="divider pl-[-4px]">
+          <Divider
+            orientation="left"
+            style={{ borderColor: "#8ec5ff", fontSize: "22px" }}
+            type="horizontal"
+            size="large"
+          >
+            more content
+          </Divider>
+          <div className="flex items-center bg-white rounded-2xl shadow-xl text-2xl p-4 italic">
+            coming soon...
+          </div>
+        </div> */}
       </div>
     </>
   );

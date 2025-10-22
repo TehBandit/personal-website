@@ -7,6 +7,7 @@
 }
 
 body {
+  width: 100%;
   font-family: 'Inter', sans-serif;
   background-color: #f8f9fa;
   background-image:
@@ -15,22 +16,22 @@ body {
     radial-gradient(circle, rgba(87, 81, 81, 0.5) 17%, transparent 21%),
     linear-gradient(
       90deg,
-      transparent 79px,
-      rgba(230, 53, 47, 0.5) 79px,   /* red line */
-      rgba(255, 255, 255, 0.5) 81px, /* white strip */
-      transparent 81px
+      transparent 4vw,
+      rgba(230, 53, 47, 0.5) 4vw,   /* red line */
+      rgba(255, 255, 255, 0.5) 4.15vw, /* white strip */
+      transparent 4.15vw
     ),
     linear-gradient(
-      rgba(0, 191, 255, 0.1) 0.1em,
-      transparent 0.1em
+      rgba(0, 191, 255, 0.1) 0.2vh,
+      transparent 0.2vh
     );
 
   /* tile size for each layer */
   background-size:
-    80px 15em,   /* circle pattern */
-    76px 15em,   /* circle pattern */
-    100% 2.5em,  /* red line stripe */
-    100% 2.5em;  /* horizontal grid */
+    4vw 12vw,   /* circle pattern */
+    3.8vw 12vw,   /* circle pattern */
+    100% 2vw,  /* red line stripe */
+    100% 2.5vw;  /* horizontal grid */
 
   /* position each layer */
   background-position:
@@ -77,7 +78,7 @@ header {
 }
 
 .beyond-red-line {
-  @apply pl-24 pr-4;
+  @apply pl-[5vw] pr-[1vw];
 }
 
 .divider {
@@ -88,3 +89,24 @@ header {
   @apply underline underline-offset-6 decoration-wavy decoration-red-500 decoration-1;
 }
 
+.embla {
+  overflow: hidden;
+  @apply border-gray-300 rounded-2xl shadow-xl mb-8;
+}
+.embla__viewport {
+  overflow: hidden;
+  @apply relative bg-white rounded-2xl overflow-hidden h-full;
+}
+.embla__container {
+  display: flex;
+  height: 100%;
+}
+.embla__slide {
+  flex: 0 0 100%; /* full width slide */
+  min-width: 0;
+  @apply flex items-center justify-center h-full;
+}
+
+.embla__img {
+  @apply max-w-full max-h-full object-cover object-center;
+}

@@ -24,7 +24,7 @@ function Blog() {
   return (
     <>
       <Header />
-      <div className="mt-24">
+      <div className="mt-24 beyond-red-line">
         <Timeline mode="alternate" items={timelineItems} />
       </div>
     </>

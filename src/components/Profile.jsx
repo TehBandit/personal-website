@@ -4,7 +4,7 @@ function Profile() {
             <img
                 src="/profile.jpg"
                 alt="Profile"
-                className="rounded-full shadow-lg border-4 border-black m-4"
+                className="rounded-full shadow-lg lg:border-4 md:border-2 sm:border-1 border-1 border-black min-w-12"
             />
         </div>
     );

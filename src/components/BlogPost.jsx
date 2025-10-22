@@ -14,22 +14,22 @@ function BlogPost({
   return (
     <div className="flex justify-center items-center -translate-y-1/3">
       <div
-        className={`bg-white p-6 rounded-lg shadow-lg w-1/2 ${
+        className={`bg-white p-6 rounded-lg shadow-lg w-full ${
           isLeft ? "ml-auto" : "mr-auto"
         }`}
       >
         <div
-          className={`flex space-x-4 font-light mb-4 ${
+          className={`flex space-x-4 font-light lg:mb-4 ${
             isLeft ? "justify-end" : "mr-auto"
           }`}
         >
-          <Tag color="success">{tag}</Tag>
-          <p className="">{date}</p>
+          {/* <Tag color="success">{tag}</Tag> */}
+          <p className="flex-shrink flex-wrap break-words min-w-0">{date}</p>
           {/* <p className="italic">8 min read...</p> */}
         </div>
-        <div className="font-semibold text-2xl my-1">{title}</div>
-        <div>{desc}</div>
-        <div className="pt-4 text-blue-500">
+        <div className="font-semibold my-1">{title}</div>
+        <div className="">{desc}</div>
+        <div className="lg:pt-4 text-blue-500">
           <Link to={slug}>read full post →</Link>
         </div>
       </div>
