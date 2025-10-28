@@ -20,8 +20,13 @@ function Home() {
   const fetchLatestVideo = async () => {
     try {
       const res = await fetch(
-        `https://youtube.googleapis.com/youtube/v3/search?key=${API_KEY}&part=snippet&channelId=${CHANNEL_ID}&order=date&maxResults=1`
+        `/api/youtube-search?channelId=${CHANNEL_ID}&maxResults=1`
       );
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to fetch from backend.");
+      }
+
       const data = await res.json();
 
       if (!data.items || data.items.length === 0) {
