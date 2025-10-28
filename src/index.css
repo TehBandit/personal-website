@@ -1,13 +1,15 @@
 @import "tailwindcss";
 
-#root {
+#root, html {
   width: 100%;
+  height: 100%;
   margin: 0;
   padding: 0;
 }
 
 body {
   width: 100%;
+  height: 100%;
   font-family: 'Inter', sans-serif;
   background-color: #f8f9fa;
   background-image:
@@ -47,7 +49,7 @@ body {
     repeat,
     repeat;
 
-  @apply lowercase;
+  @apply lowercase min-h-screen flex flex-col;
 }
 
 /* adds dropshadow to header */
@@ -109,4 +111,24 @@ header {
 
 .embla__img {
   @apply max-w-full max-h-full object-cover object-center;
+}
+
+.responsive_card_grid {
+  @apply flex flex-col md:flex-row justify-center md:justify-evenly items-center gap-6 md:gap-8 p-4;
+}
+
+.responsive_card {
+  @apply bg-white rounded-2xl shadow-xl flex flex-col justify-center p-4 md:p-[1vw] w-full md:w-1/3;
+}
+
+.responsive_card_title {
+  @apply text-xl md:text-2xl font-bold text-center mb-2 md:mb-[.5vw];
+}
+
+.responsive_card_content {
+  @apply w-full h-full rounded-2xl;
+}
+
+.responsive_card_content_container {
+  @apply w-full aspect-video flex justify-center rounded-2xl overflow-hidden
 }
