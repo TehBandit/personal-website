@@ -14,7 +14,7 @@ import { Github, Linkedin, Twitter, Mail } from "lucide-react";
 function Home() {
   const [latestVideoId, setLatestVideoId] = useState("nothing");
   const [error, setError] = useState("");
-  const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
+  const API_KEY = import.meta.env.YOUTUBE_API_KEY;
   const CHANNEL_ID = "UCX-JpAVGwDuXLFF_RnJXWqA";
 
   const fetchLatestVideo = async () => {
