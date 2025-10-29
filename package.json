@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@babel/preset-env": "^7.28.3",
+    "@cyntler/react-doc-viewer": "^1.17.1",
     "@mdx-js/rollup": "^3.1.0",
     "@tailwindcss/vite": "^4.1.12",
     "antd": "^5.27.1",

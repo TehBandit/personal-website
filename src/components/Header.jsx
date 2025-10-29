@@ -26,17 +26,7 @@ function Header() {
                     <div className="flex items-center space-x-4">
                         {/* Navigation */}
                         <Link to="/blog">blog</Link>
-                        {/* <Link to="/blog">contact</Link>
-                        <Link to="/blog">shop</Link> */}
-                        {/* Social Links */}
-                        {/* <a 
-                        href="https://x.com/stinkywittlerat" 
-                        className="social-link"
-                        aria-label="Twitter"
-                        target="_blank" 
-                        rel="noopener noreferrer">
-                            <Twitter size={20} className="text-text-secondary" />
-                        </a> */}
+                        <Link to="/resume">resume</Link>
                         <a 
                         href="https://www.linkedin.com/in/taylor-marcus/" 
                         className="social-link"

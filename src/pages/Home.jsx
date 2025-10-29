@@ -45,15 +45,15 @@ function Home() {
     }
   };
 
+  // Runs when Home page loads
   useEffect(() => {
-    // fetch immediately when component loads
     fetchLatestVideo();
   }, []);
 
   return (
     <>
       <Header />
-      <div className="beyond-red-line flex-grow min-h-screen flex flex-col max-w-full overflow-x-auto">
+      <div className="beyond-red-line page-content">
         <div className="flex items-center bg-white rounded-2xl shadow-xl w-full p-[2vw]">
           {/* About Me */}
           <Profile />
@@ -74,39 +74,6 @@ function Home() {
           </div>
         </div>
         {/* Blog Highlight */}
-        {/* TBD: Update divider styling */}
-        {/* <div className="divider">
-          <Divider
-            orientation="left"
-            style={{ borderColor: "#8ec5ff", fontSize: "22px" }}
-            type="horizontal"
-            size="large"
-          >
-            latest blog post
-          </Divider>
-        </div> */}
-        {/* <div className="translate-y-1/3">
-          <BlogPost
-            title={posts[0].meta.title}
-            desc={posts[0].meta.desc}
-            date={posts[0].meta.date}
-            tag={posts[0].meta.tag}
-            slug={"/blog/" + posts[0].meta.slug}
-          />
-        </div> */}
-        {/* <div className="divider pl-[-4px]">
-          <Divider
-            orientation="left"
-            style={{ borderColor: "#8ec5ff", fontSize: "22px" }}
-            type="horizontal"
-            size="large"
-          >
-            more content
-          </Divider>
-          <div className="flex items-center bg-white rounded-2xl shadow-xl text-2xl p-4 italic">
-            coming soon...
-          </div>
-        </div> */}
         <Divider rotate={0} text="latest blog post" />
         <div className="flex flex-col md:flex-row items-center bg-white rounded-2xl shadow-xl w-full p-4 md:p-[2vw] gap-4 md:gap-[2vw] h-auto overflow-hidden">
           <div className="flex-shrink-0 w-full md:w-auto">

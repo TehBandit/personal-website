@@ -132,3 +132,11 @@ header {
 .responsive_card_content_container {
   @apply w-full aspect-video flex justify-center rounded-2xl overflow-hidden
 }
+
+.page-content {
+  @apply flex-grow min-h-screen flex flex-col max-w-full overflow-x-auto;
+}
+
+.react-pdf__Page__textContent.textLayer {
+display: none !important;
+}
