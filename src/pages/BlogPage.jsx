@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { posts } from "../blogposts";
 import Header from "../components/Header.jsx";
+import Footer from "../components/Footer.jsx";
 import Carousel from "../components/Carousel.jsx";
 
 export default function BlogPage() {
@@ -35,6 +36,8 @@ export default function BlogPage() {
           <Post.default />
         </div>
       </div>
+
+      <Footer />
     </>
   );
 }

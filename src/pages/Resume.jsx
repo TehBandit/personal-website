@@ -1,4 +1,5 @@
 import Header from "../components/Header.jsx";
+import Footer from "../components/Footer.jsx";
 import DocViewer, { DocViewerRenderers } from "@cyntler/react-doc-viewer";
 
 function Resume() {
@@ -17,6 +18,7 @@ function Resume() {
           <DocViewer documents={docs} pluginRenderers={DocViewerRenderers} />
         </div>
       </div>
+      <Footer />
     </>
   );
 }
