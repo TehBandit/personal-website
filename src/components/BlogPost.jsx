@@ -15,7 +15,7 @@ function BlogPost({
     <div className="flex justify-center items-center -translate-y-1/3">
       <div
         className={`bg-white p-6 rounded-lg shadow-lg w-full ${
-          isLeft ? "ml-auto" : "mr-auto"
+          isLeft ? "ml-auto" : "mr-[1vw]"
         }`}
       >
         <div

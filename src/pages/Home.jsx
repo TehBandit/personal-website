@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import viteLogo from "/vite.svg";
-import "../App.css";
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
 import Profile from "../components/Profile.jsx";
@@ -12,6 +11,7 @@ import { Link } from "react-router-dom";
 import { Github, Linkedin, Twitter, Mail } from "lucide-react";
 
 function Home() {
+  // Youtube API Setup
   const [latestVideoId, setLatestVideoId] = useState("nothing");
   const [error, setError] = useState("");
   const API_KEY = import.meta.env.YOUTUBE_API_KEY;
@@ -43,6 +43,15 @@ function Home() {
       console.error(err);
       setError(err.message || "Unexpected error fetching video.");
     }
+  };
+
+  // OpenAI API Setup
+  const [response, setResponse] = useState("");
+
+  const testOpenAI = async () => {
+    const res = await fetch("/api/openai-test");
+    const data = await res.json();
+    setResponse(data.response);
   };
 
   // Runs when Home page loads
@@ -138,6 +147,36 @@ function Home() {
               </a>
             </div>
           </div>
+        </div>
+        <Divider rotate={0} text="projects" />
+
+        {/* Projects grid: 6 cards, 3 per row on md+, 2 per row on sm, 1 per row on mobile */}
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full">
+          {["Untitled Project", "Untitled Project", "Untitled Project"].map(
+            (n) => (
+              <div
+                key={n}
+                className="bg-white rounded-2xl shadow-xl p-6 flex items-center justify-center h-40 md:h-48"
+              >
+                <div className="text-center">
+                  <div className="font-semibold text-lg md:text-xl">{n}</div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    coming soon...
+                  </div>
+                </div>
+              </div>
+            )
+          )}
+        </div>
+        <Divider rotate={0} text="testing" />
+        <div style={{ padding: "2rem", fontFamily: "sans-serif" }}>
+          <h1>🔮 OpenAI Test</h1>
+          <button onClick={testOpenAI}>Run Test</button>
+          {response && (
+            <p style={{ marginTop: "1rem" }}>
+              <strong>AI says:</strong> {response}
+            </p>
+          )}
         </div>
       </div>
       <Footer />
