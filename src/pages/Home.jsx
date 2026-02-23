@@ -168,16 +168,6 @@ function Home() {
             )
           )}
         </div>
-        <Divider rotate={0} text="testing" />
-        <div style={{ padding: "2rem", fontFamily: "sans-serif" }}>
-          <h1>🔮 OpenAI Test</h1>
-          <button onClick={testOpenAI}>Run Test</button>
-          {response && (
-            <p style={{ marginTop: "1rem" }}>
-              <strong>AI says:</strong> {response}
-            </p>
-          )}
-        </div>
       </div>
       <Footer />
     </>
