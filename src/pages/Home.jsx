@@ -45,15 +45,6 @@ function Home() {
     }
   };
 
-  // OpenAI API Setup
-  const [response, setResponse] = useState("");
-
-  const testOpenAI = async () => {
-    const res = await fetch("/api/openai-test");
-    const data = await res.json();
-    setResponse(data.response);
-  };
-
   // Runs when Home page loads
   useEffect(() => {
     fetchLatestVideo();
@@ -139,10 +130,11 @@ function Home() {
                 href="https://www.instagram.com/p/Cnu1c6wvns5/?img_index=1"
                 target="_blank"
                 rel="noopener noreferrer"
+                className="h-full flex items-center justify-center"
               >
                 <img
                   src="/testInsta.jpg"
-                  className="responsive_card_content"
+                  className="h-full aspect-square object-cover rounded-2xl"
                 ></img>
               </a>
             </div>

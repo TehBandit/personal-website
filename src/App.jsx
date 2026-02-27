@@ -3,6 +3,9 @@ import Blog from "./pages/Blog.jsx";
 import Home from "./pages/Home.jsx";
 import BlogPage from "./pages/BlogPage.jsx";
 import Resume from "./pages/Resume.jsx";
+import NotFound from "./pages/NotFound.jsx";
+import Groceries from "./pages/Groceries.jsx";
+import GroceryBattle from "./pages/GroceryBattle.jsx";
 
 function App() {
   return (
@@ -12,6 +15,9 @@ function App() {
         <Route path="/blog" element={<Blog />} />
         <Route path="/blog/:slug" element={<BlogPage />} />
         <Route path="/resume" element={<Resume />} />
+        <Route path="/groceries" element={<Groceries />} />
+        <Route path="/grocerybattle" element={<GroceryBattle />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </>
   );

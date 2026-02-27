@@ -142,3 +142,12 @@ header {
 .react-pdf__Page__textContent.textLayer {
 display: none !important;
 }
+
+/* ── Battle bracket animations ── */
+@keyframes battle-winner-bulge {
+  0%   { transform: scale(1);    }
+  35%  { transform: scale(1.04); }
+  65%  { transform: scale(1.02); }
+  100% { transform: scale(1);    }
+}
+

@@ -1,21 +1,40 @@
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
-import DocViewer, { DocViewerRenderers } from "@cyntler/react-doc-viewer";
+import { Download } from "lucide-react";
+
+const PDF_PATH = "/Marcus_Taylor_Resume_2025.pdf";
 
 function Resume() {
-  const docs = [{ uri: "/Marcus_Taylor_Resume_2025.pdf" }];
-
   return (
     <>
       <Header />
-      <div className="beyond-red-line page-content items-center">
-        {/* ensure this small header aligns to the top-left of the viewer below */}
-        <div className="md:text-2xl self-start text-left mb-2">
-          <span className="font-bold">Last Updated: </span>
-          <span className="font-light italic text-gray-500">10/29/2025</span>
+      <div className="beyond-red-line page-content">
+        {/* Header bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-4 pr-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">résumé</h1>
+            <p className="text-sm text-gray-400 font-light italic mt-0.5">
+              last updated: 10/29/2025
+            </p>
+          </div>
+          <a
+            href={PDF_PATH}
+            download="Marcus_Taylor_Resume_2025.pdf"
+            className="inline-flex items-center gap-2 self-start sm:self-auto bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow transition-colors"
+          >
+            <Download size={16} />
+            download pdf
+          </a>
         </div>
-        <div className="md:w-1/2 md:h-[60vw] overflow-scroll w-full max-w-full h-auto">
-          <DocViewer documents={docs} pluginRenderers={DocViewerRenderers} />
+
+        {/* PDF viewer */}
+        <div className="w-full flex-1 bg-white rounded-2xl shadow-xl overflow-hidden mb-6 pr-4">
+          <iframe
+            src={`${PDF_PATH}#toolbar=0&navpanes=0&scrollbar=1`}
+            title="Marcus Taylor Resume"
+            className="w-full"
+            style={{ height: "80vh", border: "none" }}
+          />
         </div>
       </div>
       <Footer />
@@ -24,3 +43,4 @@ function Resume() {
 }
 
 export default Resume;
+
