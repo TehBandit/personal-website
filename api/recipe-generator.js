@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { validateTextField, validateStringArray } from "./guardrails.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -13,19 +14,38 @@ export default async function handler(req, res) {
 
     const { spiceTolerance, dietaryRestrictions, mustInclude, maxCalories, servings, extraNotes, excluded } = req.body;
 
+    // --- Input validation / guardrails ---
+    const mustIncludeCheck = validateTextField(mustInclude, "mustInclude");
+    if (!mustIncludeCheck.ok) return res.status(400).json({ error: mustIncludeCheck.error });
+
+    const extraNotesCheck = validateTextField(extraNotes, "extraNotes");
+    if (!extraNotesCheck.ok) return res.status(400).json({ error: extraNotesCheck.error });
+
+    const excludedCheck = validateTextField(excluded, "excluded");
+    if (!excludedCheck.ok) return res.status(400).json({ error: excludedCheck.error });
+
+    const dietaryCheck = validateStringArray(dietaryRestrictions, "dietaryRestrictions");
+    if (!dietaryCheck.ok) return res.status(400).json({ error: dietaryCheck.error });
+
+    const safeMustInclude = mustIncludeCheck.value;
+    const safeExtraNotes = extraNotesCheck.value;
+    const safeExcluded = excludedCheck.value;
+    const safeDietary = dietaryCheck.value;
+    // -------------------------------------
+
     const preferences = [
       spiceTolerance && spiceTolerance !== "no preference" && `spice level: ${spiceTolerance}`,
-      dietaryRestrictions && dietaryRestrictions.length > 0 && `dietary restrictions: ${dietaryRestrictions.join(", ")}`,
-      mustInclude && mustInclude.trim() && `must use these ingredients: ${mustInclude.trim()}`,
+      safeDietary.length > 0 && `dietary restrictions: ${safeDietary.join(", ")}`,
+      safeMustInclude && `must use these ingredients: ${safeMustInclude}`,
       maxCalories && `maximum calories per serving: ${maxCalories} kcal`,
       servings && `number of servings: ${servings}`,
-      extraNotes && `additional notes: ${extraNotes}`,
+      safeExtraNotes && `additional notes: ${safeExtraNotes}`,
     ]
       .filter(Boolean)
       .join(", ");
 
-    const exclusionClause = excluded && excluded.trim()
-      ? `\n\nIMPORTANT: The recipe must NOT contain any of the following ingredients under any circumstances: ${excluded.trim()}.`
+    const exclusionClause = safeExcluded
+      ? `\n\nIMPORTANT: The recipe must NOT contain any of the following ingredients under any circumstances: ${safeExcluded}.`
       : "";
 
     const userPrompt = `You are planning a smart grocery trip. Generate exactly 2 meals that are flavorfully distinct from each other but share as many raw ingredients as possible to minimize waste and simplify shopping.

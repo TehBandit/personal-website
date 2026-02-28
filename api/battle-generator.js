@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { validateTextField, validateStringArray } from "./guardrails.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -13,24 +14,52 @@ export default async function handler(req, res) {
 
     const { spiceTolerance, dietaryRestrictions, mustInclude, maxCalories, macros, primaryFlavors, secondaryFlavors, creativity, extraNotes, excluded } = req.body;
 
+    // --- Input validation / guardrails ---
+    const mustIncludeCheck = validateTextField(mustInclude, "mustInclude");
+    if (!mustIncludeCheck.ok) return res.status(400).json({ error: mustIncludeCheck.error });
+
+    const extraNotesCheck = validateTextField(extraNotes, "extraNotes");
+    if (!extraNotesCheck.ok) return res.status(400).json({ error: extraNotesCheck.error });
+
+    const excludedCheck = validateTextField(excluded, "excluded");
+    if (!excludedCheck.ok) return res.status(400).json({ error: excludedCheck.error });
+
+    const dietaryCheck = validateStringArray(dietaryRestrictions, "dietaryRestrictions");
+    if (!dietaryCheck.ok) return res.status(400).json({ error: dietaryCheck.error });
+
+    const primaryFlavorsCheck = validateStringArray(primaryFlavors, "primaryFlavors");
+    if (!primaryFlavorsCheck.ok) return res.status(400).json({ error: primaryFlavorsCheck.error });
+
+    const secondaryFlavorsCheck = validateStringArray(secondaryFlavors, "secondaryFlavors");
+    if (!secondaryFlavorsCheck.ok) return res.status(400).json({ error: secondaryFlavorsCheck.error });
+
+    // Use sanitized values from here on
+    const safeMusInclude = mustIncludeCheck.value;
+    const safeExtraNotes = extraNotesCheck.value;
+    const safeExcluded = excludedCheck.value;
+    const safeDietary = dietaryCheck.value;
+    const safePrimaryFlavors = primaryFlavorsCheck.value;
+    const safeSecondaryFlavors = secondaryFlavorsCheck.value;
+    // -------------------------------------
+
     const preferences = [
       spiceTolerance && spiceTolerance !== "no preference" && `spice level: ${spiceTolerance}`,
-      dietaryRestrictions && dietaryRestrictions.length > 0 && `dietary restrictions: ${dietaryRestrictions.join(", ")}`,
-      mustInclude && mustInclude.trim() && `must use these ingredients: ${mustInclude.trim()}`,
+      safeDietary.length > 0 && `dietary restrictions: ${safeDietary.join(", ")}`,
+      safeMusInclude && `must use these ingredients: ${safeMusInclude}`,
       maxCalories && `maximum calories per serving: ${maxCalories} kcal`,
       macros && macros.fat !== "none" && `${macros.fat} fat`,
       macros && macros.carbs !== "none" && `${macros.carbs} carb`,
       macros && macros.protein !== "none" && `${macros.protein} protein`,
-      primaryFlavors && primaryFlavors.length > 0 && `primary flavor profiles: ${primaryFlavors.join(", ")}`,
-      secondaryFlavors && secondaryFlavors.length > 0 && `vibe: ${secondaryFlavors.join(", ")}`,
-      extraNotes && `additional notes: ${extraNotes}`,
+      safePrimaryFlavors.length > 0 && `primary flavor profiles: ${safePrimaryFlavors.join(", ")}`,
+      safeSecondaryFlavors.length > 0 && `vibe: ${safeSecondaryFlavors.join(", ")}`,
+      safeExtraNotes && `additional notes: ${safeExtraNotes}`,
     ]
       .filter(Boolean)
       .join(", ");
 
     const exclusionClause =
-      excluded && excluded.trim()
-        ? `\n\nIMPORTANT: None of the 16 recipes must contain any of the following ingredients under any circumstances: ${excluded.trim()}.`
+      safeExcluded
+        ? `\n\nIMPORTANT: None of the 16 recipes must contain any of the following ingredients under any circumstances: ${safeExcluded}.`
         : "";
 
     const creativityInstruction = (() => {

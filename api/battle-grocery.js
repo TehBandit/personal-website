@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { validateMeal, validatePreferencesString } from "./guardrails.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -15,12 +16,24 @@ export default async function handler(req, res) {
     // meal1, meal2: { title, description }
     // preferences: string of assembled user preferences
 
+    // --- Input validation / guardrails ---
+    const meal1Check = validateMeal(meal1, "meal1");
+    if (!meal1Check.ok) return res.status(400).json({ error: meal1Check.error });
+
+    const meal2Check = validateMeal(meal2, "meal2");
+    if (!meal2Check.ok) return res.status(400).json({ error: meal2Check.error });
+
+    const prefsCheck = validatePreferencesString(preferences);
+    if (!prefsCheck.ok) return res.status(400).json({ error: prefsCheck.error });
+    const safePreferences = prefsCheck.value;
+    // -------------------------------------
+
     const userPrompt = `You are planning a smart grocery trip for 2 championship meals chosen by a user in a bracket tournament.
 
 Meal 1: "${meal1.title}" — ${meal1.description}
 Meal 2: "${meal2.title}" — ${meal2.description}
 
-User preferences: ${preferences || "no specific preferences"}.
+User preferences: ${safePreferences || "no specific preferences"}.
 
 Your task:
 - Generate a COMPLETE and EXHAUSTIVE shared grocery list that covers every ingredient needed to prepare both meals fully.

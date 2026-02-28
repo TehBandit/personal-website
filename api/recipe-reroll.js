@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { validateMeal, validatePreferencesString, validateTextField } from "./guardrails.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -17,8 +18,21 @@ export default async function handler(req, res) {
     // preferences: plain string of user prefs (already assembled)
     // excluded: excluded ingredients string
 
-    const exclusionClause = excluded && excluded.trim()
-      ? `\n\nIMPORTANT: The recipe must NOT contain any of the following ingredients under any circumstances: ${excluded.trim()}.`
+    // --- Input validation / guardrails ---
+    const mealCheck = validateMeal(keepMeal, "keepMeal");
+    if (!mealCheck.ok) return res.status(400).json({ error: mealCheck.error });
+
+    const prefsCheck = validatePreferencesString(preferences);
+    if (!prefsCheck.ok) return res.status(400).json({ error: prefsCheck.error });
+    const safePreferences = prefsCheck.value;
+
+    const excludedCheck = validateTextField(excluded, "excluded");
+    if (!excludedCheck.ok) return res.status(400).json({ error: excludedCheck.error });
+    const safeExcluded = excludedCheck.value;
+    // -------------------------------------
+
+    const exclusionClause = safeExcluded
+      ? `\n\nIMPORTANT: The recipe must NOT contain any of the following ingredients under any circumstances: ${safeExcluded}.`
       : "";
 
     const userPrompt = `You are planning a smart grocery trip. You already have one meal decided:
@@ -28,7 +42,7 @@ Meal to keep: "${keepMeal.title}" — ${keepMeal.description}
 Generate a NEW single meal that is:
 - Flavorfully distinct from "${keepMeal.title}"
 - Shares as many raw ingredients as possible with it
-- Meets these preferences: ${preferences || "no specific preferences, surprise me"}${exclusionClause}
+- Meets these preferences: ${safePreferences || "no specific preferences, surprise me"}${exclusionClause}
 
 - description: 2-3 sentences that give a sense of the dish's flavor, texture, and occasion.
 - steps: an array of 4-6 short strings, each covering one key step in the preparation method.

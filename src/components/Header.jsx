@@ -43,14 +43,12 @@ function Header() {
                         rel="noopener noreferrer">
                             <Github size={20} className="text-text-secondary" />
                         </a>
-                        <a 
-                        href="mailto:taylor.marcus99@gmail.com" 
+                        <Link 
+                        to="/contact" 
                         className="social-link"
-                        aria-label="Instagram"
-                        target="_blank" 
-                        rel="noopener noreferrer">
+                        aria-label="Contact">
                             <Mail size={20} className="text-text-secondary" />
-                        </a>
+                        </Link>
                     </div>
                 </div>
         </header>
