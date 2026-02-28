@@ -1,3 +1,5 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/((?!api/)(?!@)(?!__vite__)(?!node_modules/)(?!.*\\.[a-zA-Z0-9]+$).*)", "destination": "/index.html" }
+  ]
 }

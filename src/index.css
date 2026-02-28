@@ -82,7 +82,7 @@ header {
 }
 
 .beyond-red-line {
-  @apply pl-[5vw] pr-[1vw];
+  @apply pl-[5vw] pr-2 sm:pr-[3vw];
 }
 
 .divider {

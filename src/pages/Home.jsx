@@ -8,7 +8,7 @@ import Divider from "../components/Divider.jsx";
 import { ReactTyped } from "react-typed";
 import { posts } from "../blogposts";
 import { Link } from "react-router-dom";
-import { Github, Linkedin, Twitter, Mail } from "lucide-react";
+import { Github, Linkedin, Twitter, Mail, Swords } from "lucide-react";
 
 function Home() {
   // Youtube API Setup
@@ -142,23 +142,33 @@ function Home() {
         </div>
         <Divider rotate={0} text="projects" />
 
-        {/* Projects grid: 6 cards, 3 per row on md+, 2 per row on sm, 1 per row on mobile */}
+        {/* Projects grid */}
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full">
-          {["Untitled Project", "Untitled Project", "Untitled Project"].map(
-            (n) => (
-              <div
-                key={n}
-                className="bg-white rounded-2xl shadow-xl p-6 flex items-center justify-center h-40 md:h-48"
-              >
-                <div className="text-center">
-                  <div className="font-semibold text-lg md:text-xl">{n}</div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    coming soon...
-                  </div>
-                </div>
+          {/* Grocery Battle */}
+          <Link to="/grocerybattle" className="group block">
+            <div className="bg-white rounded-2xl shadow-xl p-6 flex flex-col items-center justify-center gap-3 h-40 md:h-48 hover:shadow-2xl hover:-translate-y-0.5 transition-all">
+              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <Swords size={20} className="text-blue-600" />
               </div>
-            )
-          )}
+              <div className="text-center">
+                <div className="font-semibold text-lg md:text-xl">grocery battle</div>
+                <div className="text-sm text-gray-500 mt-1 leading-snug">eliminate wasting leftover ingredients with a bracket-style meal planner and grocery list generator.</div>
+              </div>
+            </div>
+          </Link>
+
+          {/* Placeholders */}
+          {["untitled project", "untitled project"].map((n, i) => (
+            <div
+              key={i}
+              className="bg-white rounded-2xl shadow-xl p-6 flex items-center justify-center h-40 md:h-48"
+            >
+              <div className="text-center">
+                <div className="font-semibold text-lg md:text-xl">{n}</div>
+                <div className="text-sm text-gray-500 mt-1">coming soon...</div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
       <Footer />

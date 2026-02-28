@@ -127,9 +127,9 @@ const SECONDARY_FLAVORS = [
 ];
 
 const ROUND_LABELS = {
-  1: { name: "Round of 16", subtitle: "8 matchups — pick the dish you'd rather eat" },
-  2: { name: "Quarterfinals", subtitle: "4 matchups — the field is narrowing" },
-  3: { name: "Semifinals", subtitle: "2 matchups — pick your 2 champions" },
+  1: { name: "round of 16", subtitle: "8 matchups — pick the dish you'd rather eat" },
+  2: { name: "quarterfinals", subtitle: "4 matchups — pick the dish you'd rather eat" },
+  3: { name: "semifinals", subtitle: "2 matchups — pick your 2 winners and create a grocery list" },
 };
 
 function pairMatchups(arr) {
@@ -142,9 +142,9 @@ function pairMatchups(arr) {
 
 function RoundProgress({ currentRound }) {
   const steps = [
-    { label: "R16", round: 1 },
-    { label: "QF", round: 2 },
-    { label: "SF", round: 3 },
+    { label: "grp", round: 1 },
+    { label: "qtr", round: 2 },
+    { label: "semi", round: 3 },
     { label: "🏆", round: 4 },
   ];
   return (
@@ -199,7 +199,7 @@ function MatchupCard({ matchup, matchupIndex, pick, onPick, animating }) {
           }`}
         >
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-bold text-gray-800 text-sm leading-tight">{a.title}</h3>
+            <h3 className="font-bold text-gray-800 text-sm leading-tight lowercase">{a.title}</h3>
             {pick === a && (
               <span className="flex-shrink-0 mt-0.5 w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
                 <Check size={12} className="text-white" />
@@ -227,7 +227,7 @@ function MatchupCard({ matchup, matchupIndex, pick, onPick, animating }) {
           }`}
         >
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-bold text-gray-800 text-sm leading-tight">{b.title}</h3>
+            <h3 className="font-bold text-gray-800 text-sm leading-tight lowercase">{b.title}</h3>
             {pick === b && (
               <span className="flex-shrink-0 mt-0.5 w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
                 <Check size={12} className="text-white" />
@@ -382,9 +382,16 @@ function GroceryBattle() {
     setBracketRound(1);
     setMealPlan(null);
     setError("");
+    // reset all preferences
+    setSpiceTolerance("no preference");
+    setDietaryRestrictions([]);
+    setMustInclude("");
+    setExcluded("");
+    setMacros({ fat: "none", carbs: "none", protein: "none", calories: "none" });
     setPrimaryFlavors([]);
     setSecondaryFlavors([]);
     setCreativity("balanced");
+    setExtraNotes("");
   };
 
   const ANIM_STAGGER = 150; // ms between each row starting
@@ -427,7 +434,7 @@ function GroceryBattle() {
       {bracketRound === 3 ? (
         <>
           <Trophy size={15} />
-          crown champions & get grocery list
+          crown winners & get grocery list
         </>
       ) : (
         <>
@@ -486,9 +493,9 @@ function GroceryBattle() {
               const showPendingLine = idx < 4 && isLastReached;
 
               return (
-                <div key={idx} className="flex gap-4 items-stretch">
+                <div key={idx} className="flex gap-0 sm:gap-4 items-stretch">
                   {/* ── Left spine ── */}
-                  <div className="flex flex-col items-center flex-shrink-0 w-7">
+                  <div className="hidden sm:flex flex-col items-center flex-shrink-0 w-7">
                     <button
                       onClick={() => toggleExpand(idx)}
                       className={`w-7 h-7 mt-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
@@ -635,7 +642,12 @@ function GroceryBattle() {
                                         {level === "low" && <ChevronDown size={14} />}
                                         {level === "none" && <Minus size={14} />}
                                         {level === "high" && <ChevronUp size={14} />}
-                                        {level === "none" ? "no preference" : level}
+                                        {level === "none" ? (
+                          <>
+                            <span className="sm:hidden">any</span>
+                            <span className="hidden sm:inline">no preference</span>
+                          </>
+                        ) : level}
                                       </span>
                                     </button>
                                   ))}
@@ -766,7 +778,7 @@ function GroceryBattle() {
                                 onChange={(e) => setExtraNotes(e.target.value)}
                                 onKeyDown={(e) => e.key === "Enter" && !loading && handleGenerateBattle()}
                                 placeholder="e.g. quick weeknight meals, comfort food vibes, summer bbq..."
-                                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition"
+                                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition text-ellipsis"
                               />
                             </div>
                             <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-700 leading-relaxed">
@@ -941,7 +953,7 @@ function GroceryBattle() {
         {/* ── RESULTS PHASE ── */}
         {phase === "results" && mealPlan && (
           <>
-            <Divider rotate={0} text="your champions" />
+            <Divider rotate={0} text="your winners" />
 
             {/* Champion meal cards */}
             <div className="flex flex-col md:flex-row gap-4 w-full">
@@ -953,7 +965,7 @@ function GroceryBattle() {
                       champion {i + 1}
                     </span>
                   </div>
-                  <h2 className="text-xl font-bold text-gray-800 leading-tight">{meal.title}</h2>
+                  <h2 className="text-xl font-bold text-gray-800 leading-tight lowercase">{meal.title}</h2>
                   <p className="text-gray-500 text-sm italic">{meal.description}</p>
                   <div>
                     <div className="text-sm font-semibold text-gray-600 mb-2">how to make it</div>
@@ -975,7 +987,7 @@ function GroceryBattle() {
             <div className="bg-white rounded-2xl shadow-xl w-full p-4 sm:p-6 md:p-[2vw] mb-4">
               <div className="flex items-center gap-2 mb-4 text-gray-700 font-semibold">
                 <ShoppingCart size={18} />
-                everything you need for both champions
+                everything you need for both dishes
               </div>
               <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2">
                 {mealPlan.groceryList.map((item, i) => {
@@ -999,9 +1011,9 @@ function GroceryBattle() {
             <div className="flex justify-center mb-6">
               <button
                 onClick={handleReset}
-                className="inline-flex items-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium px-6 py-2.5 rounded-xl transition-colors text-sm"
+                className="inline-flex items-center gap-2 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white font-semibold px-7 py-3 rounded-xl shadow transition-colors text-sm"
               >
-                <Swords size={15} />
+                <Swords size={16} />
                 start a new battle
               </button>
             </div>
