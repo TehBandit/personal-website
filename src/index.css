@@ -112,7 +112,7 @@ header {
 }
 
 .embla__img {
-  @apply max-w-full max-h-full object-cover object-center;
+  @apply w-full h-full object-cover object-center;
 }
 
 .responsive_card_grid {

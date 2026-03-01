@@ -28,11 +28,11 @@ export default function BlogPage() {
         </div>
 
         <div className="mb-4 pl-4">
-          <div className="text-5xl">{Post.meta.title}</div>
-          <div className="text-2xl">{Post.meta.desc}</div>
-          <div className="text-2xl italic">{Post.meta.date}</div>
+          <div className="text-3xl font-semibold">{Post.meta.title}</div>
+          <div className="text-lg">{Post.meta.desc}</div>
+          <div className="text-sm italic text-gray-400">{Post.meta.date}</div>
         </div>
-        <div className="px-8 text-2xl">
+        <div className="px-8 text-xl">
           <Post.default />
         </div>
       </div>

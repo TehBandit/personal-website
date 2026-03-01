@@ -19,24 +19,25 @@ export default function SecondPost() {
         explore all that the city has to offer and can't wait to see what the
         future holds for us here.
       </p>
-      <div className="flex">
-        {/* come back to how these are sized.. */}
-        <Carousel images={["/ny3.png", "/ny4.png"]} h="h-96" w="w-180"/>
-        <div>
-          <p className="pl-4 pb-4">
+      <div className="flex flex-col md:flex-row gap-6">
+        <div className="w-full md:w-1/2 flex-shrink-0">
+          <Carousel images={["/ny3.png", "/ny4.png"]} h="h-72 md:h-96" w="w-full" />
+        </div>
+        <div className="flex flex-col justify-center">
+          <p className="pb-4">
             we've just signed for our apartment in williamsburg, brooklyn and it
             is so cute here. coming from williamsburg, va for the first 18 years
             of life, it feels only fitting to return to a new williamsburg after
             a brief hiatus.
           </p>
-          <p className="pl-4 pb-4">
+          <p className="pb-4">
             this will serve as my first life-update on this site... more to come
             soon. i've been trying a lot of fantastic new food, so maybe I can
             try to set up some sort of{" "}
             <span>
               <a
                 href="https://beliapp.com/"
-                className=" text-blue-500"
+                className="text-blue-500"
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -45,8 +46,8 @@ export default function SecondPost() {
             </span>{" "}
             API to post my latest reviews here.
           </p>
-          <p className="pl-4 pb-4">
-            ← i'll be sure to put some images here soon, but for now i have a
+          <p className="pb-4">
+            i'll be sure to put some images here soon, but for now i have a
             housewarming party to decorate for...
           </p>
         </div>
