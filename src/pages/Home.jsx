@@ -74,6 +74,7 @@ function Home() {
           </div>
         </div>
         {/* Blog Highlight */}
+        {/* New comment to test push attribution - remove later */}
         <Divider rotate={0} text="latest blog post" />
         <div className="flex flex-col md:flex-row items-center bg-white rounded-2xl shadow-xl w-full p-4 md:p-[2vw] gap-4 md:gap-[2vw] h-auto overflow-hidden">
           <div className="flex-shrink-0 w-full md:w-auto">
