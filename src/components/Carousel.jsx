@@ -25,6 +25,12 @@ const Carousel = ({ images = ["/vite.svg", "/profile.jpg", "/logo.png"] , h="h-1
               key={index}
               className="embla__slide"
             >
+              {/* Blurred backdrop fills empty space */}
+              <img
+                src={src}
+                aria-hidden="true"
+                className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-50"
+              />
               <img
                 src={src}
                 alt={`Slide ${index + 1}`}

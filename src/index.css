@@ -108,11 +108,11 @@ header {
 .embla__slide {
   flex: 0 0 100%; /* full width slide */
   min-width: 0;
-  @apply flex items-center justify-center h-full;
+  @apply relative overflow-hidden flex items-center justify-center h-full;
 }
 
 .embla__img {
-  @apply w-full h-full object-cover object-center;
+  @apply relative w-full h-full object-contain object-center;
 }
 
 .responsive_card_grid {
