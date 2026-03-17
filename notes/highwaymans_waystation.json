@@ -1,0 +1,20 @@
+{
+  "id": "highwaymans_waystation",
+  "name": "Highwayman's Waystation",
+  "type": "location",
+  "excerpt": "A disused waystation where Dellan Moor and Sable Voss are hiding.",
+  "connections": [
+    {
+      "target": "dellan_moor",
+      "label": "current hideout",
+      "sourceFile": "dellan-moor.txt"
+    },
+    {
+      "target": "sable_voss",
+      "label": "current hideout",
+      "sourceFile": "dellan-moor.txt"
+    }
+  ],
+  "notes": "The highwayman's waystation is located on the moorland north of the main coastal road, about two days' walk from the nearest town. It has a mostly intact roof, a fireplace, and a working well. Dellan Moor and Sable Voss have been living there for eight months, using it as a stable base after moving frequently.",
+  "sourceFile": "dellan-moor.txt"
+}

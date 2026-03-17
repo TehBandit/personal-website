@@ -2,11 +2,16 @@
   "id": "fen_caldra",
   "name": "Fen Caldra",
   "type": "character",
-  "excerpt": "A careful and discreet private transport operator in Tiveck.",
+  "excerpt": "Fen Caldra is a careful and discreet private transport operator.",
   "connections": [
     {
       "target": "tiveck",
       "label": "born in",
+      "sourceFile": "fen-caldra.txt"
+    },
+    {
+      "target": "eastern_cliff",
+      "label": "operates near",
       "sourceFile": "fen-caldra.txt"
     },
     {
@@ -16,20 +21,15 @@
     },
     {
       "target": "orris_vane",
-      "label": "holds leverage over",
+      "label": "has leverage over",
       "sourceFile": "fen-caldra.txt"
     },
     {
       "target": "maren_ashveil",
-      "label": "complex relationship with",
-      "sourceFile": "fen-caldra.txt"
-    },
-    {
-      "target": "sunken_ledger",
-      "label": "discovered and hidden",
+      "label": "intrigued by",
       "sourceFile": "fen-caldra.txt"
     }
   ],
-  "notes": "Fen Caldra is in his mid-40s, born and raised in Tiveck, and operates a private transport service with a reputation for reliability and discretion. He runs cargo through the Salt Warren, a network of tidal caves beneath Tiveck, and maintains relationships to use it for gray-market storage. He discovered the Sunken Ledger six years ago and has kept it hidden. Fen has leverage over Orris Vane using the Warden's Seal, a forged document, and has a complex relationship with Maren Ashveil, who he suspects is looking for the Ledger.",
+  "notes": "Fen Caldra, in his mid-40s, was born in Tiveck and has spent his life near the waterfront. He operates a private transport service with two vessels and a trusted crew. Known for reliability and discretion, he runs cargo through the Salt Warren, a network of tidal caves beneath Tiveck. He discovered the Sunken Ledger six years ago and keeps it hidden. Fen has leverage over Orris Vane through the Warden's Seal and finds Maren Ashveil intriguing, suspecting she seeks the Ledger.",
   "sourceFile": "fen-caldra.txt"
 }

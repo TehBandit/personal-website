@@ -6,15 +6,15 @@
   "connections": [
     {
       "target": "maren_ashveil",
-      "label": "employed by for survey work",
+      "label": "employs for sandbar documentation",
       "sourceFile": "maren-ashveil.txt"
     },
     {
       "target": "tiveck",
-      "label": "interested in sandbar patterns of",
+      "label": "interested in sandbar patterns",
       "sourceFile": "maren-ashveil.txt"
     }
   ],
-  "notes": "The Merchant Consortium is the group that ostensibly hired Maren Ashveil to document Tiveck's shifting sandbar patterns.",
+  "notes": "The Merchant Consortium hired Maren Ashveil to document Tiveck's shifting sandbar patterns. This work serves as her cover for being in Tiveck.",
   "sourceFile": "maren-ashveil.txt"
 }

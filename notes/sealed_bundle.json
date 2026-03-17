@@ -2,7 +2,7 @@
   "id": "sealed_bundle",
   "name": "Sealed Bundle",
   "type": "artifact",
-  "excerpt": "A sealed bundle containing evidence of supply falsification.",
+  "excerpt": "A bundle containing Sable's account of supply falsifications.",
   "connections": [
     {
       "target": "sable_voss",
@@ -15,6 +15,6 @@
       "sourceFile": "sable-voss.txt"
     }
   ],
-  "notes": "Sable Voss has been drafting an account of the supply falsification she witnessed over six years, including dates, quantities, names, and the paper trail as she remembers it. She keeps this document separate from their other papers, in a sealed bundle under a flagstone in the back room.",
+  "notes": "Sable Voss has been drafting an account of the supply falsifications she witnessed over six years in the 14th Lowland Regiment. The bundle is hidden under a flagstone in the back room of the waystation.",
   "sourceFile": "sable-voss.txt"
 }

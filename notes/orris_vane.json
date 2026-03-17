@@ -2,18 +2,8 @@
   "id": "orris_vane",
   "name": "Orris Vane",
   "type": "character",
-  "excerpt": "A character with a complex relationship with Fen Caldra.",
+  "excerpt": "Orris Vane is entangled in a complex relationship with Fen Caldra.",
   "connections": [
-    {
-      "target": "fen_caldra",
-      "label": "leverage held by",
-      "sourceFile": "fen-caldra.txt"
-    },
-    {
-      "target": "wardens_seal",
-      "label": "implicated by",
-      "sourceFile": "fen-caldra.txt"
-    },
     {
       "target": "tiveck",
       "label": "harbor master of",
@@ -28,8 +18,18 @@
       "target": "maren_ashveil",
       "label": "provided access to records",
       "sourceFile": "orris-vane.txt"
+    },
+    {
+      "target": "fen_caldra",
+      "label": "entangled with",
+      "sourceFile": "fen-caldra.txt"
+    },
+    {
+      "target": "wardens_seal",
+      "label": "implicated by",
+      "sourceFile": "fen-caldra.txt"
     }
   ],
-  "notes": "Orris Vane has a complex relationship with Fen Caldra, who holds leverage over him using the Warden's Seal. This leverage stems from a forged customs document that implicated Orris in a cargo irregularity. Their relationship is functional, not friendly, and has kept both out of serious trouble.",
+  "notes": "Orris Vane is involved in a functional arrangement with Fen Caldra, who holds leverage over him through the Warden's Seal. This relationship has kept both out of serious trouble, though it is not a friendship.",
   "sourceFile": "fen-caldra.txt"
 }

@@ -1,0 +1,20 @@
+{
+  "id": "supply_falsification_order",
+  "name": "Supply Falsification Order",
+  "type": "artifact",
+  "excerpt": "A written order to falsify supply records in the 14th Lowland Regiment.",
+  "connections": [
+    {
+      "target": "sable_voss",
+      "label": "kept by",
+      "sourceFile": "sable-voss.txt"
+    },
+    {
+      "target": "14th_lowland",
+      "label": "issued by",
+      "sourceFile": "sable-voss.txt"
+    }
+  ],
+  "notes": "This order was the direct cause of Sable Voss's desertion from the 14th Lowland Regiment. It was the first time she received such an order in writing, prompting her to keep it as evidence.",
+  "sourceFile": "sable-voss.txt"
+}

@@ -2,7 +2,7 @@
   "id": "sunken_ledger",
   "name": "Sunken Ledger",
   "type": "artifact",
-  "excerpt": "A valuable and dangerous ledger found by Fen Caldra.",
+  "excerpt": "The Sunken Ledger is a dangerous and valuable document hidden by Fen Caldra.",
   "connections": [
     {
       "target": "maren_ashveil",
@@ -25,6 +25,6 @@
       "sourceFile": "fen-caldra.txt"
     }
   ],
-  "notes": "The Sunken Ledger was found by Fen Caldra six years ago in a sealed crate within the Salt Warren. He read enough to understand its value and danger but has not sold, shown, or destroyed it. It remains hidden in a location only Fen knows.",
+  "notes": "The Sunken Ledger was found by Fen Caldra six years ago in a sealed crate in the Salt Warren. He read enough to understand its value and danger but has not sold, shown, or destroyed it. It remains hidden in a location only Fen knows.",
   "sourceFile": "fen-caldra.txt"
 }
