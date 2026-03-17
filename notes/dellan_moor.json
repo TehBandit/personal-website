@@ -1,0 +1,20 @@
+{
+  "id": "dellan_moor",
+  "name": "Dellan Moor",
+  "type": "character",
+  "excerpt": "Dellan Moor is a former soldier living in hiding after deserting his regiment.",
+  "connections": [
+    {
+      "target": "sable_voss",
+      "label": "living with",
+      "sourceFile": "dellan-moor.txt"
+    },
+    {
+      "target": "14th_lowland",
+      "label": "former regiment",
+      "sourceFile": "dellan-moor.txt"
+    }
+  ],
+  "notes": "Dellan Moor, 29, is a former soldier who served in the 14th Lowland infantry regiment for four years. He deserted fourteen months ago during a reassignment to a punitive posting in the eastern districts. Currently, he lives with Sable Voss in a disused highwayman's waystation on the moorland north of the main coastal road. They have been there for eight months, growing food and making careful trips to rural markets. Dellan is skilled in carpentry, basic medicine, and animal husbandry due to his regiment's focus on labor and construction. He trusts Sable completely, though he is uncertain about the permanence of their relationship. He is less frightened now but aware of the need for a long-term solution.",
+  "sourceFile": "dellan-moor.txt"
+}

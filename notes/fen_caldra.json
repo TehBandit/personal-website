@@ -1,0 +1,35 @@
+{
+  "id": "fen_caldra",
+  "name": "Fen Caldra",
+  "type": "character",
+  "excerpt": "A careful and discreet private transport operator in Tiveck.",
+  "connections": [
+    {
+      "target": "tiveck",
+      "label": "born in",
+      "sourceFile": "fen-caldra.txt"
+    },
+    {
+      "target": "wardens_seal",
+      "label": "holds leverage with",
+      "sourceFile": "fen-caldra.txt"
+    },
+    {
+      "target": "orris_vane",
+      "label": "holds leverage over",
+      "sourceFile": "fen-caldra.txt"
+    },
+    {
+      "target": "maren_ashveil",
+      "label": "complex relationship with",
+      "sourceFile": "fen-caldra.txt"
+    },
+    {
+      "target": "sunken_ledger",
+      "label": "discovered and hidden",
+      "sourceFile": "fen-caldra.txt"
+    }
+  ],
+  "notes": "Fen Caldra is in his mid-40s, born and raised in Tiveck, and operates a private transport service with a reputation for reliability and discretion. He runs cargo through the Salt Warren, a network of tidal caves beneath Tiveck, and maintains relationships to use it for gray-market storage. He discovered the Sunken Ledger six years ago and has kept it hidden. Fen has leverage over Orris Vane using the Warden's Seal, a forged document, and has a complex relationship with Maren Ashveil, who he suspects is looking for the Ledger.",
+  "sourceFile": "fen-caldra.txt"
+}

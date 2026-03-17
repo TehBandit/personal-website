@@ -1,0 +1,20 @@
+{
+  "id": "14th_lowland",
+  "name": "14th Lowland",
+  "type": "faction",
+  "excerpt": "The 14th Lowland is a provincial infantry regiment known for labor and construction duties.",
+  "connections": [
+    {
+      "target": "dellan_moor",
+      "label": "former member",
+      "sourceFile": "dellan-moor.txt"
+    },
+    {
+      "target": "sable_voss",
+      "label": "former member",
+      "sourceFile": "dellan-moor.txt"
+    }
+  ],
+  "notes": "The 14th Lowland is a provincial infantry regiment where Dellan Moor served for four years. The regiment was primarily used for labor and construction, which provided Dellan with practical skills. Sable Voss was a supply administrator in the same regiment. Dellan and Sable deserted from this regiment together.",
+  "sourceFile": "dellan-moor.txt"
+}

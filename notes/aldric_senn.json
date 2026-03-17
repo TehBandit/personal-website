@@ -1,0 +1,20 @@
+{
+  "id": "aldric_senn",
+  "name": "Aldric Senn",
+  "type": "character",
+  "excerpt": "Aldric Senn ran a gray-market cargo operation through Tiveck.",
+  "connections": [
+    {
+      "target": "sunken_ledger",
+      "label": "maintained by",
+      "sourceFile": "sunken-ledger.txt"
+    },
+    {
+      "target": "tiveck",
+      "label": "operated in",
+      "sourceFile": "sunken-ledger.txt"
+    }
+  ],
+  "notes": "Aldric Senn maintained the Sunken Ledger and operated a gray-market cargo business through Tiveck for thirty years. He died of natural causes eleven years ago, leading to the fragmentation of his operation.",
+  "sourceFile": "sunken-ledger.txt"
+}

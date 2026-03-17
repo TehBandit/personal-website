@@ -1,0 +1,20 @@
+{
+  "id": "supply_falsification_account",
+  "name": "Supply Falsification Account",
+  "type": "artifact",
+  "excerpt": "A detailed account of supply falsification within the 14th Lowland Regiment.",
+  "connections": [
+    {
+      "target": "sable_voss",
+      "label": "created by",
+      "sourceFile": "sable-voss.txt"
+    },
+    {
+      "target": "14th_lowland",
+      "label": "documents misconduct in",
+      "sourceFile": "sable-voss.txt"
+    }
+  ],
+  "notes": "Sable Voss has been drafting an account of the supply falsification she witnessed over six years, including dates, quantities, names, and the paper trail as she remembers it. It serves as evidence of misconduct worth investigating.",
+  "sourceFile": "sable-voss.txt"
+}

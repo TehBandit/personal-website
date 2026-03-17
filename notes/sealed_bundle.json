@@ -1,0 +1,20 @@
+{
+  "id": "sealed_bundle",
+  "name": "Sealed Bundle",
+  "type": "artifact",
+  "excerpt": "A sealed bundle containing evidence of supply falsification.",
+  "connections": [
+    {
+      "target": "sable_voss",
+      "label": "hidden by",
+      "sourceFile": "sable-voss.txt"
+    },
+    {
+      "target": "waystation_on_the_moorland",
+      "label": "hidden within",
+      "sourceFile": "sable-voss.txt"
+    }
+  ],
+  "notes": "Sable Voss has been drafting an account of the supply falsification she witnessed over six years, including dates, quantities, names, and the paper trail as she remembers it. She keeps this document separate from their other papers, in a sealed bundle under a flagstone in the back room.",
+  "sourceFile": "sable-voss.txt"
+}

@@ -1,0 +1,40 @@
+{
+  "id": "salt_warren",
+  "name": "Salt Warren",
+  "type": "location",
+  "excerpt": "A network of tidal caves used for gray-market storage.",
+  "connections": [
+    {
+      "target": "tiveck",
+      "label": "located in harbor",
+      "sourceFile": "salt-warren.txt"
+    },
+    {
+      "target": "sunken_ledger",
+      "label": "hidden within",
+      "sourceFile": "salt-warren.txt"
+    },
+    {
+      "target": "admiralty",
+      "label": "predates regulations",
+      "sourceFile": "salt-warren.txt"
+    },
+    {
+      "target": "maren_ashveil",
+      "label": "suspects hidden chambers",
+      "sourceFile": "salt-warren.txt"
+    },
+    {
+      "target": "fen_caldra",
+      "label": "operated by",
+      "sourceFile": "fen-caldra.txt"
+    },
+    {
+      "target": "tiveck",
+      "label": "located beneath",
+      "sourceFile": "fen-caldra.txt"
+    }
+  ],
+  "notes": "The Salt Warren is a network of tidal caves and excavated chambers beneath the eastern cliff face of Tiveck. It has been used for gray-market storage for generations. Fen Caldra currently operates within it, storing items for people who prefer not to use official warehouses.",
+  "sourceFile": "fen-caldra.txt"
+}

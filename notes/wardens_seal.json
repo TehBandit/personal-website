@@ -1,0 +1,45 @@
+{
+  "id": "wardens_seal",
+  "name": "Warden's Seal",
+  "type": "artifact",
+  "excerpt": "A forged document linking Orris Vane to illicit cargo movements.",
+  "connections": [
+    {
+      "target": "admiralty",
+      "label": "forged in official format",
+      "sourceFile": "wardens-seal.txt"
+    },
+    {
+      "target": "tiveck",
+      "label": "stored in lodging house",
+      "sourceFile": "wardens-seal.txt"
+    },
+    {
+      "target": "salt_warren",
+      "label": "not kept in",
+      "sourceFile": "wardens-seal.txt"
+    },
+    {
+      "target": "sunken_ledger",
+      "label": "related leverage artifact",
+      "sourceFile": "wardens-seal.txt"
+    },
+    {
+      "target": "maren_ashveil",
+      "label": "could recognize cargo significance",
+      "sourceFile": "wardens-seal.txt"
+    },
+    {
+      "target": "orris_vane",
+      "label": "blackmails with",
+      "sourceFile": "orris-vane.txt"
+    },
+    {
+      "target": "fen_caldra",
+      "label": "held by",
+      "sourceFile": "orris-vane.txt"
+    }
+  ],
+  "notes": "The Warden's Seal is a forged document that connects Orris Vane to a series of illicit cargo movements through Tiveck's harbor. Fen Caldra possesses this document, using it to ensure Orris's cooperation in his operations.",
+  "sourceFile": "orris-vane.txt"
+}

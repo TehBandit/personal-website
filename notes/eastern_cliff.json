@@ -1,0 +1,25 @@
+{
+  "id": "eastern_cliff",
+  "name": "Eastern Cliff",
+  "type": "location",
+  "excerpt": "The Eastern Cliff is a limestone formation with hidden caves.",
+  "connections": [
+    {
+      "target": "tiveck",
+      "label": "part of",
+      "sourceFile": "tiveck.txt"
+    },
+    {
+      "target": "salt_warren",
+      "label": "contains",
+      "sourceFile": "tiveck.txt"
+    },
+    {
+      "target": "fen_caldra",
+      "label": "knows concealed entrance",
+      "sourceFile": "tiveck.txt"
+    }
+  ],
+  "notes": "The Eastern Cliff brackets Tiveck Harbor's eastern edge and is composed of old limestone, honeycombed with natural caves expanded over centuries. Officially used for cold storage, the deeper chambers are known as the Salt Warren, accessible by a tidal passage or a concealed entrance known to Fen Caldra.",
+  "sourceFile": "tiveck.txt"
+}

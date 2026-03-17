@@ -1,0 +1,20 @@
+{
+  "id": "merchant_consortium",
+  "name": "Merchant Consortium",
+  "type": "faction",
+  "excerpt": "A group interested in Tiveck's sandbar patterns.",
+  "connections": [
+    {
+      "target": "maren_ashveil",
+      "label": "employed by for survey work",
+      "sourceFile": "maren-ashveil.txt"
+    },
+    {
+      "target": "tiveck",
+      "label": "interested in sandbar patterns of",
+      "sourceFile": "maren-ashveil.txt"
+    }
+  ],
+  "notes": "The Merchant Consortium is the group that ostensibly hired Maren Ashveil to document Tiveck's shifting sandbar patterns.",
+  "sourceFile": "maren-ashveil.txt"
+}

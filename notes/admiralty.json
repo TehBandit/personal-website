@@ -1,0 +1,25 @@
+{
+  "id": "admiralty",
+  "name": "Admiralty",
+  "type": "faction",
+  "excerpt": "The Admiralty is Maren Ashveil's former employer.",
+  "connections": [
+    {
+      "target": "maren_ashveil",
+      "label": "former employer of",
+      "sourceFile": "maren-ashveil.txt"
+    },
+    {
+      "target": "sunken_ledger",
+      "label": "archive contains reference to",
+      "sourceFile": "maren-ashveil.txt"
+    },
+    {
+      "target": "tiveck",
+      "label": "located in",
+      "sourceFile": "tiveck.txt"
+    }
+  ],
+  "notes": "Maren Ashveil worked for the Admiralty as a licensed surveyor for a decade before resigning under mysterious circumstances. She found a reference to the Sunken Ledger in an old Admiralty archive.",
+  "sourceFile": "maren-ashveil.txt"
+}
