@@ -2,34 +2,29 @@
   "id": "fen_caldra",
   "name": "Fen Caldra",
   "type": "character",
-  "excerpt": "Fen Caldra is a careful and discreet private transport operator.",
+  "excerpt": "Fen Caldra is a careful and discreet private transport operator in Tiveck.",
   "connections": [
     {
-      "target": "tiveck",
-      "label": "born in",
-      "sourceFile": "fen-caldra.txt"
-    },
-    {
-      "target": "eastern_cliff",
-      "label": "operates near",
-      "sourceFile": "fen-caldra.txt"
-    },
-    {
-      "target": "wardens_seal",
-      "label": "holds leverage with",
-      "sourceFile": "fen-caldra.txt"
-    },
-    {
       "target": "orris_vane",
-      "label": "has leverage over",
+      "label": "holds leverage over",
       "sourceFile": "fen-caldra.txt"
     },
     {
       "target": "maren_ashveil",
       "label": "intrigued by",
       "sourceFile": "fen-caldra.txt"
+    },
+    {
+      "target": "sunken_ledger",
+      "label": "keeps hidden",
+      "sourceFile": "fen-caldra.txt"
+    },
+    {
+      "target": "salt_warren",
+      "label": "operates cargo through",
+      "sourceFile": "fen-caldra.txt"
     }
   ],
-  "notes": "Fen Caldra, in his mid-40s, was born in Tiveck and has spent his life near the waterfront. He operates a private transport service with two vessels and a trusted crew. Known for reliability and discretion, he runs cargo through the Salt Warren, a network of tidal caves beneath Tiveck. He discovered the Sunken Ledger six years ago and keeps it hidden. Fen has leverage over Orris Vane through the Warden's Seal and finds Maren Ashveil intriguing, suspecting she seeks the Ledger.",
+  "notes": "Fen Caldra, in his mid-40s, was born in Tiveck and has spent his life near the waterfront. He operates a private transport service with two vessels and a trusted crew. Known for reliability and discretion, he runs cargo through the Salt Warren, a network of tidal caves used for gray-market storage. Fen discovered the Sunken Ledger six years ago and keeps it hidden. He has leverage over Orris Vane with a forged customs document and finds Maren Ashveil intriguing, suspecting she seeks the Ledger.",
   "sourceFile": "fen-caldra.txt"
 }

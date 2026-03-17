@@ -75,6 +75,25 @@ function patchNodeConnections(nodeId, newConns) {
 }
 
 /**
+ * Remove all connections tagged with `sourceFile === filename` from every
+ * node file. Called before re-extraction so stale edges are cleared even when
+ * they live on a node whose primary sourceFile is different.
+ */
+function stripConnectionsFromSource(filename) {
+  if (!fs.existsSync(NOTES_DIR)) return;
+  for (const f of fs.readdirSync(NOTES_DIR).filter((f) => f.endsWith(".json"))) {
+    const nodeId = path.basename(f, ".json");
+    const data = loadNodeFile(nodeId);
+    if (!data) continue;
+    const before = (data.connections || []).length;
+    data.connections = (data.connections || []).filter((c) => c.sourceFile !== filename);
+    if (data.connections.length !== before) {
+      fs.writeFileSync(path.join(NOTES_DIR, f), JSON.stringify(data, null, 2), "utf-8");
+    }
+  }
+}
+
+/**
  * Return the set of node IDs that "belong" to a given source file.
  * Ownership is determined by:
  *   1. The node's `sourceFile` field matches the filename exactly
@@ -135,7 +154,15 @@ Rules:
 - Extract every implied relationship from the text (don't miss any)
 - Connection labels are lowercase and descriptive: "childhood best friends", "hidden within", "hunts relentlessly"
 - If a new entity connects to an existing one, use the existing entity's exact ID as the target
-- Return at least one node even if the notes are sparse`;
+- Return at least one node even if the notes are sparse
+- CRITICAL: The notes come from a file named after their primary subject. Any sentence with an implicit subject (e.g. "is best friends with X", "was born in Y", "carries the Z") should be treated as a statement about the primary subject of this file — use their name as the subject when inferring connections`;
+
+  // Derive a human-readable subject name from the filename (e.g. "maren-ashveil.txt" → "Maren Ashveil")
+  const filenameSubject = filename
+    .replace(/\.txt$/i, "")
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 
   const userPrompt = `EXISTING GRAPH NODES — do not recreate these, only reference their IDs in connections:
 ${
@@ -144,7 +171,7 @@ ${
     : "  (none yet — this is the first file)"
 }
 
-RAW NOTES TO ANALYZE (from: ${filename}):
+RAW NOTES TO ANALYZE (from: ${filename}, primary subject: "${filenameSubject}"):
 ${rawText}`;
 
   const completion = await openai.chat.completions.create({
@@ -336,6 +363,10 @@ async function main() {
     if (isUpdate && refreshNodeIds.size > 0) {
       log(`  Refreshing ${refreshNodeIds.size} existing node(s): ${[...refreshNodeIds].join(", ")}`);
     }
+    // Strip stale connections from ALL nodes before re-extracting, so removed
+    // relationships don't persist even when they live on a node whose primary
+    // sourceFile differs from the file being processed.
+    if (isUpdate) stripConnectionsFromSource(filename);
     const extracted = await extractFromText(openai, rawText, filename, refreshNodeIds);
     const saved = saveNodes(extracted, filename, refreshNodeIds);
 

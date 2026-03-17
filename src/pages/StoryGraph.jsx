@@ -45,11 +45,20 @@ export default function StoryGraph() {
   const [extractResult, setExtractResult] = useState(null);
   const [extractError, setExtractError] = useState(null);
 
-  // Sidebar groups — all open by default
-  const [openGroups, setOpenGroups] = useState(() => new Set(Object.keys(NODE_TYPE_CONFIG)));
+  // Sidebar groups — all closed by default
+  const [openGroups, setOpenGroups] = useState(() => new Set());
+  // Derived sub-sections — collapsed by default
+  const [openDerived, setOpenDerived] = useState(() => new Set());
 
   const toggleGroup = (type) =>
     setOpenGroups((prev) => {
+      const next = new Set(prev);
+      next.has(type) ? next.delete(type) : next.add(type);
+      return next;
+    });
+
+  const toggleDerived = (type) =>
+    setOpenDerived((prev) => {
       const next = new Set(prev);
       next.has(type) ? next.delete(type) : next.add(type);
       return next;
@@ -100,6 +109,25 @@ export default function StoryGraph() {
     }, 2000);
     return () => clearInterval(interval);
   }, [loadGraph]);
+
+  // Track which nodes have their own notes-raw file
+  const [rawFileSet, setRawFileSet] = useState(new Set());
+  useEffect(() => {
+    fetch("/api/notes-raw-list")
+      .then((r) => r.json())
+      .then((d) => setRawFileSet(new Set((d.files || []).map((f) => f.filename))))
+      .catch(() => {});
+  }, [graphData]); // re-check whenever graph reloads
+
+  // node ids that have a dedicated notes-raw file
+  const ownFileIds = useMemo(() => {
+    const ids = new Set();
+    for (const node of graphData.nodes) {
+      const candidate = node.id.replace(/_/g, "-") + ".txt";
+      if (rawFileSet.has(candidate)) ids.add(node.id);
+    }
+    return ids;
+  }, [graphData.nodes, rawFileSet]);
 
   // Degree map: node id → number of connections
   const degreeMap = useMemo(() => {
@@ -259,8 +287,10 @@ export default function StoryGraph() {
   // Custom canvas rendering for each node
   const nodeCanvasObject = useCallback(
     (node, ctx, globalScale) => {
+      const isDerived = !ownFileIds.has(node.id);
       const cfg = NODE_TYPE_CONFIG[node.type] || NODE_TYPE_CONFIG.character;
-      const r = nodeRadius(node);
+      const baseColor = isDerived ? "#6b7280" : cfg.color;
+      const r = isDerived ? Math.max(nodeRadius(node) * 0.65, 3) : nodeRadius(node);
       const isSelected = selectedNode?.id === node.id;
       const isHovered = hoveredNode?.id === node.id;
       const isInHoveredNeighborhood = !hoveredNeighborIds || hoveredNeighborIds.has(node.id);
@@ -274,19 +304,19 @@ export default function StoryGraph() {
       if (isSelected) {
         ctx.beginPath();
         ctx.arc(node.x, node.y, r + 5, 0, 2 * Math.PI);
-        ctx.fillStyle = cfg.color + "35";
+        ctx.fillStyle = baseColor + "35";
         ctx.fill();
       } else if (hoveredNode && isInHoveredNeighborhood) {
         ctx.beginPath();
         ctx.arc(node.x, node.y, r + 3, 0, 2 * Math.PI);
-        ctx.fillStyle = cfg.color + "22";
+        ctx.fillStyle = baseColor + "22";
         ctx.fill();
       }
 
       // Flat filled circle
       ctx.beginPath();
       ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
-      ctx.fillStyle = cfg.color;
+      ctx.fillStyle = baseColor;
       ctx.fill();
 
       // Darken overlay on hover
@@ -329,7 +359,7 @@ export default function StoryGraph() {
       ctx.fillText(label, node.x, labelY);
       ctx.globalAlpha = 1;
     },
-    [selectedNode, hoveredNode, hoveredNeighborIds, nodeRadius]
+    [selectedNode, hoveredNode, hoveredNeighborIds, nodeRadius, ownFileIds]
   );
 
   const linkColor = useCallback(
@@ -474,6 +504,9 @@ export default function StoryGraph() {
               const nodesOfType = graphData.nodes.filter((n) => (n.type || "character") === type);
               if (nodesOfType.length === 0) return null;
               const isOpen = openGroups.has(type);
+              const sourceNodes  = nodesOfType.filter((n) =>  ownFileIds.has(n.id));
+              const derivedNodes = nodesOfType.filter((n) => !ownFileIds.has(n.id));
+              const isDerivedOpen = openDerived.has(type);
               return (
                 <div key={type} className="mb-0.5">
                   {/* Group header */}
@@ -511,16 +544,15 @@ export default function StoryGraph() {
                   {/* Node rows */}
                   {isOpen && (
                     <div className="ml-2 flex flex-col gap-0.5 mb-1">
-                      {nodesOfType.map((node) => {
+                      {/* Source nodes */}
+                      {sourceNodes.map((node) => {
                         const isActive = selectedNode?.id === node.id;
                         return (
                           <button
                             key={node.id}
                             onClick={() => handleNodeClick(node)}
                             className="text-left px-3 py-1.5 rounded-lg transition-colors flex items-center gap-2"
-                            style={{
-                              backgroundColor: isActive ? "rgba(255,255,255,0.08)" : "transparent",
-                            }}
+                            style={{ backgroundColor: isActive ? "rgba(255,255,255,0.08)" : "transparent" }}
                             onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)"; }}
                             onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = isActive ? "rgba(255,255,255,0.08)" : "transparent"; }}
                           >
@@ -528,15 +560,70 @@ export default function StoryGraph() {
                               className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                               style={{ backgroundColor: isActive ? cfg.color : "rgba(255,255,255,0.2)" }}
                             />
-                            <span
-                              className="text-sm leading-tight truncate"
-                              style={{ color: isActive ? "#fff" : "rgba(255,255,255,0.65)" }}
-                            >
+                            <span className="text-sm leading-tight truncate" style={{ color: isActive ? "#fff" : "rgba(255,255,255,0.65)" }}>
                               {node.name}
                             </span>
                           </button>
                         );
                       })}
+
+                      {/* Derived sub-section */}
+                      {derivedNodes.length > 0 && (
+                        <div className="ml-3 mt-0.5 border-l" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+                          <button
+                            onClick={() => toggleDerived(type)}
+                            className="w-full flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-md transition-colors"
+                            style={{ backgroundColor: "transparent" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.03)")}
+                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                          >
+                            <span className="w-1 h-1 rounded-full flex-shrink-0" style={{ backgroundColor: "#6b7280" }} />
+                            <span className="text-[10px] uppercase tracking-widest flex-1 text-left" style={{ color: "rgba(255,255,255,0.2)" }}>
+                              Derived
+                            </span>
+                            <span
+                              className="text-[10px] px-1 py-0.5 rounded font-medium mr-0.5"
+                              style={{ backgroundColor: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.18)" }}
+                            >
+                              {derivedNodes.length}
+                            </span>
+                            <ChevronDown
+                              size={10}
+                              style={{
+                                color: "rgba(255,255,255,0.15)",
+                                transform: isDerivedOpen ? "rotate(0deg)" : "rotate(-90deg)",
+                                transition: "transform 0.2s ease",
+                                flexShrink: 0,
+                              }}
+                            />
+                          </button>
+                          {isDerivedOpen && (
+                            <div className="ml-1 flex flex-col gap-0.5 pb-1">
+                              {derivedNodes.map((node) => {
+                                const isActive = selectedNode?.id === node.id;
+                                return (
+                                  <button
+                                    key={node.id}
+                                    onClick={() => handleNodeClick(node)}
+                                    className="text-left pl-2 pr-2 py-1 rounded-md transition-colors flex items-center gap-1.5"
+                                    style={{ backgroundColor: isActive ? "rgba(255,255,255,0.06)" : "transparent" }}
+                                    onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.03)"; }}
+                                    onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = isActive ? "rgba(255,255,255,0.06)" : "transparent"; }}
+                                  >
+                                    <span
+                                      className="w-1 h-1 rounded-full flex-shrink-0"
+                                      style={{ backgroundColor: isActive ? "#9ca3af" : "rgba(255,255,255,0.15)" }}
+                                    />
+                                    <span className="text-xs leading-tight truncate" style={{ color: isActive ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.35)" }}>
+                                      {node.name}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -608,7 +695,7 @@ export default function StoryGraph() {
                     >
                       <span
                         className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: cfg.color }}
+                        style={{ backgroundColor: ownFileIds.has(node.id) ? cfg.color : "#6b7280" }}
                       />
                       <span className="text-sm truncate" style={{ color: "rgba(255,255,255,0.8)" }}>
                         {node.name}
@@ -667,7 +754,7 @@ export default function StoryGraph() {
                   <div className="flex items-center gap-2 mb-1.5">
                     <span
                       className="w-2.5 h-2.5 rounded-full"
-                      style={{ backgroundColor: NODE_TYPE_CONFIG[selectedNode.type]?.color }}
+                      style={{ backgroundColor: ownFileIds.has(selectedNode.id) ? NODE_TYPE_CONFIG[selectedNode.type]?.color : "#6b7280" }}
                     />
                     <span
                       className="text-xs font-semibold uppercase tracking-widest"
@@ -731,7 +818,7 @@ export default function StoryGraph() {
                       <div className="flex items-center gap-2">
                         <span
                           className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: NODE_TYPE_CONFIG[other.type]?.color }}
+                          style={{ backgroundColor: ownFileIds.has(other.id) ? NODE_TYPE_CONFIG[other.type]?.color : "#6b7280" }}
                         />
                         <span className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>
                           {other.name}

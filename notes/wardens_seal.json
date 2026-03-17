@@ -2,7 +2,7 @@
   "id": "wardens_seal",
   "name": "Warden's Seal",
   "type": "artifact",
-  "excerpt": "A forged document linking Orris Vane to illicit cargo movements.",
+  "excerpt": "A forged customs clearance document tied to Orris Vane.",
   "connections": [
     {
       "target": "admiralty",
@@ -10,36 +10,31 @@
       "sourceFile": "wardens-seal.txt"
     },
     {
+      "target": "orris_vane",
+      "label": "ties to a specific shipment",
+      "sourceFile": "wardens-seal.txt"
+    },
+    {
+      "target": "fen_caldra",
+      "label": "commissioned the forgery",
+      "sourceFile": "wardens-seal.txt"
+    },
+    {
       "target": "tiveck",
-      "label": "stored in lodging house",
-      "sourceFile": "wardens-seal.txt"
-    },
-    {
-      "target": "salt_warren",
-      "label": "not kept in",
-      "sourceFile": "wardens-seal.txt"
-    },
-    {
-      "target": "sunken_ledger",
-      "label": "related leverage artifact",
+      "label": "kept in a lodging house",
       "sourceFile": "wardens-seal.txt"
     },
     {
       "target": "maren_ashveil",
-      "label": "could recognize cargo significance",
+      "label": "could recognize significance",
       "sourceFile": "wardens-seal.txt"
     },
     {
-      "target": "orris_vane",
-      "label": "blackmails with",
-      "sourceFile": "orris-vane.txt"
-    },
-    {
-      "target": "fen_caldra",
-      "label": "held by",
-      "sourceFile": "orris-vane.txt"
+      "target": "sunken_ledger",
+      "label": "points at the same network",
+      "sourceFile": "wardens-seal.txt"
     }
   ],
-  "notes": "The Warden's Seal is a forged document that connects Orris Vane to a specific cargo movement through Tiveck's harbor. It is held by Fen Caldra, and its existence has forced Orris to cooperate with Fen's operations for over a decade.",
-  "sourceFile": "orris-vane.txt"
+  "notes": "The Warden's Seal is a forged customs clearance document in official Admiralty format, bearing the counter-seal of the Port Warden's office. It certifies the inspection and clearance of a cargo shipment that was never inspected. It includes Orris Vane's administrative identifier, inserted by the forger commissioned by Fen Caldra. Fen had it made about twelve years ago as insurance while consolidating his position in Tiveck's gray market. Though never used as leverage, its mere existence ensures Orris's cooperation with Fen's operations. Fen keeps it in a strongbox at a lodging house in Tiveck, under a false name. The document ties Orris to a specific shipment, which could connect to other significant matters. Maren Ashveil, with her Admiralty background, might recognize its significance if she saw it. The Seal and the Sunken Ledger together could reveal a network if Maren and Fen decide to share information.",
+  "sourceFile": "wardens-seal.txt"
 }

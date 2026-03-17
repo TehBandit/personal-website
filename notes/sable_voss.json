@@ -2,24 +2,19 @@
   "id": "sable_voss",
   "name": "Sable Voss",
   "type": "character",
-  "excerpt": "Sable Voss is a former supply administrator living in hiding with Dellan Moor.",
+  "excerpt": "A former supply administrator living with Dellan Moor.",
   "connections": [
     {
       "target": "dellan_moor",
-      "label": "living with",
+      "label": "lives with",
       "sourceFile": "dellan-moor.txt"
     },
     {
-      "target": "dellan_moor",
-      "label": "deserted with",
-      "sourceFile": "dellan-moor.txt"
-    },
-    {
-      "target": "dellan_moor",
-      "label": "trusted by",
+      "target": "14th_lowland",
+      "label": "deserted from",
       "sourceFile": "dellan-moor.txt"
     }
   ],
-  "notes": "Sable Voss was a supply administrator in the 14th Lowland infantry regiment. She and Dellan Moor made the decision to desert together after careful consideration. They now live together in a disused highwayman's waystation, where they have been for eight months. Sable is trusted completely by Dellan, and they share a bond formed during their time in the regiment and their decision to desert.",
+  "notes": "Sable Voss was a supply administrator in the 14th Lowland regiment. She and Dellan Moor decided to desert together after weeks of careful conversation. They have been living together in a disused waystation on the moorland for eight months. Sable is trusted completely by Dellan, though the nature of their relationship remains uncertain.",
   "sourceFile": "dellan-moor.txt"
 }

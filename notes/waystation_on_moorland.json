@@ -1,0 +1,20 @@
+{
+  "id": "waystation_on_moorland",
+  "name": "Waystation on Moorland",
+  "type": "location",
+  "excerpt": "A disused highwayman's waystation where Dellan Moor and Sable Voss live.",
+  "connections": [
+    {
+      "target": "dellan_moor",
+      "label": "inhabited by",
+      "sourceFile": "dellan-moor.txt"
+    },
+    {
+      "target": "sable_voss",
+      "label": "inhabited by",
+      "sourceFile": "dellan-moor.txt"
+    }
+  ],
+  "notes": "The waystation is located on the moorland north of the main coastal road, about two days' walk from the nearest town. It has a mostly intact roof, a fireplace, and a working well. Dellan Moor and Sable Voss have been living there for eight months, finding it suitable for their needs.",
+  "sourceFile": "dellan-moor.txt"
+}
