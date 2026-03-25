@@ -1,0 +1,36 @@
+{
+  "id": "tiveck",
+  "name": "Tiveck",
+  "type": "location",
+  "excerpt": "A harbor town with shifting sandbar patterns.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "maren_ashveil",
+      "label": "current location of interest",
+      "sourceFile": "maren-ashveil.txt"
+    },
+    {
+      "target": "sunken_ledger",
+      "label": "potential location of artifact",
+      "sourceFile": "maren-ashveil.txt"
+    },
+    {
+      "target": "admiralty",
+      "label": "administrative presence",
+      "sourceFile": "tiveck.txt"
+    },
+    {
+      "target": "fen_caldra",
+      "label": "knows concealed entrance to Salt Warren",
+      "sourceFile": "tiveck.txt"
+    },
+    {
+      "target": "salt_warren",
+      "label": "contains the Salt Warren",
+      "sourceFile": "tiveck.txt"
+    }
+  ],
+  "notes": "Tiveck is a harbor town where Maren Ashveil arrived three weeks ago to document the harbor's shifting sandbar patterns for a merchant consortium. It is also where she is secretly searching for the Sunken Ledger.",
+  "sourceFile": "maren-ashveil.txt"
+}

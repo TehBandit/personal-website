@@ -1,0 +1,19 @@
+{
+  "id": "maren_ashveil",
+  "name": "Maren Ashveil",
+  "type": "character",
+  "excerpt": "A client of Fen Caldra who is difficult to read and possibly seeking the Sunken Ledger.",
+  "aliases": [
+    "Maren",
+    "Ashveil"
+  ],
+  "connections": [
+    {
+      "target": "fen_caldra",
+      "label": "client of",
+      "sourceFile": "fen-caldra.txt"
+    }
+  ],
+  "notes": "Maren Ashveil has been transported by Fen Caldra twice and has had two small errands done for her by him. Fen finds her interesting and suspects she is looking for the Sunken Ledger, though he has not disclosed its existence to her.",
+  "sourceFile": "fen-caldra.txt"
+}

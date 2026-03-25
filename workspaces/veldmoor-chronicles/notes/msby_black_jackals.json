@@ -1,0 +1,14 @@
+{
+  "id": "msby_black_jackals",
+  "name": "MSBY Black Jackals",
+  "type": "faction",
+  "excerpt": "MSBY Black Jackals is a Division 1 team in the V-League.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "sh_y_hinata",
+      "label": "former team"
+    }
+  ]
+}

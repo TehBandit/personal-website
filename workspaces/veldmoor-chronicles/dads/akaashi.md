@@ -1,0 +1,3 @@
+AKAASHI — character notes
+
+Akaashi Keiji is introduced as Kageyama's father, a supportive and caring parent who shares his son's interest in volleyball. He is depicted as a handsome and composed individual, catching Bokuto's attention and sparking a romantic interest. Akaashi's interactions with Bokuto are polite and respectful, and he is shown to be a skilled volleyball player himself, participating in games with the children. His character adds depth to the narrative, bridging the gap between the children's world and the adult responsibilities of parenthood.

@@ -1,0 +1,23 @@
+{
+  "id": "akaashi",
+  "name": "Akaashi",
+  "type": "character",
+  "excerpt": "Akaashi is a customer at the coffeeshop who is a photography student.",
+  "notes": "Akaashi is a quiet and reserved photography student who frequents the coffeeshop where Bokuto works. He is described as beautiful and carries a camera with him, indicating his passion for photography. Akaashi is initially indifferent to Bokuto's flirtations but eventually offers him a modeling job for a photography project. Over time, Akaashi and Bokuto develop a deeper connection, with Akaashi showing a dry sense of humor and a gentle demeanor. He is focused on his work and values professionalism, as seen when he insists on waiting until the project is over before pursuing a personal relationship with Bokuto.\n\nAkaashi Keiji is introduced as Kageyama's father, a supportive and caring parent who shares his son's interest in volleyball. He is depicted as a handsome and composed individual, catching Bokuto's attention and sparking a romantic interest. Akaashi's interactions with Bokuto are polite and respectful, and he is shown to be a skilled volleyball player himself, participating in games with the children. His character adds depth to the narrative, bridging the gap between the children's world and the adult responsibilities of parenthood.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "bokuto",
+      "label": "photography project subject"
+    },
+    {
+      "target": "kageyama",
+      "label": "father"
+    },
+    {
+      "target": "sh_y_hinata",
+      "label": "acquaintance"
+    }
+  ],
+  "sourceFile": "tea_stained_polaroids/akaashi.md"
+}

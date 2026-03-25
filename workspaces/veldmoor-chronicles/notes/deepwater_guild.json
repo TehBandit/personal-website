@@ -1,0 +1,34 @@
+{
+  "id": "deepwater_guild",
+  "name": "Deepwater Guild",
+  "type": "faction",
+  "excerpt": "A loose network of small-cargo operators and traders at the eastern quay.",
+  "aliases": [
+    "Guild",
+    "Eastern Quay Traders"
+  ],
+  "connections": [
+    {
+      "target": "fen_caldra",
+      "label": "central figure",
+      "sourceFile": "notes-test/deepwater-guild.txt"
+    },
+    {
+      "target": "salt_warren",
+      "label": "uses for storage",
+      "sourceFile": "notes-test/deepwater-guild.txt"
+    },
+    {
+      "target": "orris_vane",
+      "label": "tolerated by",
+      "sourceFile": "notes-test/deepwater-guild.txt"
+    },
+    {
+      "target": "tiveck",
+      "label": "reflects economy of",
+      "sourceFile": "notes-test/deepwater-guild.txt"
+    }
+  ],
+  "notes": "The Deepwater Guild is an informal network of small-cargo operators, independent vessel owners, and harbor-adjacent traders working the eastern quay. It operates in the gray area between legality and prohibition, with no formal leadership or membership list. Fen Caldra is a central figure due to his long-standing presence and trust among members. The Guild uses the Salt Warren for storage, with Fen holding the only key. Orris Vane, the harbor master, tolerates their operations to avoid drawing attention. The Guild reflects Tiveck's blend of formal and informal economies, with most members having deep roots in the city.",
+  "sourceFile": "notes-test/deepwater-guild.txt"
+}

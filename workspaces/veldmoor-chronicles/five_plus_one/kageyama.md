@@ -1,0 +1,3 @@
+KAGEYAMA — character notes
+
+Kageyama is a character who maintains a polite demeanor while eating but is quick to scold Hinata for his antics. He has a complex relationship with Hinata, characterized by both frustration and care. Kageyama is often seen taking care of Hinata, such as wiping his face or giving him his jacket when he's cold. Their relationship is central to the narrative, showcasing a blend of rivalry and affection.

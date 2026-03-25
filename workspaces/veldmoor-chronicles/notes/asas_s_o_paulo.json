@@ -1,0 +1,14 @@
+{
+  "id": "asas_s_o_paulo",
+  "name": "Asas São Paulo",
+  "type": "faction",
+  "excerpt": "Asas São Paulo is a professional team in the Brazil Super League.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "sh_y_hinata",
+      "label": "current team"
+    }
+  ]
+}

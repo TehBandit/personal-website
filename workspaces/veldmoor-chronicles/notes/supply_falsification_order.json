@@ -1,0 +1,24 @@
+{
+  "id": "supply_falsification_order",
+  "name": "Supply Falsification Order",
+  "type": "artifact",
+  "excerpt": "A written order to falsify supply records in the 14th Lowland Regiment.",
+  "aliases": [
+    "falsification order",
+    "supply order"
+  ],
+  "connections": [
+    {
+      "target": "sable_voss",
+      "label": "kept by",
+      "sourceFile": "sable-voss.txt"
+    },
+    {
+      "target": "14th_lowland",
+      "label": "issued by",
+      "sourceFile": "sable-voss.txt"
+    }
+  ],
+  "notes": "This order was given to Sable Voss to obscure a supply shortage that would have embarrassed the regiment's commanding officer. It was the first time she was directly ordered to falsify records in writing.",
+  "sourceFile": "sable-voss.txt"
+}

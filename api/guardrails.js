@@ -60,7 +60,7 @@ function stripControlChars(str) {
  * Sanitize a free-text string: trim, strip control chars, enforce max length.
  * Returns the cleaned string (does NOT throw — callers use validateUserInput for full checks).
  */
-export function sanitizeText(str, maxLength = 300) {
+function sanitizeText(str, maxLength = 300) {
   if (typeof str !== "string") return "";
   const cleaned = stripControlChars(str.trim());
   return cleaned.slice(0, maxLength);
@@ -69,7 +69,7 @@ export function sanitizeText(str, maxLength = 300) {
 /**
  * Returns true if the string contains a detected prompt-injection pattern.
  */
-export function hasPromptInjection(str) {
+function hasPromptInjection(str) {
   if (!str) return false;
   return INJECTION_PATTERNS.some((pattern) => pattern.test(str));
 }
@@ -77,7 +77,7 @@ export function hasPromptInjection(str) {
 /**
  * Returns true if the string contains profanity.
  */
-export function hasProfanity(str) {
+function hasProfanity(str) {
   if (!str) return false;
   return PROFANITY_REGEX.test(str);
 }

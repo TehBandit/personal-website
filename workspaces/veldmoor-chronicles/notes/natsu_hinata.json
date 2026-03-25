@@ -1,0 +1,14 @@
+{
+  "id": "natsu_hinata",
+  "name": "Natsu Hinata",
+  "type": "character",
+  "excerpt": "Natsu Hinata is Shōyō Hinata's younger sister.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "sh_y_hinata",
+      "label": "younger sister"
+    }
+  ]
+}

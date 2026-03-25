@@ -1,0 +1,23 @@
+{
+  "id": "oikawa",
+  "name": "Oikawa",
+  "type": "character",
+  "excerpt": "Oikawa wanted to hit something.",
+  "notes": "Oikawa is a character who experiences frustration after losing a match to Karasuno. Despite his competitive nature, he acknowledges the fairness of the game. Oikawa is intrigued by the close relationship between Kageyama and Hinata, feeling a mix of envy and amusement. His interactions with Iwaizumi reveal a playful dynamic.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "kageyama",
+      "label": "observes relationship with Hinata"
+    },
+    {
+      "target": "sh_y_hinata",
+      "label": "observes relationship with Kageyama"
+    },
+    {
+      "target": "iwaizumi",
+      "label": "playful dynamic"
+    }
+  ],
+  "sourceFile": "five_plus_one/oikawa.md"
+}

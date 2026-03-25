@@ -1,0 +1,86 @@
+{
+  "id": "sh_y_hinata",
+  "name": "Shōyō Hinata",
+  "type": "character",
+  "excerpt": "Shōyō Hinata is the main protagonist of the Haikyū!! series.",
+  "notes": "Shōyō Hinata is a passionate and energetic volleyball player who serves as the main protagonist of the Haikyū!! series. Initially a first-year student at Karasuno High, he plays as a middle blocker for the Boys' Volleyball Team. Despite his short stature, Hinata is known for his incredible jumping ability and tenacity on the court. Inspired by the 'Small Giant,' a former ace of Karasuno, Hinata is determined to become a formidable player despite his height. Over the series, he evolves from a nervous and inexperienced player into a key member of his team, known for his quick attacks and ability to motivate those around him. His journey takes him from Karasuno High to playing for the MSBY Black Jackals in the V-League and eventually joining the Japan Men's National Volleyball Team during the 2021 Olympics. As of 2022, Hinata is a member of Asas São Paulo in the Brazil Super League.\n\nHinata is a lively and energetic character, often seen chattering and making gestures while eating. He has a close relationship with Kageyama, often seen interacting closely with him. Despite being scolded by Kageyama, Hinata seems to enjoy his company and reciprocates his gestures of care.\n\nShouyou is a young, energetic boy who looks up to his father, Bokuto, and shares his enthusiasm for volleyball. He is depicted as having a crush on his classmate Kageyama, despite Kageyama's often grumpy demeanor. Shouyou's interactions with Kageyama are a mix of admiration and frustration, as he struggles to win over Kageyama's friendship. His character is marked by a sense of determination and a desire to improve, both in his social interactions and in his volleyball skills.",
+  "aliases": [
+    "Hinata",
+    "Shouyou"
+  ],
+  "connections": [
+    {
+      "target": "kageyama",
+      "label": "teammate and rival"
+    },
+    {
+      "target": "karasuno_high",
+      "label": "former school"
+    },
+    {
+      "target": "natsu_hinata",
+      "label": "older brother"
+    },
+    {
+      "target": "msby_black_jackals",
+      "label": "former team"
+    },
+    {
+      "target": "japan_men_s_national_volleyball_team",
+      "label": "former team"
+    },
+    {
+      "target": "asas_s_o_paulo",
+      "label": "current team"
+    },
+    {
+      "target": "sugawara",
+      "label": "teammate"
+    },
+    {
+      "target": "tanaka",
+      "label": "teammate"
+    },
+    {
+      "target": "nishinoya",
+      "label": "teammate"
+    },
+    {
+      "target": "kenma",
+      "label": "friend from Nekoma"
+    },
+    {
+      "target": "oikawa",
+      "label": "rival"
+    },
+    {
+      "target": "tsukishima",
+      "label": "teammate and rival"
+    },
+    {
+      "target": "yamaguchi",
+      "label": "teammate"
+    },
+    {
+      "target": "coach_ukai",
+      "label": "coach"
+    },
+    {
+      "target": "akaashi",
+      "label": "acquaintance"
+    },
+    {
+      "target": "bokuto",
+      "label": "acquaintance"
+    },
+    {
+      "target": "daichi",
+      "label": "team member"
+    }
+  ],
+  "sourceFile": "hinata_wiki/sh_y_hinata.md",
+  "additionalSourceFiles": [
+    "five_plus_one/hinata.md",
+    "dads/shouyou.md"
+  ]
+}

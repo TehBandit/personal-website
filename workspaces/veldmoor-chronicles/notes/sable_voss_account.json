@@ -1,0 +1,24 @@
+{
+  "id": "sable_voss_account",
+  "name": "Sable Voss's Account",
+  "type": "artifact",
+  "excerpt": "A draft account of supply falsification in the 14th Lowland Regiment.",
+  "aliases": [
+    "supply falsification account",
+    "Sable's account"
+  ],
+  "connections": [
+    {
+      "target": "sable_voss",
+      "label": "created by",
+      "sourceFile": "sable-voss.txt"
+    },
+    {
+      "target": "14th_lowland",
+      "label": "documents corruption in",
+      "sourceFile": "sable-voss.txt"
+    }
+  ],
+  "notes": "Sable Voss is drafting an account of the supply falsification she witnessed over six years, including dates, quantities, names, and the paper trail as she remembers it. She keeps it separate from other papers, in a sealed bundle under a flagstone.",
+  "sourceFile": "sable-voss.txt"
+}

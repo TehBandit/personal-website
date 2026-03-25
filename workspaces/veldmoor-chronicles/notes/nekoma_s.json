@@ -1,0 +1,22 @@
+{
+  "id": "nekoma_s",
+  "name": "Nekoma's",
+  "type": "location",
+  "excerpt": "Nekoma's is the coffeeshop where Bokuto, Kuroo, and Lev work.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "bokuto",
+      "label": "workplace"
+    },
+    {
+      "target": "kuroo",
+      "label": "workplace"
+    },
+    {
+      "target": "lev",
+      "label": "workplace"
+    }
+  ]
+}

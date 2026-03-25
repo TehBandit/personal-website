@@ -1,0 +1,9 @@
+Boris Hulwich is a weathered figure. a man shaped by loss, exile, and a quiet defiance against fate. Once the son of a minor noble house on the fringes of Veldmoor, Boris lost his family during a brutal border conflict that erased his lineage from official record. Stripped of title and inheritance, he grew into a wanderer—part mercenary, part reluctant guardian—moving through the marshlands and ruined keeps that define the region.
+
+He is known for his imposing build, ash-gray eyes, and a voice that rarely rises above a measured calm. Boris carries himself with restraint, but beneath that control lies a constant tension—an internal battle between vengeance and the faint hope of rebuilding something meaningful. He is pragmatic, often blunt, but guided by a deeply buried sense of loyalty that he refuses to acknowledge openly.
+
+Boris’s primary motive is survival, but not in the simple sense—he seeks purpose in a world that has already taken everything from him. Though he claims detachment, he is drawn repeatedly into conflicts where others cannot stand alone, suggesting a moral code he cannot escape.
+
+His closest and most complicated bond is with Sable Voss, a cunning and enigmatic operative whose past is as fractured as his own. Where Boris is grounded and deliberate, Sable is fluid and unpredictable, thriving in deception and shadow. Their relationship is built on mutual reliance rather than trust—each knows the other is capable of betrayal, yet neither has acted on it. Sable challenges Boris’s rigid worldview, often pushing him toward risks he would otherwise avoid, while Boris provides a rare constant in Sable’s chaotic existence.
+
+Together, they form an uneasy alliance that blurs the line between friendship and necessity. In a land where loyalty is fleeting, their connection endures—not because it is simple, but because it is tested.

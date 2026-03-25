@@ -1,0 +1,18 @@
+{
+  "id": "small_giant",
+  "name": "Small Giant",
+  "type": "character",
+  "excerpt": "The Small Giant was a former ace of Karasuno High.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "sh_y_hinata",
+      "label": "inspiration"
+    },
+    {
+      "target": "karasuno_high",
+      "label": "former ace"
+    }
+  ]
+}

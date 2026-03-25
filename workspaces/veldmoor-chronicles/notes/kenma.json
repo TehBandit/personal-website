@@ -1,0 +1,18 @@
+{
+  "id": "kenma",
+  "name": "Kenma",
+  "type": "character",
+  "excerpt": "Kenma is Kuroo's boyfriend, mentioned in the context of their relationship.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "kuroo",
+      "label": "boyfriend"
+    },
+    {
+      "target": "sh_y_hinata",
+      "label": "acquaintance"
+    }
+  ]
+}

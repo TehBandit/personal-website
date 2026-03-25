@@ -1,0 +1,28 @@
+{
+  "id": "boris_hulwich",
+  "name": "Boris Hulwich",
+  "type": "character",
+  "excerpt": "Boris Hulwich is a weathered wanderer shaped by loss and exile.",
+  "connections": [
+    {
+      "target": "sable_voss",
+      "label": "complex bond with"
+    }
+  ],
+  "notes": "Boris Hulwich, once the son of a minor noble house on the fringes of Veldmoor, lost his family during a brutal border conflict that erased his lineage from official record. Stripped of title and inheritance, he became a wanderer—part mercenary, part reluctant guardian—moving through the marshlands and ruined keeps of the region. Known for his imposing build, ash-gray eyes, and calm voice, Boris carries himself with restraint, hiding a constant tension between vengeance and hope. His primary motive is survival with purpose, often drawn into conflicts due to a moral code he cannot escape. His closest bond is with Sable Voss, characterized by mutual reliance and a complex dynamic.",
+  "aliases": [],
+  "context_summary": [
+    "- Boris Hulwich is a weathered wanderer.",
+    "- He lost his family during a border conflict.",
+    "- His lineage was erased from official records.",
+    "- He was stripped of title and inheritance.",
+    "- He became part mercenary and part guardian.",
+    "- He moves through marshlands and ruined keeps.",
+    "- He has an imposing build and ash-gray eyes.",
+    "- He carries a calm voice and restraint.",
+    "- He experiences tension between vengeance and hope.",
+    "- His primary motive is survival with purpose.",
+    "- He is drawn into conflicts by a moral code.",
+    "- His closest bond is with Sable Voss."
+  ]
+}

@@ -1,0 +1,3 @@
+KAGEYAMA — character notes
+
+Kageyama is portrayed as a serious and intense young boy with a passion for volleyball. He is a setter and aspires to be the best, showing a competitive spirit even at a young age. His relationship with Shouyou is complex; while he often comes across as grumpy and critical, there is an underlying respect and potential for friendship. Kageyama's interactions with Bokuto reveal his admiration for the sport and his desire to learn from experienced players. His father, Akaashi Keiji, plays a significant role in his life, supporting his volleyball interests.

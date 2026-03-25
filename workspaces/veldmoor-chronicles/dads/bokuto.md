@@ -1,0 +1,3 @@
+BOKUTO — character notes
+
+Bokuto is a professional volleyball player who is deeply involved in his son Shouyou's life. He is depicted as a caring and attentive father, willing to go the extra mile to ensure his son's happiness and well-being. Bokuto is also shown to have a humorous and light-hearted personality, often engaging in playful banter with his son. His interactions with Kageyama's father, Akaashi Keiji, reveal a budding interest and attraction, adding a layer of complexity to his character. Bokuto's passion for volleyball is evident, and he takes pride in sharing this passion with the younger generation, including Kageyama Tobio.

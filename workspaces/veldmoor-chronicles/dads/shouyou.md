@@ -1,0 +1,3 @@
+SHOUYOU — character notes
+
+Shouyou is a young, energetic boy who looks up to his father, Bokuto, and shares his enthusiasm for volleyball. He is depicted as having a crush on his classmate Kageyama, despite Kageyama's often grumpy demeanor. Shouyou's interactions with Kageyama are a mix of admiration and frustration, as he struggles to win over Kageyama's friendship. His character is marked by a sense of determination and a desire to improve, both in his social interactions and in his volleyball skills.

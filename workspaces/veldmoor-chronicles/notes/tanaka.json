@@ -1,0 +1,18 @@
+{
+  "id": "tanaka",
+  "name": "Tanaka",
+  "type": "character",
+  "excerpt": "Hinata and Kageyama sitting together, just behind Tanaka.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "sh_y_hinata",
+      "label": "team member"
+    },
+    {
+      "target": "kageyama",
+      "label": "team member"
+    }
+  ]
+}

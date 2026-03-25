@@ -1,0 +1,35 @@
+{
+  "id": "kageyama",
+  "name": "Kageyama",
+  "type": "character",
+  "excerpt": "Kageyama ate politely and quietly.",
+  "notes": "Kageyama is a character who maintains a polite demeanor while eating but is quick to scold Hinata for his antics. He has a complex relationship with Hinata, characterized by both frustration and care. Kageyama is often seen taking care of Hinata, such as wiping his face or giving him his jacket when he's cold. Their relationship is central to the narrative, showcasing a blend of rivalry and affection.\n\nKageyama is portrayed as a serious and intense young boy with a passion for volleyball. He is a setter and aspires to be the best, showing a competitive spirit even at a young age. His relationship with Shouyou is complex; while he often comes across as grumpy and critical, there is an underlying respect and potential for friendship. Kageyama's interactions with Bokuto reveal his admiration for the sport and his desire to learn from experienced players. His father, Akaashi Keiji, plays a significant role in his life, supporting his volleyball interests.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "sh_y_hinata",
+      "label": "close relationship"
+    },
+    {
+      "target": "tsukishima",
+      "label": "observed by"
+    },
+    {
+      "target": "sugawara",
+      "label": "team member"
+    },
+    {
+      "target": "daichi",
+      "label": "team member"
+    },
+    {
+      "target": "bokuto",
+      "label": "admires as a volleyball player"
+    },
+    {
+      "target": "akaashi",
+      "label": "father"
+    }
+  ],
+  "sourceFile": "five_plus_one/kageyama.md"
+}

@@ -1,0 +1,3 @@
+AKAASHI — character notes
+
+Akaashi is a quiet and reserved photography student who frequents the coffeeshop where Bokuto works. He is described as beautiful and carries a camera with him, indicating his passion for photography. Akaashi is initially indifferent to Bokuto's flirtations but eventually offers him a modeling job for a photography project. Over time, Akaashi and Bokuto develop a deeper connection, with Akaashi showing a dry sense of humor and a gentle demeanor. He is focused on his work and values professionalism, as seen when he insists on waiting until the project is over before pursuing a personal relationship with Bokuto.

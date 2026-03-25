@@ -1,0 +1,49 @@
+{
+  "id": "wardens_seal",
+  "name": "Warden's Seal",
+  "type": "artifact",
+  "excerpt": "A forged customs clearance document with strategic leverage.",
+  "aliases": [
+    "Seal",
+    "Customs Clearance Document"
+  ],
+  "connections": [
+    {
+      "target": "admiralty",
+      "label": "forged in official format",
+      "sourceFile": "wardens-seal.txt"
+    },
+    {
+      "target": "orris_vane",
+      "label": "implicates in forgery",
+      "sourceFile": "wardens-seal.txt"
+    },
+    {
+      "target": "fen_caldra",
+      "label": "commissioned by",
+      "sourceFile": "wardens-seal.txt"
+    },
+    {
+      "target": "tiveck",
+      "label": "connected to gray market",
+      "sourceFile": "wardens-seal.txt"
+    },
+    {
+      "target": "salt_warren",
+      "label": "not kept in",
+      "sourceFile": "wardens-seal.txt"
+    },
+    {
+      "target": "maren_ashveil",
+      "label": "could recognize significance",
+      "sourceFile": "wardens-seal.txt"
+    },
+    {
+      "target": "sunken_ledger",
+      "label": "shares leverage network",
+      "sourceFile": "wardens-seal.txt"
+    }
+  ],
+  "notes": "The Warden's Seal is a forged customs clearance document in official Admiralty format, bearing the counter-seal of the Port Warden's office. It certifies the inspection and clearance of a cargo shipment that was never inspected, with Orris Vane's administrative identifier inserted by the forger. Fen Caldra commissioned it twelve years ago to consolidate his position in Tiveck's gray market. Although he has never used it actively, the knowledge of its existence ensures Orris Vane's cooperation with Fen's harbor operations. Fen keeps it in a strongbox at a lodging house in Tiveck, under a false name. The document ties Orris to a specific shipment, which could lead to further connections if investigated. Maren Ashveil, with her Admiralty background, might recognize its significance. The Seal and the Sunken Ledger together could expose a network if Maren and Fen decide to collaborate.",
+  "sourceFile": "wardens-seal.txt"
+}

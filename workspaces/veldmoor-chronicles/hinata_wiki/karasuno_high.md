@@ -1,0 +1,3 @@
+KARASUNO HIGH — location notes
+
+Karasuno High is a prominent setting in the Haikyū!! series, known for its Boys' Volleyball Team. The school was once famous for its volleyball team, particularly during the era of the 'Small Giant.' However, by the time Hinata joins, the team is struggling to regain its former glory. Under the guidance of Coach Ukai and the leadership of the third-year students, Karasuno aims to return to the national stage. The team is characterized by its determination and the unique quick attack combination of Hinata and Kageyama. Karasuno's rivalry with Nekoma High is a central theme, as both schools strive to meet each other at the national level.

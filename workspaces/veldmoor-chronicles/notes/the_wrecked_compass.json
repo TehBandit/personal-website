@@ -1,0 +1,44 @@
+{
+  "id": "the_wrecked_compass",
+  "name": "The Wrecked Compass",
+  "type": "location",
+  "excerpt": "A dockside tavern on the eastern quay known for its weathered compass rose.",
+  "aliases": [
+    "Wrecked Compass",
+    "Compass Tavern"
+  ],
+  "connections": [
+    {
+      "target": "fen_caldra",
+      "label": "frequent visitor",
+      "sourceFile": "notes-test/the-wrecked-compass.txt"
+    },
+    {
+      "target": "deepwater_guild",
+      "label": "informal meeting place",
+      "sourceFile": "notes-test/the-wrecked-compass.txt"
+    },
+    {
+      "target": "maren_ashveil",
+      "label": "visited twice to meet Fen",
+      "sourceFile": "notes-test/the-wrecked-compass.txt"
+    },
+    {
+      "target": "orris_vane",
+      "label": "staff occasionally lunch nearby",
+      "sourceFile": "notes-test/the-wrecked-compass.txt"
+    },
+    {
+      "target": "tiveck",
+      "label": "located in",
+      "sourceFile": "notes-test/the-wrecked-compass.txt"
+    },
+    {
+      "target": "admiralty",
+      "label": "avoided by patrons",
+      "sourceFile": "notes-test/the-wrecked-compass.txt"
+    }
+  ],
+  "notes": "The Wrecked Compass is a dockside tavern located on the eastern quay, occupying the ground floor of a narrow stone building. It is named after a compass rose painted on its exterior wall, now weathered and illegible. The tavern is known for its low ceilings, warm atmosphere, and the smell of salt and woodsmoke. It serves primarily dock workers, small-cargo operators, and travelers who avoid larger taverns frequented by Admiralty personnel. Regulars are loyal and discreet, and new faces are noted. Fen Caldra is a frequent visitor, and the Deepwater Guild meets here informally. Maren Ashveil has visited twice to meet Fen. The tavern has a back room available for private hire.",
+  "sourceFile": "notes-test/the-wrecked-compass.txt"
+}

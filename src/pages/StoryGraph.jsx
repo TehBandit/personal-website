@@ -2,15 +2,18 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import ForceGraph2D from "react-force-graph-2d";
 import Header from "../components/Header.jsx";
 import FilesEditor from "../components/FilesEditor.jsx";
-import { X, Network, Upload, FileText, CheckCircle, AlertCircle, RotateCcw, ChevronDown, Search } from "lucide-react";
+import { X, Network, Upload, FileText, CheckCircle, AlertCircle, RotateCcw, ChevronDown, Search, Crosshair, SlidersHorizontal, Folder } from "lucide-react";
+import { NODE_TYPE_CONFIG } from "../constants/nodeTypes.js";
 
-// ── Node type styling ─────────────────────────────────────────────────────────
-const NODE_TYPE_CONFIG = {
-  character: { color: "#60a5fa", label: "Character" },
-  location:  { color: "#34d399", label: "Location"  },
-  faction:   { color: "#fb923c", label: "Faction"   },
-  artifact:  { color: "#c084fc", label: "Artifact"  },
-};
+// Darken a hex colour by multiplying each channel by `factor` (0–1)
+function darkenHex(hex, factor = 0.6) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgb(${Math.round(r * factor)}, ${Math.round(g * factor)}, ${Math.round(b * factor)})`;
+}
+
+const GRAPH_BG = "#0f0f1a";
 
 const EXTRACT_FLAVOR = [
   "reading the manuscript...",
@@ -22,6 +25,39 @@ const EXTRACT_FLAVOR = [
   "pinning connections...",
   "consulting the lore...",
 ];
+
+// Read all top-level file entries from a dropped directory via the File System API
+async function readDirEntries(dirEntry) {
+  return new Promise((resolve) => {
+    const results = [];
+    const reader = dirEntry.createReader();
+    const readBatch = () => {
+      reader.readEntries((entries) => {
+        if (!entries.length) { resolve(results); return; }
+        let pending = entries.length;
+        const done = () => { if (--pending === 0) readBatch(); };
+        for (const entry of entries) {
+          if (entry.isFile) entry.file((file) => { results.push(file); done(); }, done);
+          else done();
+        }
+      });
+    };
+    readBatch();
+  });
+}
+
+// Build the derive POST body for a single file (shared by single + bulk derive)
+async function buildFileBody(file) {
+  if (file.name.endsWith(".docx")) {
+    const arrayBuffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = "";
+    const CHUNK = 8192;
+    for (let i = 0; i < bytes.length; i += CHUNK) binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+    return { base64: btoa(binary), type: "docx" };
+  }
+  return { text: await file.text(), type: "txt" };
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function StoryGraph() {
@@ -37,6 +73,9 @@ export default function StoryGraph() {
 
   // Upload modal state
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadMode, setUploadMode] = useState("note"); // "note" | "derive"
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadFolderName, setUploadFolderName] = useState("");
   const [activeTab, setActiveTab] = useState("graph");
   const [uploadFile, setUploadFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
@@ -44,11 +83,22 @@ export default function StoryGraph() {
   const [extractFlavorIdx, setExtractFlavorIdx] = useState(0);
   const [extractResult, setExtractResult] = useState(null);
   const [extractError, setExtractError] = useState(null);
+  const [uploadFiles, setUploadFiles] = useState([]);    // bulk: multiple files from a folder
+  const [bulkProgress, setBulkProgress] = useState(null); // { current, total, currentName }
+
+  // Workspace hierarchy
+  const [workspaces, setWorkspaces] = useState([]);
+  const [workspace, setWorkspace] = useState(null);
 
   // Sidebar groups — all closed by default
   const [openGroups, setOpenGroups] = useState(() => new Set());
   // Derived sub-sections — collapsed by default
   const [openDerived, setOpenDerived] = useState(() => new Set());
+
+  // Graph display settings
+  const [nodeTransparent, setNodeTransparent] = useState(false);
+  const [nodeBorder, setNodeBorder] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const toggleGroup = (type) =>
     setOpenGroups((prev) => {
@@ -67,12 +117,42 @@ export default function StoryGraph() {
   const graphContainerRef = useRef(null);
   const fgRef = useRef(null);
   const fileInputRef = useRef(null);
+  const folderInputRef = useRef(null);
+
+  // Load workspace list on mount
+  useEffect(() => {
+    fetch("/api/workspaces")
+      .then((r) => r.json())
+      .then((d) => {
+        const list = d.workspaces || [];
+        setWorkspaces(list);
+        if (list.length > 0) setWorkspace(list[0].slug);
+        else setLoading(false); // no workspaces — stop spinning
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const handleCreateWorkspace = async (name, closeCallback) => {
+    if (!name?.trim()) return;
+    const res = await fetch("/api/workspaces", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    if (res.ok) {
+      const created = await res.json();
+      setWorkspaces((prev) => [...prev, { slug: created.slug, name: created.name }]);
+      setWorkspace(created.slug);
+      closeCallback?.();
+    }
+  };
 
   // Fetch graph data — extracted into a callback so it can be called after upload too
   // silent=true skips the loading spinner (used for background auto-refresh)
   const loadGraph = useCallback((silent = false) => {
+    if (!workspace) return;
     if (!silent) { setLoading(true); setLoadError(null); }
-    fetch("/api/story-notes")
+    fetch(`/api/story-notes?workspace=${encodeURIComponent(workspace)}`)
       .then((r) => {
         if (!r.ok) throw new Error(`Server error ${r.status}`);
         return r.json();
@@ -84,15 +164,24 @@ export default function StoryGraph() {
       .catch((err) => {
         if (!silent) { setLoadError(err.message); setLoading(false); }
       });
-  }, []);
+  }, [workspace]);
 
-  useEffect(() => { loadGraph(); }, [loadGraph]);
+  useEffect(() => { if (workspace) loadGraph(); }, [loadGraph, workspace]);
 
-  // Poll /api/graph-version every 2s; silently reload when notes change
+  // Reset graph state when switching workspaces
   const graphVersionRef = useRef(null);
   useEffect(() => {
+    if (!workspace) return;
+    graphVersionRef.current = null;
+    setGraphData({ nodes: [], links: [] });
+    setSelectedNode(null);
+  }, [workspace]);
+
+  // Poll /api/graph-version every 2s; silently reload when notes change
+  useEffect(() => {
+    if (!workspace) return;
     const interval = setInterval(() => {
-      fetch("/api/graph-version")
+      fetch(`/api/graph-version?workspace=${encodeURIComponent(workspace)}`)
         .then((r) => r.ok ? r.json() : null)
         .then((data) => {
           if (!data) return;
@@ -108,23 +197,43 @@ export default function StoryGraph() {
         .catch(() => {});
     }, 2000);
     return () => clearInterval(interval);
-  }, [loadGraph]);
+  }, [loadGraph, workspace]);
 
   // Track which nodes have their own notes-raw file
   const [rawFileSet, setRawFileSet] = useState(new Set());
   useEffect(() => {
-    fetch("/api/notes-raw-list")
+    if (!workspace) return;
+    fetch(`/api/notes-raw-list?workspace=${encodeURIComponent(workspace)}`)
       .then((r) => r.json())
       .then((d) => setRawFileSet(new Set((d.files || []).map((f) => f.filename))))
       .catch(() => {});
-  }, [graphData]); // re-check whenever graph reloads
+  }, [graphData, workspace]); // re-check whenever graph reloads or workspace changes
 
   // node ids that have a dedicated notes-raw file
   const ownFileIds = useMemo(() => {
     const ids = new Set();
+    // Build a set of basenames so e.g. "notes-raw/maren-ashveil.md" → "maren-ashveil.md"
+    const rawBasenames = new Set([...rawFileSet].map((f) => f.split("/").pop()));
     for (const node of graphData.nodes) {
-      const candidate = node.id.replace(/_/g, "-") + ".txt";
-      if (rawFileSet.has(candidate)) ids.add(node.id);
+      // Direct sourceFile match (derive-generated nodes store the exact relative path)
+      if (node.sourceFile && rawFileSet.has(node.sourceFile)) {
+        ids.add(node.id);
+        continue;
+      }
+      // Any additionalSourceFiles present in rawFileSet (merged nodes)
+      if ((node.additionalSourceFiles || []).some((sf) => rawFileSet.has(sf))) {
+        ids.add(node.id);
+        continue;
+      }
+      // Name-stem matching for manually-named files — check both hyphen and underscore variants
+      const stemHyphen = node.id.replace(/_/g, "-");
+      const stemUnder = node.id;
+      if (
+        rawBasenames.has(stemHyphen + ".md") || rawBasenames.has(stemHyphen + ".txt") ||
+        rawBasenames.has(stemUnder + ".md") || rawBasenames.has(stemUnder + ".txt")
+      ) {
+        ids.add(node.id);
+      }
     }
     return ids;
   }, [graphData.nodes, rawFileSet]);
@@ -141,9 +250,9 @@ export default function StoryGraph() {
     return map;
   }, [graphData.links]);
 
-  // Radius: min 5 at degree 0, grows with sqrt(degree), capped at 16
+  // Radius: min 4 at degree 0, grows with sqrt(degree), uncapped
   const nodeRadius = useCallback(
-    (node) => Math.min(5 + Math.sqrt(degreeMap[node.id] || 0) * 3.5, 16),
+    (node) => 4 + Math.sqrt(degreeMap[node.id] || 0) * 4,
     [degreeMap]
   );
 
@@ -151,7 +260,9 @@ export default function StoryGraph() {
   useEffect(() => {
     const fg = fgRef.current;
     if (!fg || graphData.nodes.length === 0) return;
-    fg.d3Force("charge").strength((node) => -(nodeRadius(node) ** 1.8) * 2).distanceMax(120);
+    // distanceMax of 300 lets islands repel each other enough to stay stable,
+    // without pushing them so far apart they can't be seen together.
+    fg.d3Force("charge").strength((node) => -(nodeRadius(node) ** 1.8) * 2).distanceMax(200);
     fg.d3ReheatSimulation();
   }, [graphData, nodeRadius]);
 
@@ -168,6 +279,10 @@ export default function StoryGraph() {
 
   const resetUploadModal = () => {
     setUploadFile(null);
+    setUploadFiles([]);
+    setBulkProgress(null);
+    setUploadTitle("");
+    setUploadFolderName("");
     setExtractResult(null);
     setExtractError(null);
     setExtracting(false);
@@ -175,15 +290,23 @@ export default function StoryGraph() {
 
   const handleFileSelect = (file) => {
     if (!file) return;
-    const ok = file.name.endsWith(".txt") || file.name.endsWith(".docx");
-    if (!ok) { setExtractError("Only .txt and .docx files are supported."); return; }
+    const ok = file.name.endsWith(".txt") || file.name.endsWith(".md") || file.name.endsWith(".docx");
+    if (!ok) { setExtractError("Only .txt, .md, and .docx files are supported."); return; }
     setExtractError(null);
     setExtractResult(null);
     setUploadFile(file);
+    // Pre-populate title/folder from filename: strip ext, collapse separator runs, title-case
+    const stem = file.name.replace(/\.(md|txt|docx)$/i, "");
+    const derived = stem
+      .replace(/[-_]+/g, " ")
+      .trim()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+    setUploadTitle(derived);
+    setUploadFolderName(derived);
   };
 
-  const handleExtract = async () => {
-    if (!uploadFile) return;
+  const handleDerive = async () => {
+    if (!uploadFile || !uploadFolderName.trim()) return;
     setExtracting(true);
     setExtractError(null);
     setExtractResult(null);
@@ -192,17 +315,112 @@ export default function StoryGraph() {
       let body;
       if (uploadFile.name.endsWith(".docx")) {
         const arrayBuffer = await uploadFile.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = "";
+        const CHUNK = 8192;
+        for (let i = 0; i < bytes.length; i += CHUNK) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+        }
+        body = { base64: btoa(binary), type: "docx" };
+      } else {
+        body = { text: await uploadFile.text(), type: "txt" };
+      }
+
+      const res = await fetch("/api/story-derive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...body, workspace, folderName: uploadFolderName.trim() }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
+
+      setExtractResult({ ...data, mode: "derive" });
+      loadGraph();
+    } catch (err) {
+      setExtractError(err.message);
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const handleFolderSelect = (files, folderName) => {
+    const SUPPORTED = /\.(txt|md|docx)$/i;
+    const filtered = [...files]
+      .filter((f) => SUPPORTED.test(f.name))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (!filtered.length) { setExtractError("No supported files found (.txt, .md, .docx)."); return; }
+    setExtractError(null);
+    setExtractResult(null);
+    setUploadFile(null);
+    setUploadFiles(filtered);
+    if (folderName) {
+      const derived = folderName.replace(/[-_]+/g, " ").trim().replace(/\b\w/g, (c) => c.toUpperCase());
+      setUploadFolderName(derived);
+    }
+  };
+
+  const handleBulkDerive = async () => {
+    if (!uploadFiles.length || !uploadFolderName.trim()) return;
+    setExtracting(true);
+    setExtractError(null);
+    setExtractResult(null);
+
+    const results = [];
+    const errors = [];
+
+    for (let i = 0; i < uploadFiles.length; i++) {
+      const file = uploadFiles[i];
+      setBulkProgress({ current: i + 1, total: uploadFiles.length, currentName: file.name });
+      try {
+        const body = await buildFileBody(file);
+        const res = await fetch("/api/story-derive", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...body, workspace, folderName: uploadFolderName.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
+        results.push({ file: file.name, ...data });
+      } catch (err) {
+        errors.push({ file: file.name, error: err.message });
+      }
+    }
+
+    setExtracting(false);
+    setBulkProgress(null);
+    loadGraph();
+    setExtractResult({ mode: "bulk", results, errors, totalFiles: uploadFiles.length });
+  };
+
+  const handleExtract = async () => {
+    setExtracting(true);
+    setExtractError(null);
+    setExtractResult(null);
+
+    try {
+      let body;
+      if (uploadFile.name.endsWith(".docx")) {
+        const arrayBuffer = await uploadFile.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        // btoa(String.fromCharCode(...bytes)) blows the call stack on large files.
+        // Chunk the array into safe slices instead.
+        let binary = "";
+        const CHUNK = 8192;
+        for (let i = 0; i < bytes.length; i += CHUNK) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+        }
+        const base64 = btoa(binary);
         body = { base64, type: "docx", filename: uploadFile.name };
       } else {
         const text = await uploadFile.text();
-        body = { text, type: "txt", filename: uploadFile.name };
+        body = { text, type: "txt", filename: uploadFile.name.replace(/\.txt$/i, ".md") };
       }
 
       const res = await fetch("/api/story-extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, workspace, title: uploadTitle.trim() || undefined }),
       });
 
       const data = await res.json();
@@ -284,6 +502,35 @@ export default function StoryGraph() {
     setHoveredNode(node || null);
   }, []);
 
+  // ── Focus mode ───────────────────────────────────────────────────────────────
+  const [focusNode, setFocusNode] = useState(null);
+
+  const focusNeighborIds = useMemo(() => {
+    if (!focusNode) return null;
+    const ids = new Set([focusNode.id]);
+    for (const link of graphData.links) {
+      const s = typeof link.source === "object" ? link.source.id : link.source;
+      const t = typeof link.target === "object" ? link.target.id : link.target;
+      if (s === focusNode.id) ids.add(t);
+      if (t === focusNode.id) ids.add(s);
+    }
+    return ids;
+  }, [focusNode, graphData.links]);
+
+  // Zoom to focused node when entering focus mode
+  useEffect(() => {
+    if (!focusNode || !fgRef.current) return;
+    fgRef.current.centerAt(focusNode.x, focusNode.y, 600);
+    fgRef.current.zoom(2.8, 600);
+  }, [focusNode]);
+
+  // Escape to exit focus mode
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape" && focusNode) setFocusNode(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [focusNode]);
+
   // Custom canvas rendering for each node
   const nodeCanvasObject = useCallback(
     (node, ctx, globalScale) => {
@@ -294,10 +541,12 @@ export default function StoryGraph() {
       const isSelected = selectedNode?.id === node.id;
       const isHovered = hoveredNode?.id === node.id;
       const isInHoveredNeighborhood = !hoveredNeighborIds || hoveredNeighborIds.has(node.id);
-      const shouldDim = !!hoveredNode && !isInHoveredNeighborhood;
+      const inFocusSet = !focusNeighborIds || focusNeighborIds.has(node.id);
 
-      if (shouldDim) {
-        ctx.globalAlpha = 0.2;
+      if (!inFocusSet) {
+        ctx.globalAlpha = 0.05; // outside focus — strongly dim
+      } else if (!!hoveredNode && !isInHoveredNeighborhood) {
+        ctx.globalAlpha = 0.2;  // inside focus but outside hover — mildly dim
       }
 
       // Glow halo when selected
@@ -313,74 +562,96 @@ export default function StoryGraph() {
         ctx.fill();
       }
 
-      // Flat filled circle
+      // Circle — hollow or filled depending on settings
       ctx.beginPath();
       ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
-      ctx.fillStyle = baseColor;
-      ctx.fill();
-
-      // Darken overlay on hover
-      if (isHovered && !isSelected) {
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
-        ctx.fillStyle = "rgba(0,0,0,0.30)";
+      if (nodeTransparent) {
+        // "Hollow": fill with viewport background to mask lines behind, then stroke border
+        ctx.fillStyle = GRAPH_BG;
         ctx.fill();
+        ctx.strokeStyle = baseColor;
+        ctx.lineWidth = isSelected ? 2.5 : isHovered ? 2.2 : 1.8;
+        ctx.stroke();
+      } else {
+        // Filled
+        ctx.fillStyle = baseColor;
+        ctx.fill();
+
+        // Darken overlay on hover
+        if (isHovered && !isSelected) {
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(0,0,0,0.30)";
+          ctx.fill();
+        }
+
+        // Optional border (slightly darker than fill)
+        if (nodeBorder) {
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
+          ctx.strokeStyle = darkenHex(baseColor === "#6b7280" ? "#6b7280" : baseColor, 0.58);
+          ctx.lineWidth = 1.8;
+          ctx.stroke();
+        }
       }
 
       // Labels: fade out when zoomed out, hide entirely below threshold
       const LABEL_HIDE  = 0.45; // globalScale below this → no label
       const LABEL_FADE  = 0.70; // globalScale below this → fade
-      if (globalScale < LABEL_HIDE) return;
-      const labelAlpha = globalScale < LABEL_FADE
+      if (globalScale < LABEL_HIDE) { ctx.globalAlpha = 1; return; }
+      const zoomAlpha = globalScale < LABEL_FADE
         ? (globalScale - LABEL_HIDE) / (LABEL_FADE - LABEL_HIDE)
         : 1;
+
+      // Mirror the same dim logic used for the node body so labels follow suit
+      const dimAlpha = !inFocusSet ? 0.05 : (!!hoveredNode && !isInHoveredNeighborhood) ? 0.2 : 1;
+      const labelAlpha = zoomAlpha * dimAlpha;
 
       const fontSize = Math.max(12 / globalScale, 3.5);
       ctx.font = `600 ${fontSize}px Inter, sans-serif`;
       const label = node.name;
-      const textWidth = ctx.measureText(label).width;
-
-      const padX = 3 / globalScale;
-      const padY = 2 / globalScale;
       const labelY = node.y + r + fontSize * 0.3 + 4 / globalScale;
 
       ctx.globalAlpha = labelAlpha;
-      ctx.fillStyle = "rgba(15,15,26,0.75)";
-      ctx.fillRect(
-        node.x - textWidth / 2 - padX,
-        labelY - fontSize / 2 - padY,
-        textWidth + padX * 2,
-        fontSize + padY * 2
-      );
-
       ctx.fillStyle = isSelected ? "#ffffff" : "#cbd5e1";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(label, node.x, labelY);
       ctx.globalAlpha = 1;
     },
-    [selectedNode, hoveredNode, hoveredNeighborIds, nodeRadius, ownFileIds]
+    [selectedNode, hoveredNode, hoveredNeighborIds, focusNeighborIds, nodeRadius, ownFileIds, nodeTransparent, nodeBorder]
   );
 
   const linkColor = useCallback(
     (link) => {
-      if (!hoveredNode) return "rgba(255,255,255,0.18)";
       const sourceId = typeof link.source === "object" ? link.source.id : link.source;
       const targetId = typeof link.target === "object" ? link.target.id : link.target;
+      if (focusNeighborIds) {
+        const bothInFocus = focusNeighborIds.has(sourceId) && focusNeighborIds.has(targetId);
+        if (!bothInFocus) return "rgba(255,255,255,0.03)";
+        const isFocusLink = sourceId === focusNode.id || targetId === focusNode.id;
+        if (!hoveredNode) return isFocusLink ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.18)";
+      }
+      if (!hoveredNode) return "rgba(255,255,255,0.18)";
       const isImmediateNeighborLink = sourceId === hoveredNode.id || targetId === hoveredNode.id;
       return isImmediateNeighborLink ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.06)";
     },
-    [hoveredNode]
+    [hoveredNode, focusNode, focusNeighborIds]
   );
 
   const linkWidth = useCallback(
     (link) => {
-      if (!hoveredNode) return 1.5;
       const sourceId = typeof link.source === "object" ? link.source.id : link.source;
       const targetId = typeof link.target === "object" ? link.target.id : link.target;
+      if (focusNeighborIds) {
+        const bothInFocus = focusNeighborIds.has(sourceId) && focusNeighborIds.has(targetId);
+        if (!bothInFocus) return 0.3;
+        return sourceId === focusNode.id || targetId === focusNode.id ? 2.2 : 1.5;
+      }
+      if (!hoveredNode) return 1.5;
       return sourceId === hoveredNode.id || targetId === hoveredNode.id ? 2.2 : 1;
     },
-    [hoveredNode]
+    [hoveredNode, focusNode, focusNeighborIds]
   );
 
   // Expand click hit-area beyond the visual radius
@@ -446,7 +717,7 @@ export default function StoryGraph() {
       >
         <Network size={20} className="text-blue-400" />
         <h1 className="text-lg font-semibold text-white tracking-tight">Story Graph</h1>
-        <span className="text-sm text-white/30 ml-1 hidden sm:inline">— The Veldmoor Chronicles</span>
+
         <span
           className="text-xs px-2 py-0.5 rounded-full font-medium"
           style={{ backgroundColor: "rgba(96,165,250,0.15)", color: "#93c5fd" }}
@@ -488,11 +759,20 @@ export default function StoryGraph() {
 
         {/* ── Files tab (kept mounted to preserve open-file state) ── */}
         <div className="flex flex-1 overflow-hidden min-h-0" style={{ display: activeTab === "files" ? "flex" : "none" }}>
-          <FilesEditor graphData={graphData} />
+          <FilesEditor
+            graphData={graphData}
+            workspace={workspace}
+            workspaceName={workspaces.find((w) => w.slug === workspace)?.name ?? workspace}
+            workspaces={workspaces}
+            onWorkspaceChange={setWorkspace}
+            onCreateWorkspace={handleCreateWorkspace}
+            nodeTransparent={nodeTransparent}
+            nodeBorder={nodeBorder}
+          />
         </div>
 
-        {/* ── Graph tab ── */}
-        {activeTab === "graph" && <>
+        {/* ── Graph tab (kept mounted to preserve simulation state) ── */}
+        <div className="flex flex-1 overflow-hidden min-h-0" style={{ display: activeTab === "graph" ? "flex" : "none" }}>
 
         {/* ── Left sidebar: grouped collapsible element list ── */}
         <aside
@@ -715,7 +995,7 @@ export default function StoryGraph() {
           <ForceGraph2D
             ref={fgRef}
             graphData={graphData}
-            backgroundColor="#0f0f1a"
+            backgroundColor={GRAPH_BG}
             nodeCanvasObject={nodeCanvasObject}
             nodePointerAreaPaint={nodePointerAreaPaint}
             onNodeClick={handleNodeClick}
@@ -728,10 +1008,127 @@ export default function StoryGraph() {
             onEngineStop={() => fgRef.current?.zoomToFit(500, 80)}
             d3AlphaDecay={0.025}
             d3VelocityDecay={0.3}
+            onNodeDblClick={(node) => setFocusNode((prev) => prev?.id === node.id ? null : node)}
           />
 
+          {/* Settings button + popover — top-right of graph canvas */}
+          <div className="absolute top-3 right-3 z-10">
+            <button
+              onClick={() => setSettingsOpen((v) => !v)}
+              className="flex items-center justify-center w-8 h-8 rounded-xl transition-colors"
+              title="Graph settings"
+              style={{
+                backgroundColor: settingsOpen ? "rgba(96,165,250,0.18)" : "rgba(15,15,26,0.85)",
+                border: `1px solid ${settingsOpen ? "rgba(96,165,250,0.4)" : "rgba(255,255,255,0.1)"}`,
+                backdropFilter: "blur(8px)",
+                color: settingsOpen ? "#93c5fd" : "rgba(255,255,255,0.5)",
+              }}
+            >
+              <SlidersHorizontal size={14} />
+            </button>
+
+            {settingsOpen && (
+              <div
+                className="absolute top-10 right-0 rounded-xl overflow-hidden"
+                style={{
+                  width: "210px",
+                  backgroundColor: "rgba(15,15,26,0.95)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  backdropFilter: "blur(12px)",
+                }}
+              >
+                <div className="px-3 py-2.5 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+                  <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
+                    Graph Settings
+                  </p>
+                </div>
+                <div className="p-2 flex flex-col gap-0.5">
+                  {/* Hollow nodes toggle */}
+                  <button
+                    onClick={() => setNodeTransparent((v) => !v)}
+                    className="flex items-center justify-between w-full px-2.5 py-2 rounded-lg transition-colors"
+                    style={{ backgroundColor: nodeTransparent ? "rgba(96,165,250,0.1)" : "transparent" }}
+                    onMouseEnter={(e) => { if (!nodeTransparent) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                    onMouseLeave={(e) => { if (!nodeTransparent) e.currentTarget.style.backgroundColor = "transparent"; }}
+                  >
+                    <span className="text-sm" style={{ color: nodeTransparent ? "#93c5fd" : "rgba(255,255,255,0.7)" }}>
+                      Outline nodes
+                    </span>
+                    {/* Toggle pill */}
+                    <span
+                      className="relative inline-flex flex-shrink-0 h-4 w-7 rounded-full transition-colors"
+                      style={{ backgroundColor: nodeTransparent ? "#3b82f6" : "rgba(255,255,255,0.12)" }}
+                    >
+                      <span
+                        className="absolute top-0.5 h-3 w-3 rounded-full transition-transform"
+                        style={{
+                          backgroundColor: "#fff",
+                          transform: nodeTransparent ? "translateX(14px)" : "translateX(2px)",
+                        }}
+                      />
+                    </span>
+                  </button>
+                  {/* Node border toggle — only relevant when not hollow */}
+                  <button
+                    onClick={() => setNodeBorder((v) => !v)}
+                    className="flex items-center justify-between w-full px-2.5 py-2 rounded-lg transition-colors"
+                    style={{
+                      backgroundColor: nodeBorder ? "rgba(96,165,250,0.1)" : "transparent",
+                      opacity: nodeTransparent ? 0.35 : 1,
+                      pointerEvents: nodeTransparent ? "none" : "auto",
+                    }}
+                    onMouseEnter={(e) => { if (!nodeBorder && !nodeTransparent) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                    onMouseLeave={(e) => { if (!nodeBorder) e.currentTarget.style.backgroundColor = nodeTransparent ? "transparent" : "transparent"; }}
+                  >
+                    <span className="text-sm" style={{ color: nodeBorder ? "#93c5fd" : "rgba(255,255,255,0.7)" }}>
+                      Node border
+                    </span>
+                    <span
+                      className="relative inline-flex flex-shrink-0 h-4 w-7 rounded-full transition-colors"
+                      style={{ backgroundColor: nodeBorder ? "#3b82f6" : "rgba(255,255,255,0.12)" }}
+                    >
+                      <span
+                        className="absolute top-0.5 h-3 w-3 rounded-full transition-transform"
+                        style={{
+                          backgroundColor: "#fff",
+                          transform: nodeBorder ? "translateX(14px)" : "translateX(2px)",
+                        }}
+                      />
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Focus mode banner */}
+          {focusNode && (
+            <div
+              className="absolute top-3 left-1/2 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full"
+              style={{
+                transform: "translateX(-50%)",
+                backgroundColor: "rgba(15,15,26,0.88)",
+                border: "1px solid rgba(96,165,250,0.35)",
+                backdropFilter: "blur(8px)",
+              }}
+            >
+              <Crosshair size={11} style={{ color: "#60a5fa", flexShrink: 0 }} />
+              <span className="text-xs" style={{ color: "rgba(255,255,255,0.75)" }}>
+                Focusing on <span style={{ color: "#93c5fd", fontWeight: 600 }}>{focusNode.name}</span>
+              </span>
+              <button
+                onClick={() => setFocusNode(null)}
+                className="ml-1 transition-opacity opacity-50 hover:opacity-100"
+                style={{ color: "rgba(255,255,255,0.7)" }}
+                title="Exit focus (Esc)"
+              >
+                <X size={11} />
+              </button>
+            </div>
+          )}
+
           {/* Click-to-dismiss hint */}
-          {!selectedNode && (
+          {!selectedNode && !focusNode && (
             <p
               className="absolute bottom-4 left-1/2 text-xs pointer-events-none"
               style={{ color: "rgba(255,255,255,0.25)", transform: "translateX(-50%)" }}
@@ -742,7 +1139,7 @@ export default function StoryGraph() {
         </div>
 
         {/* ── Right detail panel ── */}
-        {activeTab === "graph" && selectedNode && (
+        {selectedNode && (
           <div
             className="w-80 flex-shrink-0 flex flex-col overflow-y-auto border-l"
             style={{ backgroundColor: "#13131f", borderColor: "rgba(255,255,255,0.07)" }}
@@ -768,15 +1165,27 @@ export default function StoryGraph() {
                     {selectedNode.excerpt}
                   </p>
                 </div>
-                <button
-                  onClick={() => setSelectedNode(null)}
-                  className="flex-shrink-0 mt-0.5 transition-colors"
-                  style={{ color: "rgba(255,255,255,0.3)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
-                >
-                  <X size={16} />
-                </button>
+                <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+                  <button
+                    onClick={() => setFocusNode((prev) => prev?.id === selectedNode.id ? null : selectedNode)}
+                    title={focusNode?.id === selectedNode.id ? "Exit focus mode" : "Focus on this node (double-click also works)"}
+                    className="p-1 rounded-md transition-colors"
+                    style={{ color: focusNode?.id === selectedNode.id ? "#60a5fa" : "rgba(255,255,255,0.3)", backgroundColor: focusNode?.id === selectedNode.id ? "rgba(96,165,250,0.12)" : "transparent" }}
+                    onMouseEnter={(e) => { if (focusNode?.id !== selectedNode.id) e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
+                    onMouseLeave={(e) => { if (focusNode?.id !== selectedNode.id) e.currentTarget.style.color = "rgba(255,255,255,0.3)"; }}
+                  >
+                    <Crosshair size={15} />
+                  </button>
+                  <button
+                    onClick={() => setSelectedNode(null)}
+                    className="p-1 rounded-md transition-colors"
+                    style={{ color: "rgba(255,255,255,0.3)" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -834,7 +1243,7 @@ export default function StoryGraph() {
             </div>
           </div>
         )}
-        </> /* end graph tab */}
+        </div> {/* end graph tab */}
       </div>
 
       {/* ── Upload modal ── */}
@@ -853,7 +1262,9 @@ export default function StoryGraph() {
               <div>
                 <h2 className="text-base font-semibold text-white">Upload Story Notes</h2>
                 <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  The AI will extract entities and map their connections automatically.
+                  {uploadMode === "note"
+                    ? "The AI will extract entities and map their connections automatically."
+                    : "The AI will extract every significant entity and create a source file for each."}
                 </p>
               </div>
               <button
@@ -866,25 +1277,127 @@ export default function StoryGraph() {
               </button>
             </div>
 
+            {/* Mode toggle — only shown before file is selected or result is shown */}
+            {!extracting && !extractResult && (
+              <div className="flex gap-1 mx-6 mt-5 p-1 rounded-lg" style={{ background: "rgba(255,255,255,0.05)" }}>
+                {[["note", "Focused Note"], ["derive", "Derive from Text"]].map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    onClick={() => { setUploadMode(mode); resetUploadModal(); }}
+                    className="flex-1 py-1.5 rounded-md text-xs font-medium transition-colors"
+                    style={{
+                      background: uploadMode === mode ? "rgba(96,165,250,0.2)" : "transparent",
+                      color: uploadMode === mode ? "#93c5fd" : "rgba(255,255,255,0.4)",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="px-6 py-5 flex flex-col gap-4">
 
               {/* Result state */}
               {extractResult ? (
                 <div className="flex flex-col items-center gap-3 py-4">
-                  <CheckCircle size={36} className="text-emerald-400" />
-                  <p className="text-white font-medium text-center">
-                    {extractResult.added > 0
-                      ? `Added ${extractResult.added} new ${extractResult.added === 1 ? "element" : "elements"} to the graph`
-                      : "No new elements found — they may already be in the graph."}
-                  </p>
-                  {extractResult.connectionsPatched > 0 && (
-                    <p className="text-xs text-center" style={{ color: "rgba(255,255,255,0.4)" }}>
-                      +{extractResult.connectionsPatched} new {extractResult.connectionsPatched === 1 ? "connection" : "connections"} added to existing elements
-                    </p>
+                  {extractResult.mode === "bulk" ? (
+                    <>
+                      <CheckCircle size={36} className="text-emerald-400" />
+                      <p className="text-white font-medium text-center">
+                        {extractResult.results.length}/{extractResult.totalFiles} files processed
+                        {extractResult.errors.length > 0 && (
+                          <span style={{ color: "#f87171" }}> · {extractResult.errors.length} failed</span>
+                        )}
+                      </p>
+                      <div className="w-full flex flex-col gap-1 mt-1 max-h-52 overflow-y-auto">
+                        {extractResult.results.map((r) => {
+                          const created = r.nodesCreated?.length ?? 0;
+                          const updated = r.nodesUpdated?.length ?? 0;
+                          const mentions = r.mentionsCreated?.length ?? 0;
+                          const summary = [
+                            created > 0 && `${created} new`,
+                            updated > 0 && `${updated} updated`,
+                            mentions > 0 && `${mentions} minor`,
+                          ].filter(Boolean).join(" · ") || (r.alreadyDerived ? "unchanged" : "no changes");
+                          return (
+                            <div key={r.file} className="flex items-center gap-2 text-xs">
+                              <CheckCircle size={10} className="text-emerald-400 flex-shrink-0" />
+                              <span className="font-mono truncate flex-1" style={{ color: "rgba(255,255,255,0.5)" }}>{r.file}</span>
+                              <span style={{ color: "rgba(255,255,255,0.3)" }}>{summary}</span>
+                            </div>
+                          );
+                        })}
+                        {extractResult.errors.map((e) => (
+                          <div key={e.file} className="flex items-center gap-2 text-xs" style={{ color: "#f87171" }}>
+                            <AlertCircle size={10} className="flex-shrink-0" />
+                            <span className="font-mono truncate flex-1">{e.file}</span>
+                            <span className="truncate" style={{ maxWidth: "130px" }}>{e.error}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {(() => {
+                        const tc = extractResult.results.reduce((s, r) => s + (r.nodesCreated?.length ?? 0), 0);
+                        const tu = extractResult.results.reduce((s, r) => s + (r.nodesUpdated?.length ?? 0), 0);
+                        return (tc > 0 || tu > 0) && (
+                          <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+                            {[tc > 0 && `${tc} nodes created`, tu > 0 && `${tu} existing updated`].filter(Boolean).join(" · ")}
+                          </p>
+                        );
+                      })()}
+                    </>
+                  ) : extractResult.alreadyDerived ? (
+                    <>
+                      <CheckCircle size={36} style={{ color: "#facc15" }} />
+                      <p className="text-white font-medium text-center">Already derived</p>
+                      <p className="text-xs text-center" style={{ color: "rgba(255,255,255,0.4)" }}>
+                        This file is identical to the one previously derived on{" "}
+                        {new Date(extractResult.derivedAt).toLocaleDateString()}. No changes made.
+                      </p>
+                    </>
+                  ) : extractResult.mode === "derive" ? (
+                    <>
+                      <CheckCircle size={36} className="text-emerald-400" />
+                      <p className="text-white font-medium text-center">
+                        {(extractResult.nodesCreated?.length ?? 0) > 0 && (
+                          <>Created {extractResult.nodesCreated.length} source {extractResult.nodesCreated.length === 1 ? "file" : "files"} in <span style={{ color: "#93c5fd" }}>{extractResult.folder}/</span></>
+                        )}
+                        {(extractResult.nodesCreated?.length ?? 0) > 0 && (extractResult.nodesUpdated?.length ?? 0) > 0 && <span style={{ color: "rgba(255,255,255,0.4)" }}> · </span>}
+                        {(extractResult.nodesUpdated?.length ?? 0) > 0 && (
+                          <span style={{ color: "#86efac" }}>{extractResult.nodesUpdated.length} existing {extractResult.nodesUpdated.length === 1 ? "node" : "nodes"} updated</span>
+                        )}
+                        {(extractResult.mentionsCreated?.length ?? 0) > 0 && (
+                          <span style={{ color: "rgba(255,255,255,0.5)" }}> · {extractResult.mentionsCreated.length} minor {extractResult.mentionsCreated.length === 1 ? "mention" : "mentions"}</span>
+                        )}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle size={36} className="text-emerald-400" />
+                      <p className="text-white font-medium text-center">
+                        {extractResult.added > 0
+                          ? `Added ${extractResult.added} new ${extractResult.added === 1 ? "element" : "elements"} to the graph`
+                          : extractResult.updated > 0
+                            ? "No new elements — existing elements updated."
+                            : "No new elements found — they may already be in the graph."}
+                      </p>
+                      {extractResult.updated > 0 && (
+                        <p className="text-xs text-center" style={{ color: "rgba(255,255,255,0.4)" }}>
+                          {extractResult.updated} existing {extractResult.updated === 1 ? "element" : "elements"} updated with new information
+                        </p>
+                      )}
+                      {extractResult.connectionsPatched > 0 && (
+                        <p className="text-xs text-center" style={{ color: "rgba(255,255,255,0.4)" }}>
+                          +{extractResult.connectionsPatched} new {extractResult.connectionsPatched === 1 ? "connection" : "connections"} added to existing elements
+                        </p>
+                      )}
+                    </>
                   )}
-                  {extractResult.nodes?.length > 0 && (
+
+                  {/* Node list — shown for single-file modes only */}
+                  {extractResult.mode !== "bulk" && ((extractResult.mode === "derive" ? extractResult.nodesCreated : extractResult.nodes) || []).length > 0 && (
                     <div className="w-full flex flex-col gap-1 mt-1">
-                      {extractResult.nodes.map((n) => (
+                      {(extractResult.mode === "derive" ? extractResult.nodesCreated : extractResult.nodes).map((n) => (
                         <div key={n.id} className="flex items-center gap-2 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
                           <span
                             className="w-2 h-2 rounded-full flex-shrink-0"
@@ -894,8 +1407,33 @@ export default function StoryGraph() {
                           <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>{NODE_TYPE_CONFIG[n.type]?.label}</span>
                         </div>
                       ))}
+                      {extractResult.mode === "derive" && (extractResult.nodesUpdated || []).length > 0 && (
+                        <>
+                          <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>Updated existing nodes</p>
+                          {extractResult.nodesUpdated.map((n) => (
+                            <div key={n.id} className="flex items-center gap-2 text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
+                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: NODE_TYPE_CONFIG[n.type]?.color || "#60a5fa", opacity: 0.5 }} />
+                              {n.name}
+                              <span className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>updated</span>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                      {extractResult.mode === "derive" && (extractResult.mentionsCreated || []).length > 0 && (
+                        <>
+                          <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>Minor mentions (grey nodes)</p>
+                          {extractResult.mentionsCreated.map((n) => (
+                            <div key={n.id} className="flex items-center gap-2 text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>
+                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "#6b7280" }} />
+                              {n.name}
+                              <span className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>{NODE_TYPE_CONFIG[n.type]?.label}</span>
+                            </div>
+                          ))}
+                        </>
+                      )}
                     </div>
                   )}
+
                   <div className="flex gap-2 mt-2">
                     <button
                       onClick={resetUploadModal}
@@ -920,13 +1458,24 @@ export default function StoryGraph() {
                     className="w-9 h-9 rounded-full border-2 animate-spin"
                     style={{ borderColor: "#60a5fa", borderTopColor: "transparent" }}
                   />
-                  <p
-                    key={extractFlavorIdx}
-                    className="text-sm"
-                    style={{ color: "rgba(255,255,255,0.45)", animation: "fadeIn 0.4s ease" }}
-                  >
-                    {EXTRACT_FLAVOR[extractFlavorIdx]}
-                  </p>
+                  {bulkProgress ? (
+                    <>
+                      <p className="text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
+                        Processing file {bulkProgress.current} of {bulkProgress.total}
+                      </p>
+                      <p className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.3)" }}>
+                        {bulkProgress.currentName}
+                      </p>
+                    </>
+                  ) : (
+                    <p
+                      key={extractFlavorIdx}
+                      className="text-sm"
+                      style={{ color: "rgba(255,255,255,0.45)", animation: "fadeIn 0.4s ease" }}
+                    >
+                      {EXTRACT_FLAVOR[extractFlavorIdx]}
+                    </p>
+                  )}
                   <style>{`@keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }`}</style>
                 </div>
               ) : (
@@ -939,16 +1488,38 @@ export default function StoryGraph() {
                       borderColor: dragOver ? "#60a5fa" : "rgba(255,255,255,0.12)",
                       backgroundColor: dragOver ? "rgba(96,165,250,0.06)" : "transparent",
                     }}
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => uploadMode === "derive" ? folderInputRef.current?.click() : fileInputRef.current?.click()}
                     onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                     onDragLeave={() => setDragOver(false)}
-                    onDrop={(e) => {
+                    onDrop={async (e) => {
                       e.preventDefault();
                       setDragOver(false);
+                      if (uploadMode === "derive") {
+                        const items = e.dataTransfer.items;
+                        if (items?.length) {
+                          const entry = items[0].webkitGetAsEntry?.();
+                          if (entry?.isDirectory) {
+                            const files = await readDirEntries(entry);
+                            handleFolderSelect(files, entry.name);
+                            return;
+                          }
+                        }
+                      }
                       handleFileSelect(e.dataTransfer.files[0]);
                     }}
                   >
-                    {uploadFile ? (
+                    {uploadFiles.length > 0 ? (
+                      <>
+                        <Folder size={28} style={{ color: "#60a5fa" }} />
+                        <p className="text-sm font-medium text-white">{uploadFiles.length} {uploadFiles.length === 1 ? "file" : "files"} selected</p>
+                        <div className="w-full max-h-24 overflow-y-auto flex flex-col gap-0.5">
+                          {uploadFiles.map((f) => (
+                            <p key={f.name} className="text-xs text-center truncate" style={{ color: "rgba(255,255,255,0.45)" }}>{f.name}</p>
+                          ))}
+                        </div>
+                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>click to change folder</p>
+                      </>
+                    ) : uploadFile ? (
                       <>
                         <FileText size={28} style={{ color: "#60a5fa" }} />
                         <p className="text-sm font-medium text-white">{uploadFile.name}</p>
@@ -960,19 +1531,76 @@ export default function StoryGraph() {
                       <>
                         <Upload size={28} style={{ color: "rgba(255,255,255,0.25)" }} />
                         <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
-                          Drop a file here or <span style={{ color: "#93c5fd" }}>browse</span>
+                          {uploadMode === "derive"
+                            ? <>Drop a folder here or <span style={{ color: "#93c5fd" }}>browse</span></>
+                            : <>Drop a file here or <span style={{ color: "#93c5fd" }}>browse</span></>}
                         </p>
-                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>Supports .txt and .docx</p>
+                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
+                          {uploadMode === "derive" ? "Drag & drop a folder to process all files at once" : "Supports .txt, .md, and .docx"}
+                        </p>
                       </>
                     )}
                   </div>
 
+                  {/* In derive mode with nothing selected, offer single-file fallback */}
+                  {uploadMode === "derive" && !uploadFile && !uploadFiles.length && (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-xs text-center w-full"
+                      style={{ color: "rgba(255,255,255,0.3)", marginTop: "-8px" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.55)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+                    >
+                      or select a single file
+                    </button>
+                  )}
+
+                  {/* Title / folder name field — shown once a file or folder is selected */}
+                  {(uploadFile || uploadFiles.length > 0) && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.45)" }}>
+                        {uploadMode === "derive" ? "Folder name" : "Document title"}
+                      </label>
+                      <input
+                        type="text"
+                        value={uploadMode === "derive" ? uploadFolderName : uploadTitle}
+                        onChange={(e) => uploadMode === "derive" ? setUploadFolderName(e.target.value) : setUploadTitle(e.target.value)}
+                        placeholder={uploadMode === "derive" ? "e.g. The Sunken Archive" : "e.g. Aldric Senn"}
+                        className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", caretColor: "#60a5fa" }}
+                        spellCheck={false}
+                      />
+                      <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
+                        {uploadMode === "derive" && uploadFiles.length > 1
+                          ? `Each of the ${uploadFiles.length} files will be derived and their entities added to this folder.`
+                          : uploadMode === "derive"
+                          ? "A folder will be created with this name. Each extracted entity gets its own source file inside it."
+                          : "Used as context to help the AI identify the primary subject."}
+                      </p>
+                    </div>
+                  )}
+
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".txt,.docx"
+                    accept=".txt,.md,.docx"
                     className="hidden"
                     onChange={(e) => handleFileSelect(e.target.files[0])}
+                  />
+                  <input
+                    ref={folderInputRef}
+                    type="file"
+                    // @ts-ignore — webkitdirectory is non-standard but widely supported
+                    webkitdirectory=""
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (!files?.length) return;
+                      const dirName = files[0].webkitRelativePath.split("/")[0];
+                      handleFolderSelect(files, dirName);
+                      e.target.value = "";
+                    }}
                   />
 
                   {extractError && (
@@ -983,16 +1611,21 @@ export default function StoryGraph() {
                   )}
 
                   <button
-                    disabled={!uploadFile}
-                    onClick={handleExtract}
+                    disabled={
+                      (!uploadFile && !uploadFiles.length) ||
+                      (uploadMode === "derive" && !uploadFolderName.trim())
+                    }
+                    onClick={uploadFiles.length > 0 ? handleBulkDerive : uploadMode === "derive" ? handleDerive : handleExtract}
                     className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity"
                     style={{
-                      backgroundColor: uploadFile ? "#3b82f6" : "rgba(59,130,246,0.3)",
-                      color: uploadFile ? "#fff" : "rgba(255,255,255,0.3)",
-                      cursor: uploadFile ? "pointer" : "not-allowed",
+                      backgroundColor: ((uploadFile || uploadFiles.length > 0) && (uploadMode !== "derive" || uploadFolderName.trim())) ? "#3b82f6" : "rgba(59,130,246,0.3)",
+                      color: ((uploadFile || uploadFiles.length > 0) && (uploadMode !== "derive" || uploadFolderName.trim())) ? "#fff" : "rgba(255,255,255,0.3)",
+                      cursor: ((uploadFile || uploadFiles.length > 0) && (uploadMode !== "derive" || uploadFolderName.trim())) ? "pointer" : "not-allowed",
                     }}
                   >
-                    Analyze &amp; Map Connections
+                    {uploadFiles.length > 1
+                      ? `Extract Entities (${uploadFiles.length} files)`
+                      : uploadMode === "derive" ? "Extract Entities" : "Analyze & Map Connections"}
                   </button>
                 </>
               )}

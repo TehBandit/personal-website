@@ -1,0 +1,14 @@
+{
+  "id": "iwaizumi",
+  "name": "Iwaizumi",
+  "type": "character",
+  "excerpt": "Iwaizumi scowled at him.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "oikawa",
+      "label": "playful dynamic"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "id": "fen_caldra",
+  "name": "Fen Caldra",
+  "type": "character",
+  "excerpt": "A careful and discreet operator of a private transport service.",
+  "aliases": [
+    "Fen",
+    "Caldra"
+  ],
+  "connections": [
+    {
+      "target": "sunken_ledger",
+      "label": "secretly possesses",
+      "sourceFile": "fen-caldra.txt"
+    },
+    {
+      "target": "orris_vane",
+      "label": "has leverage over",
+      "sourceFile": "fen-caldra.txt"
+    },
+    {
+      "target": "maren_ashveil",
+      "label": "intrigued by",
+      "sourceFile": "fen-caldra.txt"
+    },
+    {
+      "target": "waystation_on_the_moorland",
+      "label": "operates near",
+      "sourceFile": "fen-caldra.txt"
+    }
+  ],
+  "notes": "Fen Caldra is in his mid-40s, born in Tiveck, and has spent his life near the waterfront. He operates a small private transport service with two vessels and a trusted crew. Known for reliability and discretion, he uses the Salt Warren for gray-market storage. He discovered the Sunken Ledger six years ago and has kept it hidden. Fen has leverage over Orris Vane through a forged customs document and finds Maren Ashveil intriguing, suspecting she seeks the Ledger.",
+  "sourceFile": "fen-caldra.txt"
+}

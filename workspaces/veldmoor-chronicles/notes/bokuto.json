@@ -1,0 +1,31 @@
+{
+  "id": "bokuto",
+  "name": "Bokuto",
+  "type": "character",
+  "excerpt": "Bokuto is a barista at a coffeeshop who becomes infatuated with a customer named Akaashi.",
+  "notes": "Bokuto is a lively and charismatic barista working at a coffeeshop called Nekoma's. He is immediately taken by Akaashi, a customer who visits the shop, and makes a bold attempt to flirt with him by writing his phone number on a cup. Despite Akaashi's initial lack of response, Bokuto remains hopeful and continues to be intrigued by Akaashi's quiet demeanor and passion for photography. Throughout the story, Bokuto's interactions with Akaashi evolve from awkward flirtations to a genuine connection, as they work together on Akaashi's photography project. Bokuto is characterized by his enthusiasm, humor, and a tendency to act impulsively, especially when it comes to matters of the heart.\n\nBokuto is a professional volleyball player who is deeply involved in his son Shouyou's life. He is depicted as a caring and attentive father, willing to go the extra mile to ensure his son's happiness and well-being. Bokuto is also shown to have a humorous and light-hearted personality, often engaging in playful banter with his son. His interactions with Kageyama's father, Akaashi Keiji, reveal a budding interest and attraction, adding a layer of complexity to his character. Bokuto's passion for volleyball is evident, and he takes pride in sharing this passion with the younger generation, including Kageyama Tobio.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "akaashi",
+      "label": "infatuated with"
+    },
+    {
+      "target": "kuroo",
+      "label": "friend and coworker"
+    },
+    {
+      "target": "lev",
+      "label": "friend and coworker"
+    },
+    {
+      "target": "sh_y_hinata",
+      "label": "father"
+    },
+    {
+      "target": "kageyama",
+      "label": "son's classmate"
+    }
+  ],
+  "sourceFile": "tea_stained_polaroids/bokuto.md"
+}

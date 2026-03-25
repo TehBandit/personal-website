@@ -9,12 +9,13 @@
  *
  * Pass --force to clear notes/ and fully regenerate from scratch.
  * Pass --update to re-process specified files and refresh matching node content.
+ * Pass --workspace=<slug> to target a specific workspace (default: veldmoor-chronicles)
  * Pass specific filenames to only process those files (no path needed):
  *
  * Run with:
  *   node --env-file=.env.local scripts/seed-graph.js
  *   node --env-file=.env.local scripts/seed-graph.js --force
- *   node --env-file=.env.local scripts/seed-graph.js iron-compact.txt kasra-deln.txt
+ *   node --env-file=.env.local scripts/seed-graph.js --workspace=my-world iron-compact.txt
  *   node --env-file=.env.local scripts/seed-graph.js --update kasra-deln.txt
  */
 
@@ -26,12 +27,31 @@ import { deduplicateNodes, remapConnections } from "../api/dedup-nodes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const NOTES_RAW_DIR = path.join(ROOT, "notes-raw");
-const NOTES_DIR = path.join(ROOT, "notes");
+let NOTES_RAW_DIR = path.join(ROOT, "workspaces", "veldmoor-chronicles"); // workspace root
+let NOTES_DIR = path.join(ROOT, "workspaces", "veldmoor-chronicles", "notes");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function log(msg) {
   process.stdout.write(msg + "\n");
+}
+
+/**
+ * Recursively collect all .txt files under `dir`, returning paths
+ * relative to `base` with forward slashes (e.g. "notes-raw/char.txt").
+ * `exclude` is a Set of absolute directory paths to skip entirely.
+ */
+function getAllTxtFiles(dir, base = dir, exclude = new Set()) {
+  const results = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name);
+    if (exclude.has(fullPath)) continue;
+    if (entry.isDirectory()) {
+      results.push(...getAllTxtFiles(fullPath, base, exclude));
+    } else if (entry.name.endsWith(".txt")) {
+      results.push(path.relative(base, fullPath).replace(/\\/g, "/"));
+    }
+  }
+  return results;
 }
 
 function loadExistingNodes() {
@@ -114,6 +134,35 @@ function getRefreshIdsForFile(filename) {
   return ids;
 }
 
+/**
+ * Parse user-defined aliases from the raw text.
+ * Looks for lines matching: aliases: foo, bar, baz  (case-insensitive)
+ * Returns a deduplicated lowercase-trimmed array.
+ */
+function parseUserAliases(rawText) {
+  const match = rawText.match(/^\s*aliases\s*:\s*(.+)$/im);
+  if (!match) return [];
+  return match[1]
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Merge two alias arrays, deduplicating case-insensitively.
+ */
+function mergeAliases(...arrays) {
+  const seen = new Set();
+  const result = [];
+  for (const arr of arrays) {
+    for (const a of arr) {
+      const key = a.toLowerCase();
+      if (!seen.has(key)) { seen.add(key); result.push(a); }
+    }
+  }
+  return result;
+}
+
 async function extractFromText(openai, rawText, filename, refreshNodeIds = new Set()) {
   // Exclude nodes being refreshed so OpenAI regenerates them with fresh content
   const existingNodes = loadExistingNodes().filter((n) => !refreshNodeIds.has(n.id));
@@ -139,6 +188,7 @@ Return ONLY valid JSON matching this exact schema:
       "type": "character | location | faction | artifact | event",
       "excerpt": "One punchy sentence describing this element",
       "notes": "Full narrative notes about this element",
+      "aliases": ["alias1", "alias2"],
       "connections": [
         { "target": "id_of_related_entity", "label": "brief lowercase relationship (max 8 words)" }
       ]
@@ -155,10 +205,11 @@ Rules:
 - Connection labels are lowercase and descriptive: "childhood best friends", "hidden within", "hunts relentlessly"
 - If a new entity connects to an existing one, use the existing entity's exact ID as the target
 - Return at least one node even if the notes are sparse
-- CRITICAL: The notes come from a file named after their primary subject. Any sentence with an implicit subject (e.g. "is best friends with X", "was born in Y", "carries the Z") should be treated as a statement about the primary subject of this file — use their name as the subject when inferring connections`;
+- CRITICAL: The notes come from a file named after their primary subject. Any sentence with an implicit subject (e.g. "is best friends with X", "was born in Y", "carries the Z") should be treated as a statement about the primary subject of this file — use their name as the subject when inferring connections
+- aliases: list all known alternate names, shortened names, first-name-only, last-name-only, nicknames, and titles for this entity. For characters always include their first name and surname separately if they have a full name. For locations include common shortened names. Keep each alias short (1-3 words).`;
 
-  // Derive a human-readable subject name from the filename (e.g. "maren-ashveil.txt" → "Maren Ashveil")
-  const filenameSubject = filename
+  // Derive a human-readable subject name from the basename (e.g. "notes-test/maren-ashveil.txt" → "Maren Ashveil")
+  const filenameSubject = path.basename(filename)
     .replace(/\.txt$/i, "")
     .split("-")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -201,6 +252,9 @@ function saveNodes(extracted, sourceFile = null, refreshNodeIds = new Set()) {
   const merged = rawNodes.length - deduped.length;
   if (merged > 0) log(`  ~ ${merged} duplicate(s) merged into existing nodes`);
 
+  // Parse user-defined aliases from the source file text (passed via extracted)
+  const userAliases = extracted._userAliases || [];
+
   // Save genuinely new nodes (stamp sourceFile)
   const saved = [];
   for (const node of finalNodes) {
@@ -210,11 +264,21 @@ function saveNodes(extracted, sourceFile = null, refreshNodeIds = new Set()) {
     const connections = (node.connections || []).map((c) =>
       sourceFile ? { ...c, sourceFile } : c
     );
+    // Merge AI aliases + user-defined aliases; inject user aliases only into
+    // the primary node of this file (id matches the filename stem)
+    const fileStem = sourceFile
+      ? path.basename(sourceFile, ".txt").replace(/-/g, "_").toLowerCase()
+      : null;
+    const aliases = mergeAliases(
+      node.aliases || [],
+      safeId === fileStem ? userAliases : []
+    );
     const nodeData = {
       id: safeId,
       name: node.name,
       type: node.type || "character",
       excerpt: node.excerpt || "",
+      aliases,
       connections,
       notes: node.notes || "",
       ...(sourceFile ? { sourceFile } : {}),
@@ -245,12 +309,24 @@ function saveNodes(extracted, sourceFile = null, refreshNodeIds = new Set()) {
         (c) => c.sourceFile && c.sourceFile !== sourceFile
       );
 
+      // Merge aliases: keep existing ones from other sources, merge in fresh AI + user aliases
+      const isFilePrimary = canonicalId === (sourceFile
+        ? path.basename(sourceFile, ".txt").replace(/-/g, "_").toLowerCase()
+        : null);
+      const freshAliases = mergeAliases(
+        rawNode.aliases || [],
+        isFilePrimary ? userAliases : []
+      );
+      // Keep aliases that existed before; merge fresh on top
+      const aliases = mergeAliases(existing.aliases || [], freshAliases);
+
       const nodeData = {
         ...existing,
         name: rawNode.name || existing.name,
         type: rawNode.type || existing.type,
         excerpt: rawNode.excerpt || existing.excerpt,
         notes: rawNode.notes || existing.notes,
+        aliases,
         connections: [...otherConns, ...freshConns],
         ...(sourceFile ? { sourceFile } : {}),
       };
@@ -296,8 +372,97 @@ function saveNodes(extracted, sourceFile = null, refreshNodeIds = new Set()) {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
+/**
+ * Delete a source file's node and all edges it contributed.
+ * Derived-only nodes that end up with zero connections are also removed.
+ */
+function deleteSourceFile(filename) {
+  const stem = path.basename(filename, ".txt").replace(/-/g, "_").toLowerCase();
+
+  // 1. Remove the primary node JSON (if it exists)
+  const primaryPath = path.join(NOTES_DIR, `${stem}.json`);
+  if (fs.existsSync(primaryPath)) {
+    fs.unlinkSync(primaryPath);
+    log(`Deleted primary node: ${stem}.json`);
+  }
+
+  // 2. Strip all connections sourced from this file on remaining nodes
+  stripConnectionsFromSource(filename);
+
+  // 3. Delete derived nodes that now have no connections and no own source file
+  if (fs.existsSync(NOTES_DIR)) {
+    for (const f of fs.readdirSync(NOTES_DIR).filter((f) => f.endsWith(".json"))) {
+      const data = loadNodeFile(path.basename(f, ".json"));
+      if (!data) continue;
+      // Only clean up nodes that were derived from this file (no own raw file)
+      const rawStem = data.id.replace(/_/g, "-") + ".txt";
+      const hasOwnSource = fs.existsSync(NOTES_RAW_DIR)
+        && getAllTxtFiles(NOTES_RAW_DIR, NOTES_RAW_DIR, new Set([NOTES_DIR])).some((f) => path.basename(f) === rawStem);
+      if (hasOwnSource) continue; // has its own source file anywhere in the workspace, leave it
+      if ((data.connections || []).length === 0) {
+        fs.unlinkSync(path.join(NOTES_DIR, f));
+        log(`Deleted orphaned derived node: ${f}`);
+      }
+    }
+  }
+
+  log(`Done. Deleted graph data for ${filename}.`);
+}
+
 async function main() {
+  // Resolve workspace from --workspace=<slug> arg (defaults to veldmoor-chronicles)
+  const wsArg = process.argv.find((a) => a.startsWith("--workspace="));
+  const workspace = wsArg ? wsArg.split("=")[1] : "veldmoor-chronicles";
+  if (!/^[a-z0-9-]+$/.test(workspace)) {
+    log(`ERROR: Invalid workspace slug "${workspace}". Use lowercase letters, numbers, and hyphens.`);
+    process.exit(1);
+  }
+  // NOTES_RAW_DIR is now the workspace root; notes/ is the output dir to exclude
+  NOTES_RAW_DIR = path.join(ROOT, "workspaces", workspace);
+  NOTES_DIR = path.join(ROOT, "workspaces", workspace, "notes");
+  log(`Workspace: ${workspace}\n`);
+
+  // Migrate: nodes seeded while notes-raw/ was the scan root have bare sourceFile
+  // values (e.g. "maren-ashveil.txt"). Now that we scan from the workspace root,
+  // prefix them with "notes-raw/" so --update and --delete continue to work.
+  if (fs.existsSync(NOTES_DIR)) {
+    let migrated = 0;
+    for (const f of fs.readdirSync(NOTES_DIR).filter((f) => f.endsWith(".json"))) {
+      try {
+        const fp = path.join(NOTES_DIR, f);
+        const data = JSON.parse(fs.readFileSync(fp, "utf-8"));
+        let changed = false;
+        if (data.sourceFile && !data.sourceFile.includes("/") && !data.sourceFile.includes("\\")) {
+          data.sourceFile = `notes-raw/${data.sourceFile}`;
+          changed = true;
+        }
+        data.connections = (data.connections || []).map((c) => {
+          if (c.sourceFile && !c.sourceFile.includes("/") && !c.sourceFile.includes("\\")) {
+            changed = true;
+            return { ...c, sourceFile: `notes-raw/${c.sourceFile}` };
+          }
+          return c;
+        });
+        if (changed) { fs.writeFileSync(fp, JSON.stringify(data, null, 2), "utf-8"); migrated++; }
+      } catch { /* skip unreadable files */ }
+    }
+    if (migrated > 0) log(`Migrated sourceFile paths for ${migrated} node(s)\n`);
+  }
+
   const apiKey = process.env.OPENAI_API_KEY;
+
+  // --delete doesn't need OpenAI — handle it before the API key check
+  const isDelete = process.argv.includes("--delete");
+  if (isDelete) {
+    const fileArgs = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+    if (fileArgs.length === 0) {
+      log("ERROR: --delete requires a filename, e.g.  --delete sunken-ledger.txt");
+      process.exit(1);
+    }
+    for (const f of fileArgs) deleteSourceFile(f);
+    process.exit(0);
+  }
+
   if (!apiKey) {
     log("ERROR: OPENAI_API_KEY not set. Run with: node --env-file=.env.local scripts/seed-graph.js");
     process.exit(1);
@@ -328,21 +493,22 @@ async function main() {
 
   // 2. Collect txt files — use argv list if provided, otherwise all txt files
   if (!fs.existsSync(NOTES_RAW_DIR)) {
-    log("ERROR: notes-raw/ directory not found.");
+    log("ERROR: workspace directory not found.");
     process.exit(1);
   }
 
   let txtFiles;
   if (fileArgs.length > 0) {
-    // Validate each explicitly requested file exists
-    txtFiles = fileArgs.map((f) => path.basename(f)); // strip any path prefix
+    // Preserve relative paths (e.g. "notes-test/char.txt"); only strip drive/leading separators
+    txtFiles = fileArgs.map((f) => f.replace(/\\/g, "/").replace(/^\/+/, ""));
     const missing = txtFiles.filter((f) => !fs.existsSync(path.join(NOTES_RAW_DIR, f)));
     if (missing.length > 0) {
-      log(`ERROR: file(s) not found in notes-raw/: ${missing.join(", ")}`);
+      log(`ERROR: file(s) not found in workspace: ${missing.join(", ")}`);
       process.exit(1);
     }
   } else {
-    txtFiles = fs.readdirSync(NOTES_RAW_DIR).filter((f) => f.endsWith(".txt"));
+    // Recursively collect all .txt files from workspace root, skipping notes/ output dir
+    txtFiles = getAllTxtFiles(NOTES_RAW_DIR, NOTES_RAW_DIR, new Set([NOTES_DIR]));
   }
 
   if (txtFiles.length === 0) {
@@ -359,6 +525,7 @@ async function main() {
     log(`[${i + 1}/${txtFiles.length}] Processing: ${filename}`);
 
     const rawText = fs.readFileSync(path.join(NOTES_RAW_DIR, filename), "utf-8").trim();
+    const userAliases = parseUserAliases(rawText);
     const refreshNodeIds = isUpdate ? getRefreshIdsForFile(filename) : new Set();
     if (isUpdate && refreshNodeIds.size > 0) {
       log(`  Refreshing ${refreshNodeIds.size} existing node(s): ${[...refreshNodeIds].join(", ")}`);
@@ -368,6 +535,7 @@ async function main() {
     // sourceFile differs from the file being processed.
     if (isUpdate) stripConnectionsFromSource(filename);
     const extracted = await extractFromText(openai, rawText, filename, refreshNodeIds);
+    extracted._userAliases = userAliases;
     const saved = saveNodes(extracted, filename, refreshNodeIds);
 
     if (saved.length === 0) {

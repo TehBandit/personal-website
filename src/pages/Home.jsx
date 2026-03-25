@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react";
-import viteLogo from "/vite.svg";
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
 import Profile from "../components/Profile.jsx";
-import BlogPost from "../components/BlogPost.jsx";
 import Divider from "../components/Divider.jsx";
 import { ReactTyped } from "react-typed";
 import { posts } from "../blogposts";
@@ -14,7 +12,6 @@ function Home() {
   // Youtube API Setup
   const [latestVideoId, setLatestVideoId] = useState("nothing");
   const [error, setError] = useState("");
-  const API_KEY = import.meta.env.YOUTUBE_API_KEY;
   const CHANNEL_ID = "UCX-JpAVGwDuXLFF_RnJXWqA";
 
   const fetchLatestVideo = async () => {
@@ -74,19 +71,18 @@ function Home() {
           </div>
         </div>
         {/* Blog Highlight */}
-        {/* New comment to test push attribution - remove later */}
         <Divider rotate={0} text="latest blog post" />
         <div className="flex flex-col md:flex-row items-center bg-white rounded-2xl shadow-xl w-full p-4 md:p-[2vw] gap-4 md:gap-[2vw] h-auto overflow-hidden">
           <div className="flex-shrink-0 w-full md:w-auto">
             <Link to={`blog/${posts[0].meta.slug}`}>
               <div className="relative w-full md:w-[14vw] aspect-square overflow-hidden rounded-2xl shadow-xl">
                 <img
-                  src={posts[0].meta.headerPhotos[0]}
+                  src={posts[0]?.meta?.headerPhotos?.[0]}
                   aria-hidden="true"
                   className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-50"
                 />
                 <img
-                  src={posts[0].meta.headerPhotos[0]}
+                  src={posts[0]?.meta?.headerPhotos?.[0]}
                   alt={posts[0].meta.title}
                   className="relative w-full h-full object-contain"
                 />
@@ -117,6 +113,7 @@ function Home() {
           <div className="responsive_card">
             <div className="responsive_card_title">YouTube</div>
             <div className="responsive_card_content_container">
+              {error && <p className="text-sm text-red-500 px-2 py-1">{error}</p>}
               <iframe
                 src={`https://www.youtube.com/embed/${latestVideoId}?si=Wsy9vkV0vV9nhTvn`}
                 title="YouTube video player"

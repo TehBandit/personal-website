@@ -1,0 +1,22 @@
+{
+  "id": "yamaguchi",
+  "name": "Yamaguchi",
+  "type": "character",
+  "excerpt": "Even Yamaguchi thought the same.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "tsukishima",
+      "label": "shares opinion on friends"
+    },
+    {
+      "target": "sh_y_hinata",
+      "label": "teammate"
+    },
+    {
+      "target": "karasuno_high",
+      "label": "attends"
+    }
+  ]
+}

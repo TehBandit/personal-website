@@ -1,0 +1,3 @@
+KUROO — character notes
+
+Kuroo works alongside Bokuto at the coffeeshop and is one of his close friends. He is characterized by his playful and teasing nature, often making jokes at Bokuto's expense, especially regarding his crush on Akaashi. Kuroo is supportive, though, and encourages Bokuto to pursue his interest in Akaashi. He is in a relationship with Kenma, and their dynamic is a source of amusement and warmth in the story.

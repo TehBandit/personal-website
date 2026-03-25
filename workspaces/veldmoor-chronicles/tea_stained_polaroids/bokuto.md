@@ -1,0 +1,3 @@
+BOKUTO — character notes
+
+Bokuto is a lively and charismatic barista working at a coffeeshop called Nekoma's. He is immediately taken by Akaashi, a customer who visits the shop, and makes a bold attempt to flirt with him by writing his phone number on a cup. Despite Akaashi's initial lack of response, Bokuto remains hopeful and continues to be intrigued by Akaashi's quiet demeanor and passion for photography. Throughout the story, Bokuto's interactions with Akaashi evolve from awkward flirtations to a genuine connection, as they work together on Akaashi's photography project. Bokuto is characterized by his enthusiasm, humor, and a tendency to act impulsively, especially when it comes to matters of the heart.

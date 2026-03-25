@@ -1,4 +1,4 @@
-const Divider = ({ rotate = 0, text = "divider", w = "w-full" }) => {
+const Divider = ({ rotate = 0, text = "divider" }) => {
   return (
     <div className={`relative w-full md:my-[2vw] my-[4vw] rotate-[${rotate}deg]`}>
       <img

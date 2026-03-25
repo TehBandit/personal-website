@@ -1,0 +1,16 @@
+{
+  "id": "admiralty",
+  "name": "Admiralty",
+  "type": "faction",
+  "excerpt": "The organization Maren Ashveil worked for as a surveyor.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "maren_ashveil",
+      "label": "former employer",
+      "sourceFile": "maren-ashveil.txt"
+    }
+  ],
+  "notes": "The Admiralty is the organization Maren Ashveil worked for as a licensed surveyor for a decade before resigning under undisclosed circumstances. An incident during a mapping expedition led to her voluntary withdrawal.",
+  "sourceFile": "maren-ashveil.txt"
+}

@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import mammoth from "mammoth";
 import { deduplicateNodes, remapConnections } from "./dedup-nodes.js";
+import { bumpWorkspaceVersion, rebuildGraphCache } from "./bump-version.js";
 
 // ── File helpers ──────────────────────────────────────────────────────────────
 
@@ -43,6 +44,81 @@ function patchNodeConnections(notesDir, nodeId, newConns) {
   return added;
 }
 
+/**
+ * Append new notes and/or replace excerpt on an existing node.
+ * Preserves all other fields (connections, aliases, etc.).
+ * Returns true if the file was actually modified.
+ */
+function patchNodeContent(notesDir, nodeId, notesAppend, newExcerpt) {
+  const data = loadNodeFile(notesDir, nodeId);
+  if (!data) return false;
+
+  let changed = false;
+
+  if (notesAppend && notesAppend.trim()) {
+    const trimmed = notesAppend.trim();
+    // Avoid appending duplicate content (simple substring check)
+    if (!data.notes.includes(trimmed)) {
+      data.notes = data.notes ? `${data.notes}\n\n${trimmed}` : trimmed;
+      changed = true;
+    }
+  }
+
+  if (newExcerpt && newExcerpt.trim() && newExcerpt.trim() !== data.excerpt) {
+    data.excerpt = newExcerpt.trim();
+    changed = true;
+  }
+
+  if (changed) {
+    fs.writeFileSync(
+      path.join(notesDir, `${nodeId}.json`),
+      JSON.stringify(data, null, 2),
+      "utf-8"
+    );
+  }
+  return changed;
+}
+
+/**
+ * Generate context summaries for multiple nodes in a single gpt-4o-mini call.
+ * Returns a plain object { id: summaryString }. Non-fatal: returns {} on any error.
+ * One round-trip instead of N, regardless of how many nodes need summarizing.
+ */
+async function batchGenerateContextSummaries(openai, items) {
+  const toSummarize = items.filter(
+    ({ excerpt, notes }) => (excerpt || "").trim() || (notes || "").trim()
+  );
+  if (toSummarize.length === 0) return {};
+  try {
+    const resp = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You will receive a JSON array of story entities, each with an id, excerpt, and notes. " +
+            "Return a JSON object where each key is the entity id and the value is a concise bullet-point " +
+            "list of facts. Each bullet should be one short clause. Include only concrete narrative facts — " +
+            "no filler, no repetition. Format each value as plain text with - bullets.",
+        },
+        {
+          role: "user",
+          content: JSON.stringify(
+            toSummarize.map(({ id, excerpt, notes }) => ({ id, excerpt, notes }))
+          ),
+        },
+      ],
+      temperature: 0.1,
+      max_tokens: Math.min(300 * toSummarize.length, 4000),
+    });
+    const parsed = JSON.parse(resp.choices[0].message.content);
+    return typeof parsed === "object" && parsed !== null ? parsed : {};
+  } catch {
+    return {}; // non-fatal — extraction still succeeds without summaries
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -68,7 +144,11 @@ export default async function handler(req, res) {
     }
 
     // --- Load existing nodes as context so the AI doesn't duplicate them ---
-    const notesDir = path.join(process.cwd(), "notes");
+    const workspace = req.body.workspace;
+    if (!workspace || !/^[a-z0-9-]+$/.test(workspace)) {
+      return res.status(400).json({ error: "Invalid workspace" });
+    }
+    const notesDir = path.join(process.cwd(), "workspaces", workspace, "notes");
     const existingNodes = [];
 
     if (fs.existsSync(notesDir)) {
@@ -77,7 +157,15 @@ export default async function handler(req, res) {
         try {
           const data = JSON.parse(fs.readFileSync(path.join(notesDir, file), "utf-8"));
           if (data.id && data.name) {
-            existingNodes.push({ id: data.id, name: data.name, type: data.type || "character" });
+            existingNodes.push({
+              id: data.id,
+              name: data.name,
+              type: data.type || "character",
+              excerpt: data.excerpt || "",
+              notes: data.notes || "",
+              aliases: data.aliases || [],
+              context_summary: data.context_summary || "",
+            });
           }
         } catch {
           // skip malformed files
@@ -92,13 +180,14 @@ export default async function handler(req, res) {
     const systemPrompt = `You are a narrative analyst. Your job is to extract named story elements from raw notes and automatically map every connection between them.
 
 You will receive:
-1. A list of elements ALREADY IN THE GRAPH (with their ids, names, types)
+1. A list of elements ALREADY IN THE GRAPH (with their ids, names, types, and existing notes)
 2. Raw notes to analyze
 
 Your tasks:
 - Identify all significant named entities: characters, locations, factions, artifacts, events
-- For each NEW entity, write a focused excerpt and condensed notes
-- Determine all meaningful connections — both between new entities AND to existing graph entities
+- For each NEW entity not already in the graph, write a focused excerpt and condensed notes
+- For each EXISTING entity where this text reveals meaningfully new information, add an update with only the additional details (do not repeat what is already in their notes)
+- Determine all meaningful connections — between new entities AND to existing graph entities
 - Capture connections between EXISTING entities that are newly revealed in this text
 
 Return ONLY valid JSON matching this exact schema:
@@ -115,6 +204,13 @@ Return ONLY valid JSON matching this exact schema:
       ]
     }
   ],
+  "updates": [
+    {
+      "id": "id_of_existing_entity",
+      "notes_append": "New information to append to their existing notes (omit if nothing new)",
+      "excerpt": "Revised excerpt if this text provides a sharper one-sentence description (omit if existing is fine)"
+    }
+  ],
   "existing_connections": [
     { "source": "existing_id", "target": "existing_or_new_id", "label": "brief lowercase relationship" }
   ]
@@ -122,21 +218,47 @@ Return ONLY valid JSON matching this exact schema:
 
 Rules:
 - IDs must be lowercase snake_case, unique, and filename-safe
-- Do NOT recreate existing entities — reference them only as connection targets
+- Do NOT recreate existing entities — reference them only as connection targets or in "updates"
 - CRITICAL: A first name alone (e.g. "Elara") and a full name (e.g. "Elara Voss") referring to the same person ARE the same entity — use the existing node's ID
 - CRITICAL: Nicknames, titles, and shortened names that clearly refer to an existing entity must NOT become new nodes
 - Extract every implied relationship from the text (don't miss any)
 - Connection labels are lowercase and descriptive: "childhood best friends", "hidden within", "hunts relentlessly"
 - If a new entity connects to an existing one, use the existing entity's exact ID as the target
 - Use "existing_connections" for any newly revealed connection where BOTH the source and target are already in the graph
-- Return at least one node or one existing_connection even if the notes are sparse`;
+- In "updates", only include genuinely NEW information not already captured in the existing notes — do not repeat or rephrase what is already there
+- Omit "updates" entries that have no new information to add
+- Return at least one node, one update, or one existing_connection even if the notes are sparse`;
 
-    const userPrompt = `EXISTING GRAPH NODES — do not recreate these, only reference their IDs in connections:
+    // Pre-scan the uploaded text to find which existing nodes are mentioned.
+    // Those nodes get their full notes passed as context; others get id/name/type only.
+    // This keeps the prompt lean while giving the AI complete context where it matters.
+    const rawTextLower = rawText.toLowerCase();
+    const mentionedNodeIds = new Set(
+      existingNodes
+        .filter((n) => {
+          const namesToCheck = [n.name, ...(n.aliases || [])];
+          return namesToCheck.some((name) =>
+            rawTextLower.includes(name.toLowerCase())
+          );
+        })
+        .map((n) => n.id)
+    );
+
+    const userPrompt = `EXISTING GRAPH NODES — do not recreate these; reference their IDs in connections or updates:
 ${
   existingNodes.length > 0
-    ? existingNodes.map((n) => `  id: "${n.id}"  name: "${n.name}"  type: ${n.type}`).join("\n")
+    ? existingNodes.map((n) => {
+        const lines = [`  id: "${n.id}"  name: "${n.name}"  type: ${n.type}`];
+        if (mentionedNodeIds.has(n.id)) {
+          // Use stored summary if available (~80 tokens); fall back to full notes
+          if (n.excerpt) lines.push(`    excerpt: ${n.excerpt}`);
+          if (n.context_summary) lines.push(`    context: ${n.context_summary}`);
+          else if (n.notes)      lines.push(`    notes: ${n.notes}`);
+        }
+        return lines.join("\n");
+      }).join("\n")
     : "  (none yet — this is the first upload)"
-}
+}${req.body.title ? `\n\nDOCUMENT TITLE (primary subject of this file): ${req.body.title}` : ""}
 
 RAW NOTES TO ANALYZE:
 ${rawText}`;
@@ -160,6 +282,7 @@ ${rawText}`;
 
     const newNodes = extracted.nodes || [];
     const existingConns = extracted.existing_connections || [];
+    const updates = extracted.updates || [];
 
     // --- Deduplicate extracted nodes against existing graph ---
     const { deduped, remapIds } = deduplicateNodes(newNodes, existingNodes);
@@ -186,6 +309,7 @@ ${rawText}`;
     if (!fs.existsSync(notesDir)) fs.mkdirSync(notesDir, { recursive: true });
 
     const savedNodes = [];
+    const nodesForSummary = []; // collect for concurrent context_summary generation
     for (const node of finalNodes) {
       if (!node.id || !node.name) continue;
       const safeId = node.id.replace(/[^a-z0-9_-]/gi, "_").toLowerCase();
@@ -197,9 +321,31 @@ ${rawText}`;
         excerpt: node.excerpt || "",
         connections: node.connections || [],
         notes: node.notes || "",
+        aliases: node.aliases || [],
+        ...(req.body.filename ? { sourceFile: req.body.filename } : {}),
       };
       fs.writeFileSync(filePath, JSON.stringify(nodeData, null, 2), "utf-8");
       savedNodes.push({ id: safeId, name: node.name, type: node.type || "character" });
+      nodesForSummary.push({ filePath, nodeData });
+    }
+
+    // --- Apply incremental updates to existing nodes ---
+    let updatedNodeCount = 0;
+    const updatedNodeIds = []; // collect for concurrent context_summary regeneration
+    for (const update of updates) {
+      if (!update.id) continue;
+      const canonicalId = remapIds.get(update.id) ?? update.id;
+      if (!existingIdSet.has(canonicalId)) continue; // only patch nodes that actually exist
+      const patched = patchNodeContent(
+        notesDir,
+        canonicalId,
+        update.notes_append || "",
+        update.excerpt || ""
+      );
+      if (patched) {
+        updatedNodeCount++;
+        updatedNodeIds.push(canonicalId);
+      }
     }
 
     // --- Patch orphaned connections into existing node files ---
@@ -218,8 +364,67 @@ ${rawText}`;
       ]);
     }
 
+    // --- Generate/regenerate context_summary in a single batched gpt-4o-mini call ---
+    // One round-trip instead of N parallel requests — cheaper and faster at scale.
+    const summaryItems = [
+      ...nodesForSummary.map(({ nodeData }) => ({
+        id: nodeData.id,
+        excerpt: nodeData.excerpt,
+        notes: nodeData.notes,
+      })),
+      ...updatedNodeIds
+        .map((nodeId) => {
+          const nd = loadNodeFile(notesDir, nodeId);
+          return nd ? { id: nodeId, excerpt: nd.excerpt || "", notes: nd.notes || "" } : null;
+        })
+        .filter(Boolean),
+    ];
+
+    const summaries = await batchGenerateContextSummaries(openai, summaryItems);
+
+    // Write summaries back to new node files
+    for (const { filePath, nodeData } of nodesForSummary) {
+      const summary = summaries[nodeData.id];
+      if (summary) {
+        const stored = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+        stored.context_summary = summary;
+        fs.writeFileSync(filePath, JSON.stringify(stored, null, 2), "utf-8");
+      }
+    }
+    // Write summaries back to updated existing node files
+    for (const nodeId of updatedNodeIds) {
+      const summary = summaries[nodeId];
+      if (!summary) continue;
+      const nodeData = loadNodeFile(notesDir, nodeId);
+      if (!nodeData) continue;
+      nodeData.context_summary = summary;
+      fs.writeFileSync(
+        path.join(notesDir, `${nodeId}.json`),
+        JSON.stringify(nodeData, null, 2),
+        "utf-8"
+      );
+    }
+
+    // Rebuild the graph cache from all node JSONs so story-notes.js can serve
+    // the next graph load with a single file read instead of N+1 readFileSync calls.
+    rebuildGraphCache(workspace, notesDir);
+
+    // Bump the lightweight version token so the 2-second poller detects this change
+    // with a single file read instead of stat-ing every node JSON.
+    bumpWorkspaceVersion(workspace);
+
+    // --- Save source file to workspace uploads/ for record-keeping ---
+    const filename = req.body.filename || `upload-${Date.now()}.md`;
+    const rawBasename = path.basename(filename).replace(/[^a-zA-Z0-9._-]/g, "_");
+    // Always store as .md regardless of original extension (.txt, .docx, etc.)
+    const safeFilename = rawBasename.replace(/\.(txt|docx)$/i, ".md");
+    const uploadsDir = path.join(process.cwd(), "workspaces", workspace, "uploads");
+    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+    fs.writeFileSync(path.join(uploadsDir, safeFilename), rawText, "utf-8");
+
     return res.status(200).json({
       added: savedNodes.length,
+      updated: updatedNodeCount,
       nodes: savedNodes,
       connectionsPatched: patchedConnectionCount,
     });

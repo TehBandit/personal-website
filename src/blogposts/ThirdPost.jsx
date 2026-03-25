@@ -4,9 +4,10 @@ export const meta = {
   slug: "my-third-post",
   date: "8/25/2025",
   tag: "Development",
+  headerPhotos: [],
 };
 
-export default function SecondPost() {
+export default function ThirdPost() {
   return (
     <div>
       <p className="pb-4">

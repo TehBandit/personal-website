@@ -1,0 +1,34 @@
+{
+  "id": "virsa_col",
+  "name": "Virsa Col",
+  "type": "character",
+  "excerpt": "Virsa Col is a retired records archivist with a secretive past.",
+  "aliases": [
+    "Virsa",
+    "Col"
+  ],
+  "connections": [
+    {
+      "target": "admiralty",
+      "label": "former archivist for",
+      "sourceFile": "notes-test/virsa-col.txt"
+    },
+    {
+      "target": "tiveck",
+      "label": "worked in",
+      "sourceFile": "notes-test/virsa-col.txt"
+    },
+    {
+      "target": "orris_vane",
+      "label": "misfiled reports for",
+      "sourceFile": "notes-test/virsa-col.txt"
+    },
+    {
+      "target": "maren_ashveil",
+      "label": "investigated by",
+      "sourceFile": "notes-test/virsa-col.txt"
+    }
+  ],
+  "notes": "Virsa Col, in her late 50s, worked as a part-time records archivist at the Admiralty's records depot in Tiveck for eleven years before retiring. She is known for her preference for quiet and meticulous record-keeping. Sixteen years ago, she misfiled cargo inspection reports at the request of Orris Vane, which she has since regretted. Maren Ashveil is close to discovering her involvement. Virsa lives alone, enjoys gardening, and reads extensively. She is quiet, careful, and has a strong sense of morality, though she struggles with past decisions.",
+  "sourceFile": "notes-test/virsa-col.txt"
+}

@@ -18,6 +18,9 @@ export default async function handler(req, res) {
     const mustIncludeCheck = validateTextField(mustInclude, "mustInclude");
     if (!mustIncludeCheck.ok) return res.status(400).json({ error: mustIncludeCheck.error });
 
+    const maxCaloriesCheck = validateTextField(maxCalories, "maxCalories", 20);
+    if (!maxCaloriesCheck.ok) return res.status(400).json({ error: maxCaloriesCheck.error });
+
     const extraNotesCheck = validateTextField(extraNotes, "extraNotes");
     if (!extraNotesCheck.ok) return res.status(400).json({ error: extraNotesCheck.error });
 
@@ -34,7 +37,8 @@ export default async function handler(req, res) {
     if (!secondaryFlavorsCheck.ok) return res.status(400).json({ error: secondaryFlavorsCheck.error });
 
     // Use sanitized values from here on
-    const safeMusInclude = mustIncludeCheck.value;
+    const safeMustInclude = mustIncludeCheck.value;
+    const safeMaxCalories = maxCaloriesCheck.value;
     const safeExtraNotes = extraNotesCheck.value;
     const safeExcluded = excludedCheck.value;
     const safeDietary = dietaryCheck.value;
@@ -45,8 +49,8 @@ export default async function handler(req, res) {
     const preferences = [
       spiceTolerance && spiceTolerance !== "no preference" && `spice level: ${spiceTolerance}`,
       safeDietary.length > 0 && `dietary restrictions: ${safeDietary.join(", ")}`,
-      safeMusInclude && `must use these ingredients: ${safeMusInclude}`,
-      maxCalories && `maximum calories per serving: ${maxCalories} kcal`,
+      safeMustInclude && `must use these ingredients: ${safeMustInclude}`,
+      safeMaxCalories && `maximum calories per serving: ${safeMaxCalories} kcal`,
       macros && macros.fat !== "none" && `${macros.fat} fat`,
       macros && macros.carbs !== "none" && `${macros.carbs} carb`,
       macros && macros.protein !== "none" && `${macros.protein} protein`,

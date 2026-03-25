@@ -1,0 +1,34 @@
+{
+  "id": "orris_vane",
+  "name": "Orrus Vane",
+  "type": "character",
+  "excerpt": "A person with whom Fen Caldra has a complex, functional arrangement.",
+  "aliases": [
+    "Orrus",
+    "vane"
+  ],
+  "connections": [
+    {
+      "target": "fen_caldra",
+      "label": "implicated by",
+      "sourceFile": "fen-caldra.txt"
+    },
+    {
+      "target": "tiveck",
+      "label": "harbor master of",
+      "sourceFile": "orris-vane.txt"
+    },
+    {
+      "target": "admiralty",
+      "label": "former port administration",
+      "sourceFile": "orris-vane.txt"
+    },
+    {
+      "target": "maren_ashveil",
+      "label": "provided access to records",
+      "sourceFile": "orris-vane.txt"
+    }
+  ],
+  "notes": "Orris Vane is implicated in a cargo irregularity due to a forged customs document commissioned by Fen Caldra. This leverage has kept both out of serious trouble, though it is not a friendship.",
+  "sourceFile": "fen-caldra.txt"
+}

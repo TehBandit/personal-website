@@ -1,0 +1,40 @@
+{
+  "id": "sable_voss",
+  "name": "Sable Voss",
+  "type": "character",
+  "excerpt": "Sable Voss is Dellan Moor's companion and former supply administrator in the 14th Lowland regiment.",
+  "aliases": [
+    "Sable",
+    "voss"
+  ],
+  "connections": [
+    {
+      "target": "dellan_moor",
+      "label": "living with",
+      "sourceFile": "dellan-moor.txt"
+    },
+    {
+      "target": "14th_lowland",
+      "label": "former supply administrator of",
+      "sourceFile": "dellan-moor.txt"
+    },
+    {
+      "target": "boris_hulwich",
+      "label": "complex bond with"
+    }
+  ],
+  "notes": "Sable Voss was a supply administrator in the 14th Lowland regiment. She and Dellan Moor made the decision to desert together after weeks of careful discussion. They have been living together in a waystation on the moorland for eight months. Sable is trusted completely by Dellan, though the nature of their relationship remains uncertain.\n\nSable Voss has a complicated bond with Boris Hulwich, characterized by mutual reliance rather than trust. She challenges Boris's rigid worldview, often pushing him toward risks he would otherwise avoid. Their relationship blurs the line between friendship and necessity, enduring because it is tested.\n\nSable Voss shares a complex bond with Boris Hulwich, characterized by mutual reliance rather than trust. She challenges Boris's rigid worldview, often pushing him toward risks he would otherwise avoid. Their relationship blurs the line between friendship and necessity, enduring through tests rather than simplicity.",
+  "sourceFile": "dellan-moor.txt",
+  "context_summary": [
+    "- Sable Voss was a supply administrator in the 14th Lowland regiment.",
+    "- She and Dellan Moor decided to desert together.",
+    "- They have lived in a waystation on the moorland for eight months.",
+    "- Sable is completely trusted by Dellan Moor.",
+    "- The nature of her relationship with Dellan remains uncertain.",
+    "- She has a complicated bond with Boris Hulwich.",
+    "- Their relationship is characterized by mutual reliance.",
+    "- She challenges Boris's rigid worldview.",
+    "- She often pushes Boris toward risks.",
+    "- Their relationship blurs the line between friendship and necessity."
+  ]
+}
