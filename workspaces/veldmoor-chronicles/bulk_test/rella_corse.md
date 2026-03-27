@@ -1,0 +1,3 @@
+RELLA CORSE — character notes
+
+Rella Corse is a former Navigator of the Admiralty who was quietly dismissed under sealed circumstances. She is a founding member of the Tide Compact, where she manages logistics using a storehouse at the edge of the 14th Lowland as cover. Known for her meticulous nature and quiet demeanor, Rella has a reputation for decisively cutting ties with those who jeopardize the operation. Her strategic use of legitimate contracts for salt-drying provides a facade for the Compact's activities.

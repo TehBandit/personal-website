@@ -17,6 +17,10 @@
     {
       "target": "sh_y_hinata",
       "label": "acquaintance"
+    },
+    {
+      "target": "volleyball",
+      "label": "references"
     }
   ],
   "sourceFile": "tea_stained_polaroids/akaashi.md"

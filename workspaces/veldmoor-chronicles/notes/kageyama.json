@@ -29,6 +29,10 @@
     {
       "target": "akaashi",
       "label": "father"
+    },
+    {
+      "target": "volleyball",
+      "label": "references"
     }
   ],
   "sourceFile": "five_plus_one/kageyama.md"

@@ -29,6 +29,18 @@
       "sourceFile": "notes-test/deepwater-guild.txt"
     }
   ],
-  "notes": "The Deepwater Guild is an informal network of small-cargo operators, independent vessel owners, and harbor-adjacent traders working the eastern quay. It operates in the gray area between legality and prohibition, with no formal leadership or membership list. Fen Caldra is a central figure due to his long-standing presence and trust among members. The Guild uses the Salt Warren for storage, with Fen holding the only key. Orris Vane, the harbor master, tolerates their operations to avoid drawing attention. The Guild reflects Tiveck's blend of formal and informal economies, with most members having deep roots in the city.",
-  "sourceFile": "notes-test/deepwater-guild.txt"
+  "notes": "The Deepwater Guild is an informal network of small-cargo operators, independent vessel owners, and harbor-adjacent traders working the eastern quay. It operates in the gray area between legality and prohibition, with no formal leadership or membership list. Fen Caldra is a central figure due to his long-standing presence and trust among members. The Guild uses the Salt Warren for storage, with Fen holding the only key. Orris Vane, the harbor master, tolerates their operations to avoid drawing attention. The Guild reflects Tiveck's blend of formal and informal economies, with most members having deep roots in the city.\n\nThe Deepwater Guild has a formally cooperative but informally complex relationship with the Cartographic Division, often challenging the Division's survey data when it affects the Guild's operational reach.\n\nThe relationship between the Cartographic Division and the Deepwater Guild is formally cooperative but informally complex. The Guild has challenged the Division's survey data in situations where official charts would have reduced the Guild's operational reach, usually resolved quietly.",
+  "sourceFile": "notes-test/deepwater-guild.txt",
+  "context_summary": [
+    "- Informal network of small-cargo operators and traders.",
+    "- Operates at the eastern quay.",
+    "- Functions in a gray area between legality and prohibition.",
+    "- No formal leadership or membership list.",
+    "- Fen Caldra is a central figure.",
+    "- Uses the Salt Warren for storage.",
+    "- Fen holds the only key to the Salt Warren.",
+    "- Orris Vane tolerates their operations.",
+    "- Has a complex relationship with the Cartographic Division.",
+    "- Challenges survey data affecting operational reach."
+  ]
 }

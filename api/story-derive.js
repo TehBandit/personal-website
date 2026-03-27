@@ -84,6 +84,8 @@ export default async function handler(req, res) {
           if (data.id && data.name) existingNodes.push({
             id: data.id, name: data.name, type: data.type || "character",
             aliases: data.aliases || [],
+            excerpt: data.excerpt || "",
+            disambiguation: data.disambiguation || "",
           });
         } catch { /* skip malformed */ }
       }
@@ -110,39 +112,51 @@ Return ONLY valid JSON:
 {
   "entities": [
     {
+      "id": "snake_case_id",
       "name": "Display Name",
       "type": "character | location | faction | artifact | event",
       "excerpt": "One-sentence description",
       "notes": "2–4 paragraphs of prose notes — rich enough to stand alone as a reference file",
       "aliases": ["alias1", "alias2"],
       "connections": [
-        { "target_name": "Other Entity Name", "label": "brief lowercase relationship (max 8 words)" }
+        { "target_id": "exact_id_from_roster_or_this_batch", "label": "brief lowercase relationship (max 8 words)" }
       ]
     }
   ],
   "mentions": [
     {
+      "id": "snake_case_id",
       "name": "Display Name",
       "type": "character | location | faction | artifact | event",
       "excerpt": "One-sentence description",
       "connections": [
-        { "target_name": "Other Entity Name", "label": "brief lowercase relationship (max 8 words)" }
+        { "target_id": "exact_id_from_roster_or_this_batch", "label": "brief lowercase relationship (max 8 words)" }
       ]
     }
   ]
 }
 
-Rules:
+ID rules (CRITICAL for disambiguation):
+- For EXISTING nodes in the roster below: use their EXACT id as shown — never invent a new id for them
+- For NEW entities you are creating: invent a snake_case id (e.g. \"maren_ashveil\", \"salt_warren\")
+- Connection target_id must be either an existing roster id OR the id you assigned to another entity/mention in this extraction
+- If a partial name in the text (e.g. \"Vane\") could match multiple existing nodes, use the excerpt and context to pick the correct id
+
+Other rules:
 - Names must match the text exactly (proper capitalisation)
-- All connection target_names must be the display name of another entity in this same text (major or minor) OR an existing graph node listed below — ids will be assigned after
-- Aliases should capture shorthand references (e.g. "Sable" for "Sable Voss")
+- Aliases should capture shorthand references (e.g. \"Sable\" for \"Sable Voss\")
 - Do not invent entities not present in the text
-- Do not include truly unnamed walk-ons (e.g. "a guard", "some merchants")
+- Do not include truly unnamed walk-ons (e.g. \"a guard\", \"some merchants\")
 - Every mention MUST have at least one connection to a major entity or existing graph node — do not emit isolated mentions
-- If an existing graph node (listed below) appears in the text with meaningful new information, include it as a MAJOR entity with its exact name — the system will merge the new notes into the existing profile without duplicating it`;
+- If an existing graph node (listed below) appears in the text with meaningful new information, include it as a MAJOR entity using its EXACT existing id and name — the system will merge the new notes into the existing profile without duplicating it`;
 
     const existingCtx = existingNodes.length > 0
-      ? `\n\nEXISTING GRAPH NODES — if one of these appears in the text with new information, include it in "entities" using the exact same name and the system will merge automatically; otherwise reference them only as connection targets:\n${existingNodes.map(n => `  ${n.name} (${n.type})`).join("\n")}`
+      ? `\n\nEXISTING GRAPH NODES — use the exact id for any references to these in target_id fields:\n${existingNodes.map(n => {
+          const parts = [`  id: "${n.id}"  name: "${n.name}" (${n.type})${n.excerpt ? ` | ${n.excerpt}` : ""}`];
+          if (n.aliases?.length) parts.push(`    aliases: ${n.aliases.join(", ")}`);
+          if (n.disambiguation) parts.push(`    disambiguation: ${n.disambiguation}`);
+          return parts.join("\n");
+        }).join("\n")}`
       : "";
 
     const userPrompt = `Extract all entities from the following text.${existingCtx}\n\nTEXT:\n${rawText}`;
@@ -175,20 +189,22 @@ Rules:
     // Reserve existing node IDs to avoid collisions
     for (const n of existingNodes) usedSlugs.add(n.id);
 
-    const entitiesWithIds = entities.map((e) => {
-      // Check if this entity matches an existing node by name or alias
+    const existingIdSet = new Set(existingNodes.map((n) => n.id));
+
+    const resolveEntityId = (e, usedSlugs) => {
+      // Priority 1: AI provided an id that matches an existing node exactly → merge
+      if (e.id && existingIdSet.has(e.id)) return { ...e, _isExisting: true };
+      // Priority 2: Name/alias match (graceful fallback for older-format responses)
       const existingId = existingNameToId.get(e.name.toLowerCase());
       if (existingId) return { ...e, id: existingId, _isExisting: true };
-      const id = uniqueSlug(safeSlug(e.name), usedSlugs);
+      // New entity: use AI-provided id (sanitised) or derive from name
+      const baseSlug = e.id ? safeSlug(e.id) : safeSlug(e.name);
+      const id = uniqueSlug(baseSlug, usedSlugs);
       return { ...e, id, _isExisting: false };
-    });
-    const mentionsWithIds = mentions.map((m) => {
-      // If this mention matches an existing node, reuse that ID (no new grey node needed)
-      const existingId = existingNameToId.get(m.name.toLowerCase());
-      if (existingId) return { ...m, id: existingId, _isExisting: true };
-      const id = uniqueSlug(safeSlug(m.name), usedSlugs);
-      return { ...m, id, _isExisting: false };
-    });
+    };
+
+    const entitiesWithIds = entities.map((e) => resolveEntityId(e, usedSlugs));
+    const mentionsWithIds = mentions.map((m) => resolveEntityId(m, usedSlugs));
 
     // Build name→id map: current batch (major + minor) + existing graph nodes
     const nameToId = new Map();
@@ -207,12 +223,29 @@ Rules:
     const updatedNodes = [];
     const createdMentions = [];
 
-    // Helper: resolve connections for any entity/mention
+    // Build a set of all IDs in this batch for target_id validation
+    const batchIdSet = new Set([
+      ...entitiesWithIds.map((e) => e.id),
+      ...mentionsWithIds.map((m) => m.id),
+    ]);
+
+    // Helper: resolve connections for any entity/mention.
+    // Prefers target_id (direct ID reference) over target_name (legacy name lookup).
     function resolveConnections(rawConns, selfId) {
       const seen = new Set();
       return (rawConns || [])
         .map((c) => {
-          const targetId = nameToId.get((c.target_name || "").toLowerCase());
+          let targetId;
+          // target_id: AI committed to a specific node id — use directly if valid
+          if (c.target_id) {
+            if (existingIdSet.has(c.target_id) || batchIdSet.has(c.target_id)) {
+              targetId = c.target_id;
+            }
+          }
+          // target_name: legacy fallback (graceful degradation)
+          if (!targetId && c.target_name) {
+            targetId = nameToId.get(c.target_name.toLowerCase());
+          }
           if (!targetId || targetId === selfId) return null;
           if (seen.has(targetId)) return null;
           seen.add(targetId);

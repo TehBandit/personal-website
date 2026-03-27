@@ -1,34 +1,34 @@
 {
-  "id": "fen_caldra",
-  "name": "Fen Caldra",
-  "type": "character",
-  "excerpt": "A careful and discreet operator of a private transport service.",
-  "aliases": [
-    "Fen",
-    "Caldra"
-  ],
-  "connections": [
-    {
-      "target": "sunken_ledger",
-      "label": "secretly possesses",
-      "sourceFile": "fen-caldra.txt"
-    },
-    {
-      "target": "orris_vane",
-      "label": "has leverage over",
-      "sourceFile": "fen-caldra.txt"
-    },
-    {
-      "target": "maren_ashveil",
-      "label": "intrigued by",
-      "sourceFile": "fen-caldra.txt"
-    },
-    {
-      "target": "waystation_on_the_moorland",
-      "label": "operates near",
-      "sourceFile": "fen-caldra.txt"
-    }
-  ],
-  "notes": "Fen Caldra is in his mid-40s, born in Tiveck, and has spent his life near the waterfront. He operates a small private transport service with two vessels and a trusted crew. Known for reliability and discretion, he uses the Salt Warren for gray-market storage. He discovered the Sunken Ledger six years ago and has kept it hidden. Fen has leverage over Orris Vane through a forged customs document and finds Maren Ashveil intriguing, suspecting she seeks the Ledger.",
-  "sourceFile": "fen-caldra.txt"
+    "id":  "fen_caldra",
+    "name":  "Fen Caldra",
+    "type":  "character",
+    "excerpt":  "A careful and discreet operator of a private transport service.",
+    "aliases":  [
+                    "Fen",
+                    "Caldra"
+                ],
+    "connections":  [
+                        {
+                            "target":  "sunken_ledger",
+                            "label":  "secretly possesses",
+                            "sourceFile":  "fen-caldra.txt"
+                        },
+                        {
+                            "target":  "orris_vane",
+                            "label":  "has leverage over",
+                            "sourceFile":  "fen-caldra.txt"
+                        },
+                        {
+                            "target":  "maren_ashveil",
+                            "label":  "intrigued by",
+                            "sourceFile":  "fen-caldra.txt"
+                        },
+                        {
+                            "target":  "waystation_on_the_moorland",
+                            "label":  "operates near",
+                            "sourceFile":  "fen-caldra.txt"
+                        }
+                    ],
+    "notes":  "Background: Fen is in his mid-40s. Born in Tiveck, grew up on the docks, has never lived more than two miles from the waterfront. Spent his twenties working legitimate cargo vessels. Spent his thirties expanding his understanding of what \"cargo\" can mean. He now operates a small private transport service — two vessels, a rotating crew of four he trusts, and a reputation in certain circles for reliability and discretion. He is not violent. He is careful, which is a more sustainable quality.\n\nCurrent operations: He runs cargo through the Salt Warren, a network of tidal caves and excavated chambers beneath the eastern cliff face of Tiveck. The Warren has been used for gray-market storage for generations — Fen didn\u0027t build it, he just maintains the right relationships to use it. He stores things there for people who don\u0027t want certain items in official warehouses. He asks what things are only when he needs to know for handling purposes.\n\nThe Sunken Ledger: Fen knows what it is. He found it six years ago in a sealed crate he was clearing from a Warren chamber the previous operator had abandoned. He read enough to understand its value — and its danger. He has not sold it, shown it to anyone, or destroyed it. It is still in the Warren, in a location only he knows. He has thought about what to do with it for six years and has not yet decided.\n\nRelationship with Orrus Vane: Complex. Fen has leverage over Orrus in the form of the Warden\u0027s Seal — a forged customs document that Fen commissioned and then used to implicate Orrus in a cargo irregularity years ago. Orrus knows Fen has it. This is not a friendship. It is a functional arrangement that has kept both of them out of serious trouble for a long time. Fen would prefer not to use it. He keeps it because having it is useful.\n\nRelationship with Maren Ashveil: He finds her interesting, which is unusual. Most of his clients are easy to read. Maren is harder. He\u0027s transported her twice without issue and done two small errands for her. He has not told her about the Ledger. He is fairly confident she is looking for it. He has not decided what to do about this.\n\nPersonality: Unhurried. Speaks in short sentences and waits to see how people respond to silence before continuing. Generous with small things — he\u0027ll buy a round, help carry something, remember a name. Careful with large ones. Doesn\u0027t make promises he hasn\u0027t already planned to keep.\n\nPhysical details: Stocky, weathered, gray coming into dark hair. Missing the top joint of the index finger on his right hand — lost it to a winch, years ago. Usually has a cup of something warm nearby that he forgets to drink.",
+    "sourceFile":  "fen-caldra.txt"
 }

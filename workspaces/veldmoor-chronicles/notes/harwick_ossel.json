@@ -1,0 +1,30 @@
+{
+  "id": "harwick_ossel",
+  "name": "Harwick Ossel",
+  "type": "character",
+  "excerpt": "Harwick Ossel is the deputy to Chief Surveyor Vane, handling operational responsibilities.",
+  "notes": "Harwick Ossel serves as the deputy to Chief Surveyor Vane in the Cartographic Division. He has taken on the operational responsibilities of the Division, indicating a significant level of trust and authority. Ossel's role involves managing the day-to-day functions of the Division, including overseeing the staff and ensuring the accuracy and integrity of the Division's records.\n\nHarwick Ossel is a Senior Surveyor of the Admiralty and currently serves as the deputy head of the Cartographic Division. He is fifty-three, heavyset, with a deliberate manner that reads as gravitas to those who admire him and as obstruction to those who have worked against him. Ossel came up through the navigational corps the conventional way — thirty years of service, careful alliances, and a talent for being indispensable to whoever was making decisions at any given time. His skill is organizational, knowing where things are filed, who controls access to what, and which requests can be delayed indefinitely without formal objection. A complaint filed against him by Rella Corse alleged that he had been supplying altered survey data to a private concern, but the investigation found no corroborating evidence. Ossel lives in the upper district of Tiveck in rented accommodation considerably nicer than a deputy surveyor's salary would normally support. He is a member of two Admiralty social committees and is regarded as a capable administrator. There is a standing rumor — unverified — that he has a private arrangement with someone in the Deepwater Guild, which would constitute a significant breach of the Compact of Survey Rights.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "cartographic_division",
+      "label": "deputy in"
+    },
+    {
+      "target": "chief_surveyor_vane",
+      "label": "deputy to"
+    },
+    {
+      "target": "admiralty",
+      "label": "senior surveyor"
+    },
+    {
+      "target": "deepwater_guild",
+      "label": "rumored private arrangement"
+    }
+  ],
+  "sourceFile": "bulk_test/harwick_ossel.md",
+  "tags": [
+    "veldmoor"
+  ]
+}

@@ -2,16 +2,10 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import ForceGraph2D from "react-force-graph-2d";
 import Header from "../components/Header.jsx";
 import FilesEditor from "../components/FilesEditor.jsx";
-import { X, Network, Upload, FileText, CheckCircle, AlertCircle, RotateCcw, ChevronDown, Search, Crosshair, SlidersHorizontal, Folder } from "lucide-react";
+import { X, Network, Upload, FileText, CheckCircle, AlertCircle, RotateCcw, ChevronDown, Search, Crosshair, SlidersHorizontal, Folder, FilePlus } from "lucide-react";
 import { NODE_TYPE_CONFIG } from "../constants/nodeTypes.js";
-
-// Darken a hex colour by multiplying each channel by `factor` (0–1)
-function darkenHex(hex, factor = 0.6) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgb(${Math.round(r * factor)}, ${Math.round(g * factor)}, ${Math.round(b * factor)})`;
-}
+import { darkenHex } from "../utils/color.js";
+import { computeOwnFileIds } from "../utils/graphHelpers.js";
 
 const GRAPH_BG = "#0f0f1a";
 
@@ -62,12 +56,16 @@ async function buildFileBody(file) {
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function StoryGraph() {
   const [selectedNode, setSelectedNode] = useState(null);
+  const [selectedNodeFileContent, setSelectedNodeFileContent] = useState(null); // raw file text | null
   const [hoveredNode, setHoveredNode] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchHighlight, setSearchHighlight] = useState(-1);
   const searchInputRef = useRef(null);
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
+  const [disallowedAliases, setDisallowedAliases] = useState(new Set());
+  // Imperative API surfaced by FilesEditor once it has loaded its file list
+  const filesEditorApi = useRef(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
 
@@ -85,6 +83,14 @@ export default function StoryGraph() {
   const [extractError, setExtractError] = useState(null);
   const [uploadFiles, setUploadFiles] = useState([]);    // bulk: multiple files from a folder
   const [bulkProgress, setBulkProgress] = useState(null); // { current, total, currentName }
+
+  // Files list — seeded by a direct fetch on workspace load, then kept current
+  // by FilesEditor's onFilesChange prop. Using both sources means nodes are
+  // already coloured on the first render (direct fetch runs in parallel with
+  // the graph fetch), and any add/delete in the editor propagates immediately.
+  const [storyFiles, setStoryFiles] = useState([]);
+  // Error state for node-level actions (e.g. "Add Notes" failure)
+  const [nodeActionError, setNodeActionError] = useState(null);
 
   // Workspace hierarchy
   const [workspaces, setWorkspaces] = useState([]);
@@ -159,6 +165,7 @@ export default function StoryGraph() {
       })
       .then((data) => {
         setGraphData(data);
+        setDisallowedAliases(new Set((data.disallowedAliases || []).map((a) => a.toLowerCase())));
         if (!silent) setLoading(false);
       })
       .catch((err) => {
@@ -199,44 +206,22 @@ export default function StoryGraph() {
     return () => clearInterval(interval);
   }, [loadGraph, workspace]);
 
-  // Track which nodes have their own notes-raw file
-  const [rawFileSet, setRawFileSet] = useState(new Set());
+  // ownFileIds: node ids that have a dedicated notes-raw file.
+  // Seeded immediately from a direct fetch when workspace loads (so nodes are
+  // coloured on the very first render, in parallel with the graph fetch).
+  // Kept current afterwards by FilesEditor's onFilesChange prop.
   useEffect(() => {
     if (!workspace) return;
     fetch(`/api/notes-raw-list?workspace=${encodeURIComponent(workspace)}`)
       .then((r) => r.json())
-      .then((d) => setRawFileSet(new Set((d.files || []).map((f) => f.filename))))
+      .then((d) => setStoryFiles(d.files || []))
       .catch(() => {});
-  }, [graphData, workspace]); // re-check whenever graph reloads or workspace changes
+  }, [workspace]); // workspace only — not graphData, so polling reloads don't cause double-fetches
 
-  // node ids that have a dedicated notes-raw file
-  const ownFileIds = useMemo(() => {
-    const ids = new Set();
-    // Build a set of basenames so e.g. "notes-raw/maren-ashveil.md" → "maren-ashveil.md"
-    const rawBasenames = new Set([...rawFileSet].map((f) => f.split("/").pop()));
-    for (const node of graphData.nodes) {
-      // Direct sourceFile match (derive-generated nodes store the exact relative path)
-      if (node.sourceFile && rawFileSet.has(node.sourceFile)) {
-        ids.add(node.id);
-        continue;
-      }
-      // Any additionalSourceFiles present in rawFileSet (merged nodes)
-      if ((node.additionalSourceFiles || []).some((sf) => rawFileSet.has(sf))) {
-        ids.add(node.id);
-        continue;
-      }
-      // Name-stem matching for manually-named files — check both hyphen and underscore variants
-      const stemHyphen = node.id.replace(/_/g, "-");
-      const stemUnder = node.id;
-      if (
-        rawBasenames.has(stemHyphen + ".md") || rawBasenames.has(stemHyphen + ".txt") ||
-        rawBasenames.has(stemUnder + ".md") || rawBasenames.has(stemUnder + ".txt")
-      ) {
-        ids.add(node.id);
-      }
-    }
-    return ids;
-  }, [graphData.nodes, rawFileSet]);
+  const ownFileIds = useMemo(
+    () => computeOwnFileIds(graphData.nodes, storyFiles),
+    [graphData.nodes, storyFiles]
+  );
 
   // Degree map: node id → number of connections
   const degreeMap = useMemo(() => {
@@ -312,19 +297,7 @@ export default function StoryGraph() {
     setExtractResult(null);
 
     try {
-      let body;
-      if (uploadFile.name.endsWith(".docx")) {
-        const arrayBuffer = await uploadFile.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        let binary = "";
-        const CHUNK = 8192;
-        for (let i = 0; i < bytes.length; i += CHUNK) {
-          binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-        }
-        body = { base64: btoa(binary), type: "docx" };
-      } else {
-        body = { text: await uploadFile.text(), type: "txt" };
-      }
+      const body = await buildFileBody(uploadFile);
 
       const res = await fetch("/api/story-derive", {
         method: "POST",
@@ -390,7 +363,43 @@ export default function StoryGraph() {
     setExtracting(false);
     setBulkProgress(null);
     loadGraph();
-    setExtractResult({ mode: "bulk", results, errors, totalFiles: uploadFiles.length });
+    setExtractResult({ mode: "bulk", submode: "derive", results, errors, totalFiles: uploadFiles.length });
+  };
+
+  const handleBulkExtract = async () => {
+    if (!uploadFiles.length) return;
+    setExtracting(true);
+    setExtractError(null);
+    setExtractResult(null);
+
+    const results = [];
+    const errors = [];
+
+    for (let i = 0; i < uploadFiles.length; i++) {
+      const file = uploadFiles[i];
+      setBulkProgress({ current: i + 1, total: uploadFiles.length, currentName: file.name });
+      try {
+        const body = await buildFileBody(file);
+        const bodyWithFilename = file.name.endsWith(".docx")
+          ? { ...body, filename: file.name }
+          : { ...body, filename: file.name.replace(/\.txt$/i, ".md") };
+        const res = await fetch("/api/story-extract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...bodyWithFilename, workspace, folderName: uploadFolderName.trim() || undefined }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
+        results.push({ file: file.name, ...data });
+      } catch (err) {
+        errors.push({ file: file.name, error: err.message });
+      }
+    }
+
+    setExtracting(false);
+    setBulkProgress(null);
+    loadGraph();
+    setExtractResult({ mode: "bulk", submode: "note", results, errors, totalFiles: uploadFiles.length });
   };
 
   const handleExtract = async () => {
@@ -399,23 +408,10 @@ export default function StoryGraph() {
     setExtractResult(null);
 
     try {
-      let body;
-      if (uploadFile.name.endsWith(".docx")) {
-        const arrayBuffer = await uploadFile.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        // btoa(String.fromCharCode(...bytes)) blows the call stack on large files.
-        // Chunk the array into safe slices instead.
-        let binary = "";
-        const CHUNK = 8192;
-        for (let i = 0; i < bytes.length; i += CHUNK) {
-          binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-        }
-        const base64 = btoa(binary);
-        body = { base64, type: "docx", filename: uploadFile.name };
-      } else {
-        const text = await uploadFile.text();
-        body = { text, type: "txt", filename: uploadFile.name.replace(/\.txt$/i, ".md") };
-      }
+      const body = {
+        ...(await buildFileBody(uploadFile)),
+        filename: uploadFile.name.endsWith(".docx") ? uploadFile.name : uploadFile.name.replace(/\.txt$/i, ".md"),
+      };
 
       const res = await fetch("/api/story-extract", {
         method: "POST",
@@ -438,12 +434,46 @@ export default function StoryGraph() {
 
   // Measure the graph container — ref kept for future use
   // react-force-graph-2d auto-fills its container when no width/height props are passed
+  // Resolve and open a node's own raw file in the editor.
+  const openNodeFile = useCallback((node) => {
+    if (!ownFileIds.has(node.id)) return;
+    const api = filesEditorApi.current;
+    if (!api?.openFileByName) return;
+    const stemHyphen = node.id.replace(/_/g, "-");
+    const stemUnder  = node.id;
+    const fileSet    = new Set(storyFiles.map((f) => f.filename));
+    const basenameToFull = new Map(storyFiles.map((f) => [f.filename.split("/").pop(), f.filename]));
+    const gNode = graphData.nodes.find((n) => n.id === node.id);
+    const addl = (gNode?.additionalSourceFiles || []).find((sf) => fileSet.has(sf));
+    const filename =
+      addl ??
+      basenameToFull.get(stemHyphen + ".md") ??
+      basenameToFull.get(stemHyphen + ".txt") ??
+      basenameToFull.get(stemUnder  + ".md") ??
+      basenameToFull.get(stemUnder  + ".txt");
+    if (!filename) return;
+    setActiveTab("files");
+    setTimeout(() => api.openFileByName(filename), 80);
+  }, [ownFileIds, graphData.nodes, storyFiles]);
+
+  // react-force-graph-2d has no native onNodeDblClick — detect via click timing.
+  const lastNodeClickRef = useRef({ id: null, time: 0 });
 
   const handleNodeClick = useCallback((node) => {
     setSelectedNode(node);
     fgRef.current?.centerAt(node.x, node.y, 600);
     fgRef.current?.zoom(2.2, 600);
-  }, []);
+
+    // Double-click detection: same node clicked within 350 ms
+    const now = Date.now();
+    const last = lastNodeClickRef.current;
+    if (last.id === node.id && now - last.time < 350) {
+      lastNodeClickRef.current = { id: null, time: 0 };
+      openNodeFile(node);
+    } else {
+      lastNodeClickRef.current = { id: node.id, time: now };
+    }
+  }, [openNodeFile]);
 
   const commitSearch = useCallback((node) => {
     setSearchQuery("");
@@ -453,10 +483,19 @@ export default function StoryGraph() {
     handleNodeClick(node);
   }, [handleNodeClick]);
 
-  // Search suggestions — nodes whose name contains the query (case-insensitive)
+  // Search suggestions — nodes matching by name (or by tag when query starts with "tag:")
   const searchSuggestions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return [];
+    const isTagSearch = q.startsWith("tag:");
+    const tagQ = isTagSearch ? q.slice(4).trim() : null;
+    if (isTagSearch) {
+      if (!tagQ) return [];
+      return graphData.nodes
+        .filter((n) => (n.tags || []).some((t) => t.includes(tagQ)))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .slice(0, 12);
+    }
     return graphData.nodes
       .filter((n) => n.name.toLowerCase().includes(q))
       .sort((a, b) => {
@@ -662,21 +701,90 @@ export default function StoryGraph() {
     ctx.fill();
   }, [nodeRadius]);
 
-  // Connections list for the detail panel
-  const getNodeConnections = (node) =>
-    graphData.links
+  // Create a dedicated notes file for a grey (no-file) node then open it in the editor
+  const handleAddNotes = useCallback((node) => {
+    if (!filesEditorApi.current || !workspace) return;
+    const stem = node.id.replace(/_/g, "-");
+    const filename = stem + ".md";
+    const title = node.name;
+    const body = node.notes?.trim() ? node.notes.trim() : node.excerpt?.trim() ?? "";
+    const content = `# ${title}\n\n${body}`;
+    fetch(
+      `/api/notes-raw-file?filename=${encodeURIComponent(filename)}&workspace=${encodeURIComponent(workspace)}`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) }
+    )
+      .then((r) => r.ok ? r.json() : Promise.reject(r))
+      .then(() => {
+        setActiveTab("files");
+        const { openFileByName, loadFiles } = filesEditorApi.current;
+        if (loadFiles) loadFiles();
+        setTimeout(() => openFileByName(filename), 80);
+        loadGraph(true);
+      })
+      .catch((err) => {
+        console.error("handleAddNotes failed:", err);
+        setNodeActionError("Failed to create notes file");
+        setTimeout(() => setNodeActionError(null), 3000);
+      });
+  }, [workspace, loadGraph]);
+
+  // Connections list for the selected node — memoized to avoid double-compute in render
+  // Show raw file content preview for nodes that own a file.
+  // Prefer filePreview baked into the graph cache (instant, no fetch).
+  // Fall back to a fetch only if the cache predates this feature.
+  useEffect(() => {
+    if (!selectedNode || !workspace || !ownFileIds.has(selectedNode.id)) {
+      setSelectedNodeFileContent(null);
+      return;
+    }
+    // Fast path: graph cache already has the preview
+    if (selectedNode.filePreview !== undefined) {
+      setSelectedNodeFileContent({ id: selectedNode.id, content: selectedNode.filePreview });
+      return;
+    }
+    // Slow path: fetch from API (cache not yet rebuilt)
+    const stemHyphen = selectedNode.id.replace(/_/g, "-");
+    const stemUnder  = selectedNode.id;
+    const fileSet    = new Set(storyFiles.map((f) => f.filename));
+    const basenameToFull = new Map(storyFiles.map((f) => [f.filename.split("/").pop(), f.filename]));
+    const gNode = graphData.nodes.find((n) => n.id === selectedNode.id);
+    const addl = (gNode?.additionalSourceFiles || []).find((sf) => fileSet.has(sf));
+    const filename =
+      addl ??
+      basenameToFull.get(stemHyphen + ".md") ??
+      basenameToFull.get(stemHyphen + ".txt") ??
+      basenameToFull.get(stemUnder  + ".md") ??
+      basenameToFull.get(stemUnder  + ".txt");
+    if (!filename) { setSelectedNodeFileContent(null); return; }
+    const nodeId = selectedNode.id;
+    fetch(`/api/notes-raw-file?filename=${encodeURIComponent(filename)}&workspace=${encodeURIComponent(workspace)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (!d?.content) { setSelectedNodeFileContent(null); return; }
+        const body = d.content.replace(/^[^\n]*\n\n?/, "").trimStart();
+        const LIMIT = 600;
+        const preview = body.length > LIMIT ? body.slice(0, LIMIT).trimEnd() + "…" : body;
+        setSelectedNodeFileContent({ id: nodeId, content: preview });
+      })
+      .catch(() => setSelectedNodeFileContent(null));
+  }, [selectedNode, workspace, ownFileIds, storyFiles, graphData.nodes]);
+
+  const selectedNodeConnections = useMemo(() => {
+    if (!selectedNode) return [];
+    return graphData.links
       .filter((l) => {
         const s = typeof l.source === "object" ? l.source.id : l.source;
         const t = typeof l.target === "object" ? l.target.id : l.target;
-        return s === node.id || t === node.id;
+        return s === selectedNode.id || t === selectedNode.id;
       })
       .map((l) => {
         const s = typeof l.source === "object" ? l.source.id : l.source;
         const t = typeof l.target === "object" ? l.target.id : l.target;
-        const otherId = s === node.id ? t : s;
+        const otherId = s === selectedNode.id ? t : s;
         const other = graphData.nodes.find((n) => n.id === otherId);
         return { other, label: l.label };
       });
+  }, [selectedNode, graphData.links, graphData.nodes]);
 
   if (loading) {
     return (
@@ -768,6 +876,9 @@ export default function StoryGraph() {
             onCreateWorkspace={handleCreateWorkspace}
             nodeTransparent={nodeTransparent}
             nodeBorder={nodeBorder}
+            disallowedAliases={disallowedAliases}
+            onReady={(api) => { filesEditorApi.current = api; }}
+            onFilesChange={setStoryFiles}
           />
         </div>
 
@@ -962,6 +1073,9 @@ export default function StoryGraph() {
                 {searchSuggestions.map((node, idx) => {
                   const cfg = NODE_TYPE_CONFIG[node.type] || NODE_TYPE_CONFIG.character;
                   const isHighlighted = idx === searchHighlight;
+                  const isTagSearch = searchQuery.trim().toLowerCase().startsWith("tag:");
+                  const tagQ = isTagSearch ? searchQuery.trim().toLowerCase().slice(4).trim() : null;
+                  const matchingTags = isTagSearch ? (node.tags || []).filter((t) => t.includes(tagQ)) : [];
                   return (
                     <button
                       key={node.id}
@@ -980,12 +1094,17 @@ export default function StoryGraph() {
                       <span className="text-sm truncate" style={{ color: "rgba(255,255,255,0.8)" }}>
                         {node.name}
                       </span>
-                      <span
-                        className="text-xs ml-auto flex-shrink-0"
-                        style={{ color: "rgba(255,255,255,0.25)" }}
-                      >
-                        {cfg.label}
-                      </span>
+                      {matchingTags.length > 0 ? (
+                        <div className="ml-auto flex gap-1 flex-shrink-0">
+                          {matchingTags.map((t) => (
+                            <span key={t} className="text-[10px] px-1 rounded" style={{ backgroundColor: "rgba(96,165,250,0.15)", color: "#93c5fd" }}>#{t}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs ml-auto flex-shrink-0" style={{ color: "rgba(255,255,255,0.25)" }}>
+                          {cfg.label}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -1008,7 +1127,6 @@ export default function StoryGraph() {
             onEngineStop={() => fgRef.current?.zoomToFit(500, 80)}
             d3AlphaDecay={0.025}
             d3VelocityDecay={0.3}
-            onNodeDblClick={(node) => setFocusNode((prev) => prev?.id === node.id ? null : node)}
           />
 
           {/* Settings button + popover — top-right of graph canvas */}
@@ -1145,27 +1263,22 @@ export default function StoryGraph() {
             style={{ backgroundColor: "#13131f", borderColor: "rgba(255,255,255,0.07)" }}
           >
             {/* Header */}
-            <div className="p-5 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full"
-                      style={{ backgroundColor: ownFileIds.has(selectedNode.id) ? NODE_TYPE_CONFIG[selectedNode.type]?.color : "#6b7280" }}
-                    />
-                    <span
-                      className="text-xs font-semibold uppercase tracking-widest"
-                      style={{ color: "rgba(255,255,255,0.35)" }}
-                    >
-                      {NODE_TYPE_CONFIG[selectedNode.type]?.label}
-                    </span>
-                  </div>
-                  <h2 className="text-lg font-semibold text-white leading-tight">{selectedNode.name}</h2>
-                  <p className="text-sm mt-1" style={{ color: "rgba(255,255,255,0.45)" }}>
-                    {selectedNode.excerpt}
-                  </p>
+            <div className="px-5 pt-4 pb-4 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+              {/* Top row: type badge + icon buttons */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: ownFileIds.has(selectedNode.id) ? NODE_TYPE_CONFIG[selectedNode.type]?.color : "#6b7280" }}
+                  />
+                  <span
+                    className="text-xs font-semibold uppercase tracking-widest"
+                    style={{ color: "rgba(255,255,255,0.35)" }}
+                  >
+                    {NODE_TYPE_CONFIG[selectedNode.type]?.label}
+                  </span>
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+                <div className="flex items-center gap-1">
                   <button
                     onClick={() => setFocusNode((prev) => prev?.id === selectedNode.id ? null : selectedNode)}
                     title={focusNode?.id === selectedNode.id ? "Exit focus mode" : "Focus on this node (double-click also works)"}
@@ -1187,6 +1300,41 @@ export default function StoryGraph() {
                   </button>
                 </div>
               </div>
+
+              {/* Name */}
+              <h2
+                className="text-lg font-semibold leading-tight"
+                style={ownFileIds.has(selectedNode.id) ? { color: "#fff", cursor: "pointer", textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.25)", textUnderlineOffset: 3 } : { color: "#fff" }}
+                onClick={() => openNodeFile(selectedNode)}
+                title={ownFileIds.has(selectedNode.id) ? "Open file" : undefined}
+              >
+                {selectedNode.name}
+              </h2>
+
+              {/* Excerpt */}
+              <p className="text-sm mt-1.5" style={{ color: "rgba(255,255,255,0.45)" }}>
+                {selectedNode.excerpt}
+              </p>
+
+              {/* Add notes button (grey nodes only) */}
+              {!ownFileIds.has(selectedNode.id) && (
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    onClick={() => handleAddNotes(selectedNode)}
+                    title="Create a notes file for this node"
+                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md transition-colors"
+                    style={{ color: "rgba(255,255,255,0.5)", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.11)"; e.currentTarget.style.color = "#fff"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.5)"; }}
+                  >
+                    <FilePlus size={13} />
+                    Add notes
+                  </button>
+                  {nodeActionError && (
+                    <span className="text-xs" style={{ color: "#f87171" }}>{nodeActionError}</span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Notes */}
@@ -1201,7 +1349,15 @@ export default function StoryGraph() {
                 className="text-sm leading-relaxed whitespace-pre-line"
                 style={{ color: "rgba(255,255,255,0.65)" }}
               >
-                {selectedNode.notes}
+                {(() => {
+                  if (ownFileIds.has(selectedNode.id)) {
+                    const content = selectedNodeFileContent?.id === selectedNode.id
+                      ? selectedNodeFileContent.content
+                      : null;
+                    return content ?? null;
+                  }
+                  return selectedNode.notes;
+                })()}
               </p>
             </div>
 
@@ -1211,10 +1367,10 @@ export default function StoryGraph() {
                 className="text-xs font-semibold uppercase tracking-widest mb-3"
                 style={{ color: "rgba(255,255,255,0.3)" }}
               >
-                Connections ({getNodeConnections(selectedNode).length})
+                Connections ({selectedNodeConnections.length})
               </p>
               <div className="flex flex-col gap-1">
-                {getNodeConnections(selectedNode).map(({ other, label }, i) =>
+                {selectedNodeConnections.map(({ other, label }, i) =>
                   other ? (
                     <button
                       key={i}
@@ -1312,14 +1468,24 @@ export default function StoryGraph() {
                       </p>
                       <div className="w-full flex flex-col gap-1 mt-1 max-h-52 overflow-y-auto">
                         {extractResult.results.map((r) => {
-                          const created = r.nodesCreated?.length ?? 0;
-                          const updated = r.nodesUpdated?.length ?? 0;
-                          const mentions = r.mentionsCreated?.length ?? 0;
-                          const summary = [
-                            created > 0 && `${created} new`,
-                            updated > 0 && `${updated} updated`,
-                            mentions > 0 && `${mentions} minor`,
-                          ].filter(Boolean).join(" · ") || (r.alreadyDerived ? "unchanged" : "no changes");
+                          let summary;
+                          if (extractResult.submode === "note") {
+                            const created = r.added ?? 0;
+                            const updated = r.updated ?? 0;
+                            summary = [
+                              created > 0 && `${created} new`,
+                              updated > 0 && `${updated} updated`,
+                            ].filter(Boolean).join(" · ") || "no changes";
+                          } else {
+                            const created = r.nodesCreated?.length ?? 0;
+                            const updated = r.nodesUpdated?.length ?? 0;
+                            const mentions = r.mentionsCreated?.length ?? 0;
+                            summary = [
+                              created > 0 && `${created} new`,
+                              updated > 0 && `${updated} updated`,
+                              mentions > 0 && `${mentions} minor`,
+                            ].filter(Boolean).join(" · ") || (r.alreadyDerived ? "unchanged" : "no changes");
+                          }
                           return (
                             <div key={r.file} className="flex items-center gap-2 text-xs">
                               <CheckCircle size={10} className="text-emerald-400 flex-shrink-0" />
@@ -1337,8 +1503,12 @@ export default function StoryGraph() {
                         ))}
                       </div>
                       {(() => {
-                        const tc = extractResult.results.reduce((s, r) => s + (r.nodesCreated?.length ?? 0), 0);
-                        const tu = extractResult.results.reduce((s, r) => s + (r.nodesUpdated?.length ?? 0), 0);
+                        const tc = extractResult.submode === "note"
+                          ? extractResult.results.reduce((s, r) => s + (r.added ?? 0), 0)
+                          : extractResult.results.reduce((s, r) => s + (r.nodesCreated?.length ?? 0), 0);
+                        const tu = extractResult.submode === "note"
+                          ? extractResult.results.reduce((s, r) => s + (r.updated ?? 0), 0)
+                          : extractResult.results.reduce((s, r) => s + (r.nodesUpdated?.length ?? 0), 0);
                         return (tc > 0 || tu > 0) && (
                           <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
                             {[tc > 0 && `${tc} nodes created`, tu > 0 && `${tu} existing updated`].filter(Boolean).join(" · ")}
@@ -1488,21 +1658,19 @@ export default function StoryGraph() {
                       borderColor: dragOver ? "#60a5fa" : "rgba(255,255,255,0.12)",
                       backgroundColor: dragOver ? "rgba(96,165,250,0.06)" : "transparent",
                     }}
-                    onClick={() => uploadMode === "derive" ? folderInputRef.current?.click() : fileInputRef.current?.click()}
+                    onClick={() => folderInputRef.current?.click()}
                     onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                     onDragLeave={() => setDragOver(false)}
                     onDrop={async (e) => {
                       e.preventDefault();
                       setDragOver(false);
-                      if (uploadMode === "derive") {
-                        const items = e.dataTransfer.items;
-                        if (items?.length) {
-                          const entry = items[0].webkitGetAsEntry?.();
-                          if (entry?.isDirectory) {
-                            const files = await readDirEntries(entry);
-                            handleFolderSelect(files, entry.name);
-                            return;
-                          }
+                      const items = e.dataTransfer.items;
+                      if (items?.length) {
+                        const entry = items[0].webkitGetAsEntry?.();
+                        if (entry?.isDirectory) {
+                          const files = await readDirEntries(entry);
+                          handleFolderSelect(files, entry.name);
+                          return;
                         }
                       }
                       handleFileSelect(e.dataTransfer.files[0]);
@@ -1531,19 +1699,15 @@ export default function StoryGraph() {
                       <>
                         <Upload size={28} style={{ color: "rgba(255,255,255,0.25)" }} />
                         <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
-                          {uploadMode === "derive"
-                            ? <>Drop a folder here or <span style={{ color: "#93c5fd" }}>browse</span></>
-                            : <>Drop a file here or <span style={{ color: "#93c5fd" }}>browse</span></>}
+                          Drop a file or folder or <span style={{ color: "#93c5fd" }}>browse</span>
                         </p>
-                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
-                          {uploadMode === "derive" ? "Drag & drop a folder to process all files at once" : "Supports .txt, .md, and .docx"}
-                        </p>
+                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>Supports .txt, .md, .docx — drop a folder to process all files at once</p>
                       </>
                     )}
                   </div>
 
-                  {/* In derive mode with nothing selected, offer single-file fallback */}
-                  {uploadMode === "derive" && !uploadFile && !uploadFiles.length && (
+                  {/* Fallback: single file picker — always shown when nothing is selected */}
+                  {!uploadFile && !uploadFiles.length && (
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
@@ -1560,13 +1724,13 @@ export default function StoryGraph() {
                   {(uploadFile || uploadFiles.length > 0) && (
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.45)" }}>
-                        {uploadMode === "derive" ? "Folder name" : "Document title"}
+                        {(uploadMode === "derive" || uploadFiles.length > 0) ? "Folder name" : "Document title"}
                       </label>
                       <input
                         type="text"
-                        value={uploadMode === "derive" ? uploadFolderName : uploadTitle}
-                        onChange={(e) => uploadMode === "derive" ? setUploadFolderName(e.target.value) : setUploadTitle(e.target.value)}
-                        placeholder={uploadMode === "derive" ? "e.g. The Sunken Archive" : "e.g. Aldric Senn"}
+                        value={(uploadMode === "derive" || uploadFiles.length > 0) ? uploadFolderName : uploadTitle}
+                        onChange={(e) => (uploadMode === "derive" || uploadFiles.length > 0) ? setUploadFolderName(e.target.value) : setUploadTitle(e.target.value)}
+                        placeholder={uploadMode === "derive" ? "e.g. The Sunken Archive" : uploadFiles.length > 0 ? "Optional — leave blank for uploads/" : "e.g. Aldric Senn"}
                         className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                         style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", caretColor: "#60a5fa" }}
                         spellCheck={false}
@@ -1576,6 +1740,8 @@ export default function StoryGraph() {
                           ? `Each of the ${uploadFiles.length} files will be derived and their entities added to this folder.`
                           : uploadMode === "derive"
                           ? "A folder will be created with this name. Each extracted entity gets its own source file inside it."
+                          : uploadFiles.length > 1
+                          ? `Files will be saved into this folder. Leave blank to save into uploads/.`
                           : "Used as context to help the AI identify the primary subject."}
                       </p>
                     </div>
@@ -1615,7 +1781,11 @@ export default function StoryGraph() {
                       (!uploadFile && !uploadFiles.length) ||
                       (uploadMode === "derive" && !uploadFolderName.trim())
                     }
-                    onClick={uploadFiles.length > 0 ? handleBulkDerive : uploadMode === "derive" ? handleDerive : handleExtract}
+                    onClick={
+                      uploadFiles.length > 0
+                        ? uploadMode === "derive" ? handleBulkDerive : handleBulkExtract
+                        : uploadMode === "derive" ? handleDerive : handleExtract
+                    }
                     className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity"
                     style={{
                       backgroundColor: ((uploadFile || uploadFiles.length > 0) && (uploadMode !== "derive" || uploadFolderName.trim())) ? "#3b82f6" : "rgba(59,130,246,0.3)",
@@ -1624,7 +1794,9 @@ export default function StoryGraph() {
                     }}
                   >
                     {uploadFiles.length > 1
-                      ? `Extract Entities (${uploadFiles.length} files)`
+                      ? uploadMode === "derive"
+                        ? `Extract Entities (${uploadFiles.length} files)`
+                        : `Analyze & Map Connections (${uploadFiles.length} files)`
                       : uploadMode === "derive" ? "Extract Entities" : "Analyze & Map Connections"}
                   </button>
                 </>

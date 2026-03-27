@@ -25,6 +25,10 @@
     {
       "target": "kageyama",
       "label": "son's classmate"
+    },
+    {
+      "target": "volleyball",
+      "label": "references"
     }
   ],
   "sourceFile": "tea_stained_polaroids/bokuto.md"

@@ -1,0 +1,34 @@
+{
+  "id": "cartographic_division",
+  "name": "The Cartographic Division",
+  "type": "faction",
+  "excerpt": "The Cartographic Division is the branch of the Admiralty responsible for maintaining all official navigational charts, survey records, and coastal data for the region.",
+  "notes": "The Cartographic Division operates out of the upper two floors of the Admiralty's main building in Tiveck, with its archive in a separate, humidity-controlled vault in the basement. It employs approximately forty-five people, including surveyors, chart drafters, archivists, and administrative staff. The Division is headed by Chief Surveyor Vane, who has largely delegated operational responsibility to his deputy, Harwick Ossel. The Division's records are authoritative and play a crucial role in resolving disputes about coastal rights, territorial claims, or navigational precedent. Access to the archive is restricted and unauthorized access is treated as a criminal matter. The Division has a formally cooperative but informally complex relationship with the Deepwater Guild, with occasional disputes over survey data.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "admiralty",
+      "label": "branch of"
+    },
+    {
+      "target": "tiveck",
+      "label": "located in"
+    },
+    {
+      "target": "deepwater_guild",
+      "label": "complex relationship with"
+    },
+    {
+      "target": "chief_surveyor_vane",
+      "label": "headed by"
+    },
+    {
+      "target": "harwick_ossel",
+      "label": "operational responsibility delegated to"
+    }
+  ],
+  "sourceFile": "bulk_test/cartographic_division.md",
+  "tags": [
+    "veldmoor"
+  ]
+}

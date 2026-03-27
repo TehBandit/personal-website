@@ -66,10 +66,107 @@ export function rebuildGraphCache(workspace, notesDir) {
       }
     }
 
-    // Third pass: build graph cache from surviving nodes
+    // Third pass: alias deduplication with persistent blacklist.
+    //
+    // disallowed-aliases.json stores every alias that has EVER been flagged as
+    // ambiguous for this workspace. Once blacklisted, an alias can never be used
+    // by any node — even after the original conflict is resolved — preventing the
+    // order-of-operations problem where removing from node A would let node B
+    // keep the alias unchallenged.
+    const disallowedPath = path.join(wsDir, "disallowed-aliases.json");
+    let disallowedAliases; // Set<string> of lowercase blacklisted aliases
+    try {
+      const raw = JSON.parse(fs.readFileSync(disallowedPath, "utf-8"));
+      disallowedAliases = new Set(Array.isArray(raw.aliases) ? raw.aliases.map((a) => a.toLowerCase()) : []);
+    } catch {
+      disallowedAliases = new Set();
+    }
+
+    // Build current alias → node-id map for newly-ambiguous detection
+    const aliasCount = new Map(); // lowercase alias → Set of node ids that use it
+    const nodeNamesLower = new Set(
+      allData.filter(({ data }) => !data.__purged).map(({ data }) => data.name?.toLowerCase())
+    );
     for (const { data } of allData) {
       if (data.__purged) continue;
-      const { id, name, type, excerpt, notes, aliases, sourceFile, additionalSourceFiles, connections = [] } = data;
+      for (const alias of (data.aliases || [])) {
+        const key = alias.toLowerCase();
+        if (!aliasCount.has(key)) aliasCount.set(key, new Set());
+        aliasCount.get(key).add(data.id);
+      }
+    }
+
+    // Append newly-ambiguous aliases to the persistent blacklist
+    let blacklistChanged = false;
+    for (const [alias, ids] of aliasCount.entries()) {
+      if (!disallowedAliases.has(alias) && (ids.size > 1 || nodeNamesLower.has(alias))) {
+        disallowedAliases.add(alias);
+        blacklistChanged = true;
+      }
+    }
+    if (blacklistChanged) {
+      try {
+        fs.writeFileSync(
+          disallowedPath,
+          JSON.stringify({ aliases: [...disallowedAliases].sort() }, null, 2),
+          "utf-8"
+        );
+      } catch { /* non-fatal */ }
+    }
+
+    // Strip ALL blacklisted aliases from every surviving node and write back
+    for (const { file, data } of allData) {
+      if (data.__purged) continue;
+      const before = (data.aliases || []);
+      const after = before.filter((a) => !disallowedAliases.has(a.toLowerCase()));
+      if (after.length !== before.length) {
+        data.aliases = after;
+        try {
+          fs.writeFileSync(path.join(notesDir, file), JSON.stringify(data, null, 2), "utf-8");
+        } catch { /* skip unwritable files */ }
+      }
+    }
+
+    // Fourth pass: build graph cache from surviving nodes
+    for (const { data } of allData) {
+      if (data.__purged) continue;
+      const { id, name, type, excerpt, notes, aliases, tags, disambiguation, sourceFile, additionalSourceFiles, connections = [] } = data;
+
+      // For nodes that own a dedicated raw file, embed a truncated preview of
+      // that file's content (heading stripped) so the graph panel can show it
+      // without a network round-trip.
+      const FILE_PREVIEW_LIMIT = 600;
+      let filePreview = null;
+      const stemHyphen = id.replace(/_/g, "-");
+      const candidateNames = [
+        stemHyphen + ".md", stemHyphen + ".txt",
+        id + ".md",         id + ".txt",
+      ];
+      // Walk all subdirs of wsDir to find the first matching file
+      const findRawFile = (dir) => {
+        let entries;
+        try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return null; }
+        for (const entry of entries) {
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory() && path.resolve(full) !== path.resolve(notesDir)) {
+            const found = findRawFile(full);
+            if (found) return found;
+          } else if (candidateNames.includes(entry.name)) {
+            return full;
+          }
+        }
+        return null;
+      };
+      const rawFilePath = findRawFile(wsDir);
+      if (rawFilePath) {
+        try {
+          const rawContent = fs.readFileSync(rawFilePath, "utf-8");
+          const body = rawContent.replace(/^[^\n]*\n\n?/, "").trimStart();
+          filePreview = body.length > FILE_PREVIEW_LIMIT
+            ? body.slice(0, FILE_PREVIEW_LIMIT).trimEnd() + "…"
+            : body;
+        } catch { /* non-fatal */ }
+      }
 
       nodes.push({
         id,
@@ -78,12 +175,15 @@ export function rebuildGraphCache(workspace, notesDir) {
         excerpt: excerpt || "",
         notes: notes || "",
         aliases: aliases || [],
+        tags: tags || [],
         sourceFile: sourceFile || "",
         ...(additionalSourceFiles?.length ? { additionalSourceFiles } : {}),
+        ...(disambiguation ? { disambiguation } : {}),
+        ...(filePreview !== null ? { filePreview } : {}),
       });
 
       for (const conn of connections) {
-        if (!conn.target) continue;
+        if (!conn.target || !allIds.has(conn.target)) continue; // drop phantom targets
         const key = [id, conn.target].sort().join("||");
         if (!seenLinks.has(key)) {
           seenLinks.add(key);

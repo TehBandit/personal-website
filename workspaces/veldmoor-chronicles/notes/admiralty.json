@@ -9,8 +9,20 @@
       "target": "maren_ashveil",
       "label": "former employer",
       "sourceFile": "maren-ashveil.txt"
+    },
+    {
+      "target": "tiveck",
+      "label": "operates from"
     }
   ],
-  "notes": "The Admiralty is the organization Maren Ashveil worked for as a licensed surveyor for a decade before resigning under undisclosed circumstances. An incident during a mapping expedition led to her voluntary withdrawal.",
-  "sourceFile": "maren-ashveil.txt"
+  "notes": "The Admiralty is the organization Maren Ashveil worked for as a licensed surveyor for a decade before resigning under undisclosed circumstances. An incident during a mapping expedition led to her voluntary withdrawal.\n\nThe Cartographic Division is a branch of the Admiralty responsible for maintaining official navigational charts, survey records, and coastal data. It operates out of the Admiralty's main building in Tiveck.\n\nThe Cartographic Division is a branch of the Admiralty responsible for maintaining official navigational charts and survey records. It operates out of the Admiralty's main building in Tiveck, with its archive in a separate vault.",
+  "sourceFile": "maren-ashveil.txt",
+  "context_summary": [
+    "- Organization where Maren Ashveil worked as a surveyor.",
+    "- Maren worked there for a decade.",
+    "- Resigned under undisclosed circumstances.",
+    "- An incident during a mapping expedition led to her withdrawal.",
+    "- The Cartographic Division is a branch of the Admiralty.",
+    "- Operates out of the Admiralty's main building in Tiveck."
+  ]
 }

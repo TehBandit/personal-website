@@ -1,0 +1,39 @@
+{
+  "id": "rella_corse",
+  "name": "Rella Corse",
+  "type": "character",
+  "excerpt": "Rella Corse spent eleven years as a Navigator First Class in the Admiralty before her dismissal.",
+  "notes": "Rella Corse is a former Navigator First Class in the Admiralty, dismissed under vague charges of 'conduct inconsistent with the duties of the navigational corps.' It is suggested that her dismissal was due to a formal complaint she filed against Harwick Ossel, accusing him of falsifying survey coordinates. After her dismissal, she worked as a freelance chart corrector for independent merchants and lived in Salt Warren. She is in her early forties, lean, and carries a brass sighting instrument. Rella is known for her formal demeanor and has a complex relationship with Dovan Strake.\n\nRella Corse is a former Navigator of the Admiralty who was quietly dismissed under sealed circumstances. She is a founding member of the Tide Compact, where she manages logistics using a storehouse at the edge of the 14th Lowland as cover. Known for her meticulous nature and quiet demeanor, Rella has a reputation for decisively cutting ties with those who jeopardize the operation. Her strategic use of legitimate contracts for salt-drying provides a facade for the Compact's activities.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "admiralty",
+      "label": "former navigator"
+    },
+    {
+      "target": "harwick_ossel",
+      "label": "filed complaint against"
+    },
+    {
+      "target": "dovan_strake",
+      "label": "complex relationship"
+    },
+    {
+      "target": "salt_warren",
+      "label": "former residence"
+    },
+    {
+      "target": "14th_lowland",
+      "label": "current residence near"
+    },
+    {
+      "target": "deepwater_guild",
+      "label": "seen near archive corridor"
+    },
+    {
+      "target": "tide_compact",
+      "label": "logistics manager"
+    }
+  ],
+  "sourceFile": "bulk_test/rella_corse.md"
+}

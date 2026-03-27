@@ -1,38 +1,38 @@
 {
-  "id": "salt_warren",
-  "name": "Salt Warren",
-  "type": "location",
-  "excerpt": "A network of tidal caves and chambers used for gray-market storage.",
-  "aliases": [
-    "Warren"
-  ],
-  "connections": [
-    {
-      "target": "fen_caldra",
-      "label": "used by",
-      "sourceFile": "fen-caldra.txt"
-    },
-    {
-      "target": "tiveck",
-      "label": "located in harbor of",
-      "sourceFile": "salt-warren.txt"
-    },
-    {
-      "target": "admiralty",
-      "label": "predates regulations of",
-      "sourceFile": "salt-warren.txt"
-    },
-    {
-      "target": "sunken_ledger",
-      "label": "contains hidden",
-      "sourceFile": "salt-warren.txt"
-    },
-    {
-      "target": "maren_ashveil",
-      "label": "suspected by",
-      "sourceFile": "salt-warren.txt"
-    }
-  ],
-  "notes": "The Salt Warren is a network of tidal caves and excavated chambers beneath the eastern cliff face of Tiveck. It has been used for gray-market storage for generations. Fen Caldra currently uses it to store items for clients who prefer discretion.",
-  "sourceFile": "fen-caldra.txt"
+    "id":  "salt_warren",
+    "name":  "Salt Warren",
+    "type":  "location",
+    "excerpt":  "A network of tidal caves and chambers used for gray-market storage.",
+    "aliases":  [
+                    "Warren"
+                ],
+    "connections":  [
+                        {
+                            "target":  "fen_caldra",
+                            "label":  "used by",
+                            "sourceFile":  "fen-caldra.txt"
+                        },
+                        {
+                            "target":  "tiveck",
+                            "label":  "located in harbor of",
+                            "sourceFile":  "salt-warren.txt"
+                        },
+                        {
+                            "target":  "admiralty",
+                            "label":  "predates regulations of",
+                            "sourceFile":  "salt-warren.txt"
+                        },
+                        {
+                            "target":  "sunken_ledger",
+                            "label":  "contains hidden",
+                            "sourceFile":  "salt-warren.txt"
+                        },
+                        {
+                            "target":  "maren_ashveil",
+                            "label":  "suspected by",
+                            "sourceFile":  "salt-warren.txt"
+                        }
+                    ],
+    "notes":  "What it is: A network of tidal caves and excavated chambers in the limestone cliff face on the eastern side of Tiveck\u0027s harbor. The natural caves were expanded and connected over many generations — originally by fishermen who needed cold storage, then by people with other storage requirements. The Warren has been a fixture of Tiveck\u0027s gray economy for at least two hundred years. It predates the current harbor master\u0027s office, the customs house, and every piece of Admiralty regulation governing the port.\r\n\r\nAccess: There are two ways in. The tidal passage is a low stone tunnel at the base of the cliff, navigable by small boat for approximately four hours either side of low tide. It\u0027s not secret — local fishermen know it exists — but the inner chambers require knowledge of which passages dead-end, which flood, and which lead somewhere useful. The interior entrance is a concealed door set into the cliff face, accessible from a storage yard behind a cooperage on the eastern quay. Fen Caldra holds the key. One other person has had it. That person is no longer in Tiveck.\r\n\r\nCurrent use: Fen uses three of the inner chambers. One for bonded cargo awaiting quiet transfer. One for items he\u0027s holding on behalf of clients. One — deeper, drier, at the back of the network where the stone keeps a constant temperature — for things he hasn\u0027t decided what to do with. The Sunken Ledger is in this third chamber, in a sealed tin case behind a false section of wall that was built into the original excavation.\r\n\r\nThe space itself: Cold. Smells of brine and old stone. The chambers that have been in continuous use are equipped with lantern hooks, flat-topped stones used as table surfaces, and in one case a battered wooden chair that has been there for decades. The deeper chambers are raw limestone. Sound carries strangely. At high tide, you can hear the sea pushing against the outer wall.\r\n\r\nWhat Maren suspects: She has identified the tidal passage in her surveying work and knows the eastern cliff contains substantial excavated space beyond what\u0027s described in official records. She hasn\u0027t been inside. She has asked Fen about it, indirectly. He gave her a partial answer. She is deciding whether to push further.",
+    "sourceFile":  "fen-caldra.txt"
 }

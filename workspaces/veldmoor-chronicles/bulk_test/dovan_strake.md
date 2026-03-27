@@ -1,0 +1,3 @@
+DOVAN STRAKE — character notes
+
+Dovan Strake is a founding member of the Tide Compact, responsible for managing buyers. Known for his affable and loud personality, he defies expectations as a document theft launderer. Dovan operates out of a chandlery in Salt Warren and is a regular at The Wrecked Compass, where he is well-liked. His role in the Compact involves laundering proceeds and maintaining relationships with buyers, contributing to the group's success.

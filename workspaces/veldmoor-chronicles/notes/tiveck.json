@@ -1,36 +1,38 @@
 {
-  "id": "tiveck",
-  "name": "Tiveck",
-  "type": "location",
-  "excerpt": "A harbor town with shifting sandbar patterns.",
-  "aliases": [],
-  "connections": [
-    {
-      "target": "maren_ashveil",
-      "label": "current location of interest",
-      "sourceFile": "maren-ashveil.txt"
-    },
-    {
-      "target": "sunken_ledger",
-      "label": "potential location of artifact",
-      "sourceFile": "maren-ashveil.txt"
-    },
-    {
-      "target": "admiralty",
-      "label": "administrative presence",
-      "sourceFile": "tiveck.txt"
-    },
-    {
-      "target": "fen_caldra",
-      "label": "knows concealed entrance to Salt Warren",
-      "sourceFile": "tiveck.txt"
-    },
-    {
-      "target": "salt_warren",
-      "label": "contains the Salt Warren",
-      "sourceFile": "tiveck.txt"
-    }
-  ],
-  "notes": "Tiveck is a harbor town where Maren Ashveil arrived three weeks ago to document the harbor's shifting sandbar patterns for a merchant consortium. It is also where she is secretly searching for the Sunken Ledger.",
-  "sourceFile": "maren-ashveil.txt"
+    "id":  "tiveck",
+    "name":  "Tiveck",
+    "type":  "location",
+    "excerpt":  "A harbor town with shifting sandbar patterns.",
+    "aliases":  [
+
+                ],
+    "connections":  [
+                        {
+                            "target":  "maren_ashveil",
+                            "label":  "current location of interest",
+                            "sourceFile":  "maren-ashveil.txt"
+                        },
+                        {
+                            "target":  "sunken_ledger",
+                            "label":  "potential location of artifact",
+                            "sourceFile":  "maren-ashveil.txt"
+                        },
+                        {
+                            "target":  "admiralty",
+                            "label":  "administrative presence",
+                            "sourceFile":  "tiveck.txt"
+                        },
+                        {
+                            "target":  "fen_caldra",
+                            "label":  "knows concealed entrance to Salt Warren",
+                            "sourceFile":  "tiveck.txt"
+                        },
+                        {
+                            "target":  "salt_warren",
+                            "label":  "contains the Salt Warren",
+                            "sourceFile":  "tiveck.txt"
+                        }
+                    ],
+    "notes":  "Overview: Tiveck is a mid-sized port city on the northern coast. Population somewhere between eight and twelve thousand depending on the season — the harbor draws transient workers, sailors, traders, and people who prefer cities where no one asks where you came from. The permanent residents are mostly families who have been here for generations, working the docks, the fisheries, the chandlers and sailmakers and ropewalks that service the maritime economy. The city has an Admiralty administrative presence but not a garrison — close enough to the capital\u0027s reach to follow the law most of the time, far enough to be casual about it.\r\n\r\nThe harbor: Deep-water berths on the western quay, shallow-draft moorings on the eastern side near the cliff face. The harbor master\u0027s office sits on a promontory above the western quay with a clear view of arrivals. The sandbar at the harbor mouth shifts seasonally and has been a navigation hazard for as long as anyone can remember — there\u0027s a licensed surveyor updating the charts every few years, which is why it didn\u0027t seem remarkable when Maren Ashveil showed up.\r\n\r\nThe eastern cliff: The cliff face that brackets the harbor\u0027s eastern edge is old limestone, honeycombed with natural caves that have been expanded, connected, and built into over centuries. Officially, the lower chambers are used for cold storage of perishables. Unofficially, the deeper chambers are the Salt Warren — accessible by a tidal passage that\u0027s navigable for about four hours around low tide, or through a concealed interior entrance that Fen Caldra knows and very few others do.\r\n\r\nThe administrative district: The harbor master\u0027s office, the customs house, and the Admiralty\u0027s local records depot are all clustered near the western quay. The records depot has not been properly staffed in years — there\u0027s a part-time archivist who comes in three days a week. This is relevant to what Maren found in the archives.\r\n\r\nAtmosphere: Salt-weathered stone. Densely built near the waterfront, spreading into lower-density residential streets further inland. Always smells like the sea. Foggy in the mornings for much of the year. The kind of city where you can disappear easily if you want to or stay forever if you don\u0027t.",
+    "sourceFile":  "maren-ashveil.txt"
 }

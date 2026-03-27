@@ -142,6 +142,9 @@ export default async function handler(req, res) {
     if (!rawText) {
       return res.status(400).json({ error: "No text content found in the file." });
     }
+    if (rawText.length > 100_000) {
+      return res.status(400).json({ error: "File too large — please split into sections under 100 KB." });
+    }
 
     // --- Load existing nodes as context so the AI doesn't duplicate them ---
     const workspace = req.body.workspace;
@@ -165,6 +168,7 @@ export default async function handler(req, res) {
               notes: data.notes || "",
               aliases: data.aliases || [],
               context_summary: data.context_summary || "",
+              disambiguation: data.disambiguation || "",
             });
           }
         } catch {
@@ -244,18 +248,22 @@ Rules:
         .map((n) => n.id)
     );
 
-    const userPrompt = `EXISTING GRAPH NODES — do not recreate these; reference their IDs in connections or updates:
+    const userPrompt = `EXISTING GRAPH NODES — do not recreate these; use their exact id in connection targets or updates:
 ${
   existingNodes.length > 0
     ? existingNodes.map((n) => {
-        const lines = [`  id: "${n.id}"  name: "${n.name}"  type: ${n.type}`];
+        // Always show excerpt so the AI can distinguish similarly-named entities.
+        // For nodes mentioned in the text, also include context summary / full notes.
+        const parts = [`  id: "${n.id}"  name: "${n.name}"  type: ${n.type}`];
+        if (n.excerpt)        parts.push(`    excerpt: ${n.excerpt}`);
+        if (n.aliases?.length) parts.push(`    aliases: ${n.aliases.join(", ")}`);
+        if (n.disambiguation) parts.push(`    disambiguation: ${n.disambiguation}`);
         if (mentionedNodeIds.has(n.id)) {
           // Use stored summary if available (~80 tokens); fall back to full notes
-          if (n.excerpt) lines.push(`    excerpt: ${n.excerpt}`);
-          if (n.context_summary) lines.push(`    context: ${n.context_summary}`);
-          else if (n.notes)      lines.push(`    notes: ${n.notes}`);
+          if (n.context_summary) parts.push(`    context: ${n.context_summary}`);
+          else if (n.notes)      parts.push(`    notes: ${n.notes}`);
         }
-        return lines.join("\n");
+        return parts.join("\n");
       }).join("\n")
     : "  (none yet — this is the first upload)"
 }${req.body.title ? `\n\nDOCUMENT TITLE (primary subject of this file): ${req.body.title}` : ""}
@@ -305,6 +313,19 @@ ${rawText}`;
       }
     }
 
+    // --- Compute the uploads path early so nodes get the correct sourceFile ---
+    // safeFilename matches what will actually be written to disk below.
+    const _uploadFilename = req.body.filename || `upload-${Date.now()}.md`;
+    const _rawBasename = path.basename(_uploadFilename).replace(/[^a-zA-Z0-9._-]/g, "_");
+    const safeUploadFilename = _rawBasename.replace(/\.(txt|docx)$/i, ".md");
+
+    // If the caller supplied a folderName, save into that folder; otherwise default to uploads/
+    const _folderName = (req.body.folderName || "").trim();
+    const _safeFolder = _folderName
+      ? _folderName.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").substring(0, 60)
+      : "uploads";
+    const uploadSourceFile = `${_safeFolder}/${safeUploadFilename}`;
+
     // --- Save each genuinely new node ---
     if (!fs.existsSync(notesDir)) fs.mkdirSync(notesDir, { recursive: true });
 
@@ -322,7 +343,7 @@ ${rawText}`;
         connections: node.connections || [],
         notes: node.notes || "",
         aliases: node.aliases || [],
-        ...(req.body.filename ? { sourceFile: req.body.filename } : {}),
+        sourceFile: uploadSourceFile,
       };
       fs.writeFileSync(filePath, JSON.stringify(nodeData, null, 2), "utf-8");
       savedNodes.push({ id: safeId, name: node.name, type: node.type || "character" });
@@ -413,14 +434,10 @@ ${rawText}`;
     // with a single file read instead of stat-ing every node JSON.
     bumpWorkspaceVersion(workspace);
 
-    // --- Save source file to workspace uploads/ for record-keeping ---
-    const filename = req.body.filename || `upload-${Date.now()}.md`;
-    const rawBasename = path.basename(filename).replace(/[^a-zA-Z0-9._-]/g, "_");
-    // Always store as .md regardless of original extension (.txt, .docx, etc.)
-    const safeFilename = rawBasename.replace(/\.(txt|docx)$/i, ".md");
-    const uploadsDir = path.join(process.cwd(), "workspaces", workspace, "uploads");
+    // --- Save source file to workspace folder for record-keeping ---
+    const uploadsDir = path.join(process.cwd(), "workspaces", workspace, _safeFolder);
     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-    fs.writeFileSync(path.join(uploadsDir, safeFilename), rawText, "utf-8");
+    fs.writeFileSync(path.join(uploadsDir, safeUploadFilename), rawText, "utf-8");
 
     return res.status(200).json({
       added: savedNodes.length,

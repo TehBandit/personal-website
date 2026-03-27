@@ -1,0 +1,44 @@
+{
+  "id": "dovan_strake",
+  "name": "Dovan Strake",
+  "type": "character",
+  "excerpt": "An individual with a complex relationship with Rella Corse.",
+  "connections": [
+    {
+      "target": "inkhand",
+      "label": "avoids discussing"
+    },
+    {
+      "target": "tide_compact",
+      "label": "founding member"
+    },
+    {
+      "target": "the_wrecked_compass",
+      "label": "frequents"
+    },
+    {
+      "target": "deepwater_guild",
+      "label": "complex relationship with rella corse"
+    },
+    {
+      "target": "salt_warren",
+      "label": "operational base"
+    }
+  ],
+  "notes": "Dovan Strake is known to have a long-running argument with Rella Corse, which cannot be fully characterized as either antagonism or friendship. The nature of their introduction is unknown.\n\nDovan Strake, when asked about the Inkhand, became less jovial and changed the subject, indicating discomfort or secrecy.\n\nDovan Strake is a founding member of the Tide Compact, handling buyers and laundering proceeds from document theft. He is affable, loud, and well-liked, frequenting the Wrecked Compass three nights a week.\n\nRella Corse met Dovan Strake during her freelance work period. They have a long-running argument that cannot be fully characterized as either antagonism or friendship.\n\nDovan Strake is a founding member of the Tide Compact, handling buyers and laundering proceeds from document theft. He operates out of a chandlery in Salt Warren and is well-liked, frequenting the Wrecked Compass.\n\nDovan Strake is a founding member of the Tide Compact, responsible for managing buyers. Known for his affable and loud personality, he defies expectations as a document theft launderer. Dovan operates out of a chandlery in Salt Warren and is a regular at The Wrecked Compass, where he is well-liked. His role in the Compact involves laundering proceeds and maintaining relationships with buyers, contributing to the group's success.",
+  "aliases": [],
+  "sourceFile": "uploads/rella_corse.md",
+  "context_summary": [
+    "- Dovan Strake has a complex relationship with Rella Corse.",
+    "- Their introduction is unknown.",
+    "- He is a founding member of the Tide Compact.",
+    "- He handles buyers and launders proceeds from document theft.",
+    "- Dovan Strake is affable, loud, and well-liked.",
+    "- He frequents the Wrecked Compass three nights a week.",
+    "- He operates out of a chandlery in Salt Warren.",
+    "- He has a long-running argument with Rella Corse."
+  ],
+  "tags": [
+    "veldmoor"
+  ]
+}

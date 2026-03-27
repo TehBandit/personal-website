@@ -1,0 +1,3 @@
+CHIEF SURVEYOR VANE — character notes
+
+Chief Surveyor Vane is the nominal head of the Cartographic Division. He is described as elderly and visits the office three mornings a week, leaving before midday. Despite his position, he has delegated most of the operational responsibilities to his deputy, Harwick Ossel. Vane's role is crucial in authorizing access to the Division's archives, which are considered authoritative in resolving disputes related to coastal rights and navigational precedents.

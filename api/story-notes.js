@@ -16,13 +16,21 @@ export default async function handler(req, res) {
 
     res.setHeader("Cache-Control", "no-store");
 
+    // Read the disallowed-aliases blacklist (non-fatal — returns empty set if missing)
+    const wsDir = path.join(WORKSPACES_DIR, workspace);
+    let disallowedAliases = [];
+    try {
+      const raw = JSON.parse(fs.readFileSync(path.join(wsDir, "disallowed-aliases.json"), "utf-8"));
+      if (Array.isArray(raw.aliases)) disallowedAliases = raw.aliases;
+    } catch { /* no blacklist yet */ }
+
     // Fast path: read the pre-built cache written after every extraction/update.
     // Reduces graph load from O(N readFileSync) to a single readFileSync.
-    const cacheFile = path.join(WORKSPACES_DIR, workspace, "graph-cache.json");
+    const cacheFile = path.join(wsDir, "graph-cache.json");
     if (fs.existsSync(cacheFile)) {
       try {
         const cached = JSON.parse(fs.readFileSync(cacheFile, "utf-8"));
-        return res.status(200).json(cached);
+        return res.status(200).json({ ...cached, disallowedAliases });
       } catch {
         // fall through to N+1 scan
       }
@@ -67,7 +75,7 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ nodes, links });
+    return res.status(200).json({ nodes, links, disallowedAliases });
   } catch (err) {
     console.error("story-notes error:", err);
     return res.status(500).json({ error: "Failed to read notes folder" });

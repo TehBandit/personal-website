@@ -1,0 +1,22 @@
+{
+  "id": "chief_surveyor_vane",
+  "name": "Chief Surveyor Vane",
+  "type": "character",
+  "excerpt": "Chief Surveyor Vane is an elderly man who has largely delegated operational responsibility to his deputy, Harwick Ossel.",
+  "notes": "Chief Surveyor Vane is the nominal head of the Cartographic Division. He is described as elderly and visits the office three mornings a week, leaving before midday. Despite his position, he has delegated most of the operational responsibilities to his deputy, Harwick Ossel. Vane's role is crucial in authorizing access to the Division's archives, which are considered authoritative in resolving disputes related to coastal rights and navigational precedents.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "cartographic_division",
+      "label": "head of"
+    },
+    {
+      "target": "harwick_ossel",
+      "label": "delegated responsibilities to"
+    }
+  ],
+  "sourceFile": "bulk_test/chief_surveyor_vane.md",
+  "tags": [
+    "veldmoor"
+  ]
+}

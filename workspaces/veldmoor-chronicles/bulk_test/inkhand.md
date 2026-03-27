@@ -1,0 +1,3 @@
+THE INKHAND — character notes
+
+The Inkhand is an enigmatic figure within the Tide Compact, known for using distinctive reddish ink. Their true identity remains unconfirmed, leading to various theories about their role. Some suggest the Inkhand is the Compact's link to the Deepwater Guild, possibly a scribe or archivist with access to sensitive records. Others believe the Inkhand is a fictional creation to enhance the Compact's perceived influence. Despite the ambiguity, the Inkhand's presence adds an air of mystery and potential reach to the organization.

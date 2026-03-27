@@ -1,25 +1,25 @@
 {
-  "id": "dellan_moor",
-  "name": "Dellan Moor",
-  "type": "character",
-  "excerpt": "Dellan Moor is a former soldier living in hiding after deserting his regiment.",
-  "aliases": [
-    "Dellan",
-    "Moor",
-    "weathered"
-  ],
-  "connections": [
-    {
-      "target": "sable_voss",
-      "label": "living with",
-      "sourceFile": "dellan-moor.txt"
-    },
-    {
-      "target": "14th_lowland",
-      "label": "former soldier of",
-      "sourceFile": "dellan-moor.txt"
-    }
-  ],
-  "notes": "Dellan Moor, 29, is a former soldier who served in the 14th Lowland infantry regiment. He deserted fourteen months ago during a reassignment to a punitive posting. Currently, he lives with Sable Voss in a disused highwayman's waystation on the moorland north of the main coastal road. They have been there for eight months, growing food and making occasional trips to rural markets. Dellan is skilled in carpentry, basic medicine, and animal husbandry due to his regiment's focus on labor and construction. He trusts Sable completely, though he is uncertain about the permanence of their relationship. Dellan is lean, with a darker complexion and a regimental tattoo on his left shoulder.",
-  "sourceFile": "dellan-moor.txt"
+    "id":  "dellan_moor",
+    "name":  "Dellan Moor",
+    "type":  "character",
+    "excerpt":  "Dellan Moor is a former soldier living in hiding after deserting his regiment.",
+    "aliases":  [
+                    "Dellan",
+                    "Moor",
+                    "weathered"
+                ],
+    "connections":  [
+                        {
+                            "target":  "sable_voss",
+                            "label":  "living with",
+                            "sourceFile":  "dellan-moor.txt"
+                        },
+                        {
+                            "target":  "14th_lowland",
+                            "label":  "former soldier of",
+                            "sourceFile":  "dellan-moor.txt"
+                        }
+                    ],
+    "notes":  "Background: Dellan is 29. Was a soldier — four years in a provincial infantry regiment, the 14th Lowland, stationed at a series of postings that moved him steadily away from anything he\u0027d wanted when he enlisted. He deserted fourteen months ago, during a reassignment that would have sent him to a punitive posting in the eastern districts. He did not desert alone.\r\n\r\nCurrent situation: He is living with Sable Voss in a disused highwayman\u0027s waystation on the moorland north of the main coastal road, roughly two days\u0027 walk from the nearest town of any size. The station has a roof that is mostly intact, a fireplace, and a well that still works. They have been here for eight months. Before that, they moved every few weeks. They have stopped moving because the waystation is good enough and because neither of them has a better plan.\r\n\r\nHow he lives: They grow what they can in the kitchen garden, supplemented by hunting and occasional careful trips to rural markets where nobody knows regimental deserters from ordinary travelers. He is competent at most practical things — carpentry, basic medicine, animal husbandry — because the 14th Lowland was primarily used for labor and construction in the years he served. He knows how to build things that last. He has been slowly repairing the waystation\u0027s outbuildings.\r\n\r\nRelationship with Sable: They have known each other since the regiment. She was a supply administrator; they were not close until the decision to desert, which they made together over a period of about two weeks of careful, exhausted conversation. He is not certain whether what they have now is a permanent thing or a situation that made sense in extremity and has simply continued. He thinks about this more than he discusses it. He trusts her completely, which is a shorter list than he would have guessed.\r\n\r\nInner state: Less frightened than he was in the first months. More tired. Not unhappy, exactly — there is something clarifying about a day that has concrete physical tasks and no officers in it. But he is aware that the situation requires a longer-term solution and that neither of them has one yet. He does not let himself think too specifically about what happens if they\u0027re found.\r\n\r\nPhysical details: Lean, angular, darker complexion from years of outdoor postings. Keeps his hair short out of habit. Has a regimental tattoo on his left shoulder that he has not yet decided to remove.",
+    "sourceFile":  "dellan-moor.txt"
 }

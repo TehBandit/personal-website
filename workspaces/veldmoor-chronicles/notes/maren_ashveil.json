@@ -1,19 +1,24 @@
 {
-  "id": "maren_ashveil",
-  "name": "Maren Ashveil",
-  "type": "character",
-  "excerpt": "A client of Fen Caldra who is difficult to read and possibly seeking the Sunken Ledger.",
-  "aliases": [
-    "Maren",
-    "Ashveil"
-  ],
-  "connections": [
-    {
-      "target": "fen_caldra",
-      "label": "client of",
-      "sourceFile": "fen-caldra.txt"
-    }
-  ],
-  "notes": "Maren Ashveil has been transported by Fen Caldra twice and has had two small errands done for her by him. Fen finds her interesting and suspects she is looking for the Sunken Ledger, though he has not disclosed its existence to her.",
-  "sourceFile": "fen-caldra.txt"
+    "id":  "maren_ashveil",
+    "name":  "Maren Ashveil",
+    "type":  "character",
+    "excerpt":  "A client of Fen Caldra who is difficult to read and possibly seeking the Sunken Ledger.",
+    "aliases":  [
+                    "Maren",
+                    "Ashveil"
+                ],
+    "connections":  [
+                        {
+                            "target":  "fen_caldra",
+                            "label":  "client of",
+                            "sourceFile":  "fen-caldra.txt"
+                        },
+                        {
+                            "target":  "inkhand",
+                            "label":  "mentioned in connection"
+                        }
+                    ],
+    "notes":  "Background: Maren is in her late 30s. Worked for a decade as a licensed surveyor for the Admiralty before resigning under circumstances she doesn\u0027t discuss in detail. The official record says \"voluntary withdrawal.\" People who were there say something on a mapping expedition went wrong and Maren came back alone. She hasn\u0027t filed an Admiralty survey since. She does freelance work now — private clients, academic commissions, the occasional job that pays well and asks few questions.\n\nCurrent situation: She arrived in Tiveck three weeks ago, ostensibly to document the harbor\u0027s shifting sandbar patterns for a merchant consortium. The sandbar work is real. It is not the reason she came. She came because she found a partial reference in an old Admiralty archive to something called the Sunken Ledger — a manifest of controlled cargo movements through Tiveck\u0027s gray market over a thirty-year period. The Ledger would implicate people who are still alive and still powerful. She hasn\u0027t told anyone why she\u0027s actually here.\n\nHow she got to Tiveck: She hired Fen Caldra for passage on a small coastal vessel. She told him she was a surveyor. He didn\u0027t ask follow-up questions, which she appreciated. She has used him twice since for discreet errands around the harbor.\n\nRelationship with Orrus Vane: She introduced herself to Orrus professionally, as a surveyor seeking access to historical harbor records. He was cooperative — almost too cooperative, she thought. He gave her access to thirty years of tide logs and berthing records without much friction. She has since started to wonder whether he wants her to find something, or whether he\u0027s watching her to find out what she knows.\n\nWhat she\u0027s found so far: The berthing records contain a recurring vessel identifier — a registration mark that appears in cargo manifests but not in any official vessel registry. It appears sixteen times over twenty-two years. The last entry is dated seven years ago. She thinks the Sunken Ledger is a physical document, not just a metaphor, and she thinks it\u0027s somewhere in Tiveck. She thinks Fen Caldra knows more about the Salt Warren than he\u0027s admitted.\n\nPersonality: Quiet in groups, precise in conversation. Doesn\u0027t volunteer information. Takes notes constantly and keeps them in a cipher of her own invention that looks like surveyor\u0027s shorthand from a distance. She has a habit of arriving early to places and watching who comes in after her. She is not paranoid. She is experienced.\n\nPhysical details: Mid-height, angular face, ink-stained fingers. Carries a leather map case that rarely leaves her shoulder. Dresses in practical layers. The scar on her left forearm is from the expedition. She doesn\u0027t explain it.",
+    "sourceFile":  "fen-caldra.txt",
+    "context_summary":  "- Client of Fen Caldra.\n- Difficult to read.\n- Possibly seeking the Sunken Ledger.\n- Transported by Fen Caldra twice.\n- Had two small errands done by Fen.\n- Fen finds her interesting and suspects her intentions.\n- Mentioned in connection with the Inkhand by an unreliable source."
 }

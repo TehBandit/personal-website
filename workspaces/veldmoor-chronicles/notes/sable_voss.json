@@ -1,40 +1,40 @@
 {
-  "id": "sable_voss",
-  "name": "Sable Voss",
-  "type": "character",
-  "excerpt": "Sable Voss is Dellan Moor's companion and former supply administrator in the 14th Lowland regiment.",
-  "aliases": [
-    "Sable",
-    "voss"
-  ],
-  "connections": [
-    {
-      "target": "dellan_moor",
-      "label": "living with",
-      "sourceFile": "dellan-moor.txt"
-    },
-    {
-      "target": "14th_lowland",
-      "label": "former supply administrator of",
-      "sourceFile": "dellan-moor.txt"
-    },
-    {
-      "target": "boris_hulwich",
-      "label": "complex bond with"
-    }
-  ],
-  "notes": "Sable Voss was a supply administrator in the 14th Lowland regiment. She and Dellan Moor made the decision to desert together after weeks of careful discussion. They have been living together in a waystation on the moorland for eight months. Sable is trusted completely by Dellan, though the nature of their relationship remains uncertain.\n\nSable Voss has a complicated bond with Boris Hulwich, characterized by mutual reliance rather than trust. She challenges Boris's rigid worldview, often pushing him toward risks he would otherwise avoid. Their relationship blurs the line between friendship and necessity, enduring because it is tested.\n\nSable Voss shares a complex bond with Boris Hulwich, characterized by mutual reliance rather than trust. She challenges Boris's rigid worldview, often pushing him toward risks he would otherwise avoid. Their relationship blurs the line between friendship and necessity, enduring through tests rather than simplicity.",
-  "sourceFile": "dellan-moor.txt",
-  "context_summary": [
-    "- Sable Voss was a supply administrator in the 14th Lowland regiment.",
-    "- She and Dellan Moor decided to desert together.",
-    "- They have lived in a waystation on the moorland for eight months.",
-    "- Sable is completely trusted by Dellan Moor.",
-    "- The nature of her relationship with Dellan remains uncertain.",
-    "- She has a complicated bond with Boris Hulwich.",
-    "- Their relationship is characterized by mutual reliance.",
-    "- She challenges Boris's rigid worldview.",
-    "- She often pushes Boris toward risks.",
-    "- Their relationship blurs the line between friendship and necessity."
-  ]
+    "id":  "sable_voss",
+    "name":  "Sable Voss",
+    "type":  "character",
+    "excerpt":  "Sable Voss is Dellan Moor\u0027s companion and former supply administrator in the 14th Lowland regiment.",
+    "aliases":  [
+                    "Sable",
+                    "voss"
+                ],
+    "connections":  [
+                        {
+                            "target":  "dellan_moor",
+                            "label":  "living with",
+                            "sourceFile":  "dellan-moor.txt"
+                        },
+                        {
+                            "target":  "14th_lowland",
+                            "label":  "former supply administrator of",
+                            "sourceFile":  "dellan-moor.txt"
+                        },
+                        {
+                            "target":  "boris_hulwich",
+                            "label":  "complex bond with"
+                        }
+                    ],
+    "notes":  "Background: Sable is 32. She spent six years as a supply and requisitions administrator in the 14th Lowland Regiment — the person responsible for tracking what the regiment had, what it needed, where it was supposed to be, and the considerable gap between those categories. She was good at the work. She was also good at understanding how institutional systems generate paperwork that nobody actually reads, and how to operate in that space. This is a skill set that transfers.\r\n\r\nWhy she deserted: The direct cause was an order to falsify supply records to obscure a shortage that would have been embarrassing to the regiment\u0027s commanding officer. This was not the first time. It was the first time she\u0027d been directly ordered to do it in writing. She kept the order. She destroyed the falsified records. She was aware that neither of these choices was safe. She told Dellan what she\u0027d done and that she was leaving. He asked if she wanted company.\r\n\r\nCurrent situation: She and Dellan have been at the waystation for eight months. She manages most of their logistics — tracking their supplies, maintaining the rotation of preserved food, calculating how long they can sustain themselves without a market run. She has applied the same administrative competence to their survival that she formerly applied to the regiment\u0027s, and the results are considerably more honest.\r\n\r\nWhat she\u0027s working on: She has been, slowly and carefully, drafting an account of the supply falsification she witnessed over six years — dates, quantities, names, the paper trail as she remembers it. She hasn\u0027t decided what to do with it. It is evidence of something worth investigating. It is also the kind of document that, if it surfaced, would make clear she existed. She keeps it separate from their other papers, in a sealed bundle under a flagstone in the back room.\r\n\r\nRelationship with Dellan: She initiated what they have now, insofar as either of them initiated it. She is clearer than he is that it\u0027s real and that she wants it to be permanent. She hasn\u0027t said this directly because the situation makes permanence a complicated concept. She is waiting for a moment when it makes more sense to say it.\r\n\r\nPersonality: Organized, direct, drily funny in private. Less forthcoming with people she doesn\u0027t trust. Has a low tolerance for being managed or handled. Will tell you exactly what she thinks if you ask and sometimes if you don\u0027t.\r\n\r\nPhysical details: Medium height, pale, sharp-featured. Has a habit of counting things — supplies, paces, days. The counting is usually accurate. Keeps the sealed bundle and the order she kept in the same hiding place and checks it is still there approximately once a week.",
+    "sourceFile":  "dellan-moor.txt",
+    "context_summary":  [
+                            "- Sable Voss was a supply administrator in the 14th Lowland regiment.",
+                            "- She and Dellan Moor decided to desert together.",
+                            "- They have lived in a waystation on the moorland for eight months.",
+                            "- Sable is completely trusted by Dellan Moor.",
+                            "- The nature of her relationship with Dellan remains uncertain.",
+                            "- She has a complicated bond with Boris Hulwich.",
+                            "- Their relationship is characterized by mutual reliance.",
+                            "- She challenges Boris\u0027s rigid worldview.",
+                            "- She often pushes Boris toward risks.",
+                            "- Their relationship blurs the line between friendship and necessity."
+                        ]
 }

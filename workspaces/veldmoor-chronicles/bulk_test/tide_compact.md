@@ -1,0 +1,3 @@
+TIDE COMPACT — faction notes
+
+The Tide Compact is a smuggling consortium formed twelve years ago by three rival groups who agreed to cooperate for profit. Its founding members include Rella Corse, Dovan Strake, and the mysterious Inkhand. The Compact specializes in moving goods classified as contraband by the Admiralty, such as preserved meats, salvaged navigational instruments, and contested documents. The organization operates discreetly, with Rella Corse managing logistics and Dovan Strake handling buyers. The Inkhand's role remains ambiguous, with speculation about their connections to the Deepwater Guild.

@@ -29,6 +29,10 @@
     {
       "target": "coach_ukai",
       "label": "coach"
+    },
+    {
+      "target": "volleyball",
+      "label": "references"
     }
   ],
   "sourceFile": "hinata_wiki/karasuno_high.md"

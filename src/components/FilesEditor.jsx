@@ -15,18 +15,12 @@ import {
   Heading1, Heading2, Heading3,
   Quote, Code, Minus, Undo, Redo,
   CheckCircle, AlertCircle, Loader, ArrowLeftRight,
-  ChevronsDownUp, ChevronsUpDown, Copy, GitMerge,
+  ChevronsDownUp, ChevronsUpDown, Copy, GitMerge, Scissors, Clipboard, Search,
 } from "lucide-react";
 import { NODE_TYPE_CONFIG } from "../constants/nodeTypes.js";
-
+import { darkenHex } from "../utils/color.js";
+import { computeOwnFileIds } from "../utils/graphHelpers.js";
 const MINIMAP_BG = "#0f0f1a";
-
-function darkenHex(hex, factor = 0.6) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgb(${Math.round(r * factor)}, ${Math.round(g * factor)}, ${Math.round(b * factor)})`;
-}
 
 /**
  * Small interactive ForceGraph2D showing the focal node + its immediate neighbors.
@@ -78,41 +72,39 @@ function NodeMinimap({ nodeId, graphData, files, onOpen, nodeTransparent = false
     [files]
   );
 
-  // Mirror ownFileIds logic from StoryGraph: only nodes with a raw source file
-  // get their type colour; all others (AI-derived) are gray, matching the main graph.
-  const ownFileIds = useMemo(() => {
-    const fileSet = new Set(files.map((f) => f.filename));
-    const basenames = new Set(files.map((f) => f.filename.split("/").pop()));
-    const ids = new Set();
-    for (const node of graphData.nodes) {
-      // Direct sourceFile match
-      if (node.sourceFile && fileSet.has(node.sourceFile)) { ids.add(node.id); continue; }
-      // additionalSourceFiles match (merged nodes)
-      if ((node.additionalSourceFiles || []).some((sf) => fileSet.has(sf))) { ids.add(node.id); continue; }
-      // Stem basename match (hyphen + underscore variants)
-      const stemHyphen = node.id.replace(/_/g, "-");
-      const stemUnder = node.id;
-      if (
-        basenames.has(stemHyphen + ".md") || basenames.has(stemHyphen + ".txt") ||
-        basenames.has(stemUnder + ".md") || basenames.has(stemUnder + ".txt")
-      ) ids.add(node.id);
-    }
-    return ids;
-  }, [files, graphData.nodes]);
+  // Mirror ownFileIds logic from StoryGraph: only nodes with a dedicated stem-named
+  // file get their type colour; all others are gray.
+  const ownFileIds = useMemo(
+    () => computeOwnFileIds(graphData.nodes, files),
+    [graphData.nodes, files]
+  );
+
+  // react-force-graph-2d has no native dblclick event — detect via click timing.
+  const lastMinimapClickRef = useRef({ id: null, time: 0 });
 
   const handleNodeClick = useCallback(
     (node) => {
       if (node.id === nodeId) return; // clicking focal node does nothing
-      // Prefer the node's declared sourceFile; fall back to stem-basename matching
-      if (node.sourceFile) { onOpen(node.sourceFile); return; }
-      const stemHyphen = node.id.replace(/_/g, "-");
-      const stemUnder = node.id;
-      const fullPath =
-        fileBasenameMap.get(stemHyphen + ".md") ?? fileBasenameMap.get(stemHyphen + ".txt") ??
-        fileBasenameMap.get(stemUnder + ".md") ?? fileBasenameMap.get(stemUnder + ".txt");
-      if (fullPath) onOpen(fullPath);
+      if (!ownFileIds.has(node.id)) return; // grey nodes have no file
+
+      // Double-click detection: same node clicked within 350 ms opens its file
+      const now = Date.now();
+      const last = lastMinimapClickRef.current;
+      if (last.id === node.id && now - last.time < 350) {
+        lastMinimapClickRef.current = { id: null, time: 0 };
+        // Prefer the node's declared sourceFile; fall back to stem-basename matching
+        if (node.sourceFile) { onOpen(node.sourceFile); return; }
+        const stemHyphen = node.id.replace(/_/g, "-");
+        const stemUnder = node.id;
+        const fullPath =
+          fileBasenameMap.get(stemHyphen + ".md") ?? fileBasenameMap.get(stemHyphen + ".txt") ??
+          fileBasenameMap.get(stemUnder + ".md") ?? fileBasenameMap.get(stemUnder + ".txt");
+        if (fullPath) onOpen(fullPath);
+      } else {
+        lastMinimapClickRef.current = { id: node.id, time: now };
+      }
     },
-    [nodeId, fileBasenameMap, onOpen]
+    [nodeId, ownFileIds, fileBasenameMap, onOpen]
   );
 
   const nodeCanvasObject = useCallback(
@@ -202,18 +194,24 @@ function buildEntityLinksExtension(dataRef) {
   return Extension.create({
     name: "entityLinks",
     addProseMirrorPlugins() {
+      let lastDoc = null;
+      let lastSet = DecorationSet.empty;
+      let lastFilename = undefined;
       return [
         new Plugin({
           key: entityLinksKey,
           props: {
             decorations(state) {
+              const currentFilename = dataRef.current?.currentFilename ?? null;
+              if (state.doc === lastDoc && currentFilename === lastFilename) return lastSet;
+              lastDoc = state.doc;
+              lastFilename = currentFilename;
               const entities = dataRef.current?.entities;
-              if (!entities?.length) return DecorationSet.empty;
+              if (!entities?.length) { lastSet = DecorationSet.empty; return lastSet; }
               const decorations = [];
               state.doc.descendants((node, pos) => {
                 if (!node.isText || !node.text) return;
                 const text = node.text;
-                const currentFilename = dataRef.current?.currentFilename;
                 for (const { name, filename, color } of entities) {
                   // Never link to the file currently open
                   if (currentFilename && filename === currentFilename) continue;
@@ -231,7 +229,8 @@ function buildEntityLinksExtension(dataRef) {
                   }
                 }
               });
-              return DecorationSet.create(state.doc, decorations);
+              lastSet = DecorationSet.create(state.doc, decorations);
+              return lastSet;
             },
             handleDOMEvents: {
               // Intercept mousedown on entity links BEFORE ProseMirror moves
@@ -268,16 +267,15 @@ function buildEntityLinksExtension(dataRef) {
   });
 }
 
-// ── Ghost-text autocomplete extension ────────────────────────────────────────
+// ── Inline autocomplete dropdown extension ───────────────────────────────────
 const autocompleteKey = new PluginKey("autocomplete");
-const MIN_AUTOCOMPLETE_PREFIX = 2; // chars typed before a suggestion appears
+const MIN_AUTOCOMPLETE_PREFIX = 2; // chars typed before suggestions appear
 
 /**
- * Find the best completion for the text immediately before the cursor.
- * Returns { prefixLen, completion } or null.
- * candidates: [{ name, filename, color }]
+ * Find all completions for the text immediately before the cursor.
+ * Returns sorted array of { name, completion, prefixLen, color } or null.
  */
-function computeCompletion(state, candidates) {
+function computeCompletions(state, candidates) {
   if (!candidates?.length) return null;
   const { selection } = state;
   if (!selection.empty) return null; // don’t suggest while text is selected
@@ -287,43 +285,83 @@ function computeCompletion(state, candidates) {
   if (!textBefore) return null;
 
   const lower = textBefore.toLowerCase();
-  let best = null;
+  const items = [];
 
-  for (const { name } of candidates) {
-    if (name.length <= MIN_AUTOCOMPLETE_PREFIX) continue; // must have >0 chars left to complete
+  for (const { name, color } of candidates) {
+    if (name.length <= MIN_AUTOCOMPLETE_PREFIX) continue;
     const maxPrefix = Math.min(name.length - 1, textBefore.length);
     for (let prefixLen = maxPrefix; prefixLen >= MIN_AUTOCOMPLETE_PREFIX; prefixLen--) {
       const prefix = name.slice(0, prefixLen).toLowerCase();
       if (!lower.endsWith(prefix)) continue;
-      // Require a word boundary before the prefix
       const beforeIdx = textBefore.length - prefixLen - 1;
       const charBefore = beforeIdx >= 0 ? textBefore[beforeIdx] : null;
       if (charBefore !== null && /\w/.test(charBefore)) continue;
-      if (!best || prefixLen > best.prefixLen) {
-        best = { prefixLen, completion: name.slice(prefixLen) };
-      }
-      break; // longest-prefix match for this candidate found
+      items.push({ name, completion: name.slice(prefixLen), prefixLen, color });
+      break;
     }
   }
-  return best;
+
+  if (!items.length) return null;
+  items.sort((a, b) => b.prefixLen - a.prefixLen || a.name.localeCompare(b.name));
+  return items;
 }
 
 function buildAutocompleteExtension(dataRef) {
-  // Shared across addKeyboardShortcuts and addProseMirrorPlugins via closure.
-  // decorations() always runs during state updates, keeping this current.
-  let lastCompletion = null;
-
   return Extension.create({
     name: "autocomplete",
-    // Higher priority than StarterKit (100) so our Tab handler wins.
+    // Higher priority than StarterKit (100) so our Tab/Arrow handlers win.
     priority: 1000,
 
     addKeyboardShortcuts() {
+      const accept = (editor) => {
+        const data = dataRef.current;
+        if (!data?.acItems?.length) return false;
+        const item = data.acItems[data.acSelectedIndex ?? 0];
+        if (!item) return false;
+        editor.commands.insertContent(item.completion);
+        data.acItems = null;
+        data.acSelectedIndex = 0;
+        data.setAcDropdown?.(null);
+        return true;
+      };
+
       return {
-        Tab: ({ editor }) => {
-          if (!lastCompletion) return false;
-          editor.commands.insertContent(lastCompletion.completion);
-          lastCompletion = null;
+        Tab: ({ editor }) => accept(editor),
+        // Dismiss on Enter (without consuming — let StarterKit insert a newline)
+        Enter: () => {
+          const data = dataRef.current;
+          if (!data?.acItems?.length) return false;
+          data.acItems = null;
+          data.acSelectedIndex = 0;
+          data._acFirstName = undefined;
+          data._acSuppressed = true;
+          data.setAcDropdown?.(null);
+          return false; // don't consume; StarterKit still handles the newline
+        },
+        ArrowDown: () => {
+          const data = dataRef.current;
+          if (!data?.acItems?.length) return false;
+          const next = ((data.acSelectedIndex ?? 0) + 1) % data.acItems.length;
+          data.acSelectedIndex = next;
+          data.setAcDropdown?.((prev) => prev ? { ...prev, selectedIndex: next } : null);
+          return true;
+        },
+        ArrowUp: () => {
+          const data = dataRef.current;
+          if (!data?.acItems?.length) return false;
+          const prev = ((data.acSelectedIndex ?? 0) - 1 + data.acItems.length) % data.acItems.length;
+          data.acSelectedIndex = prev;
+          data.setAcDropdown?.((d) => d ? { ...d, selectedIndex: prev } : null);
+          return true;
+        },
+        Escape: () => {
+          const data = dataRef.current;
+          if (!data?.acItems?.length) return false;
+          data.acItems = null;
+          data.acSelectedIndex = 0;
+          data._acFirstName = undefined;
+          data._acSuppressed = true; // prevent view.update() from immediately reopening
+          data.setAcDropdown?.(null);
           return true;
         },
       };
@@ -333,29 +371,51 @@ function buildAutocompleteExtension(dataRef) {
       return [
         new Plugin({
           key: autocompleteKey,
-          props: {
-            decorations(state) {
-              const result = computeCompletion(state, dataRef.current?.candidates);
-              lastCompletion = result;
-              if (!result) return DecorationSet.empty;
-
-              const { from } = state.selection;
-              const completionText = result.completion;
-              return DecorationSet.create(state.doc, [
-                Decoration.widget(
-                  from,
-                  () => {
-                    const el = document.createElement("span");
-                    el.textContent = completionText;
-                    el.setAttribute("data-ghost", "true");
-                    el.style.cssText =
-                      "color:rgba(255,255,255,0.28);pointer-events:none;user-select:none;";
-                    return el;
-                  },
-                  { side: 1, key: "ac-ghost:" + completionText }
-                ),
-              ]);
-            },
+          view() {
+            return {
+              update(view, prevState) {
+                const data = dataRef.current;
+                if (!data) return;
+                // Clear suppress flag only when the document content changes
+                // (i.e. the user typed something new after Escape/Enter)
+                if (prevState && prevState.doc !== view.state.doc) {
+                  data._acSuppressed = false;
+                }
+                if (data._acSuppressed) return;
+                const items = computeCompletions(view.state, data.candidates);
+                if (!items) {
+                  if (data.acItems) {
+                    data.acItems = null;
+                    data.acSelectedIndex = 0;
+                    data._acFirstName = undefined;
+                    data.setAcDropdown?.(null);
+                  }
+                  return;
+                }
+                // Reset selected index only when the leading candidate changes
+                const newFirst = items[0].name;
+                if (data._acFirstName !== newFirst) {
+                  data.acSelectedIndex = 0;
+                  data._acFirstName = newFirst;
+                }
+                data.acItems = items;
+                const { from } = view.state.selection;
+                const coords = view.coordsAtPos(from);
+                data.setAcDropdown?.({
+                  x: coords.left,
+                  y: coords.bottom,
+                  items,
+                  selectedIndex: data.acSelectedIndex ?? 0,
+                });
+              },
+              destroy() {
+                const data = dataRef.current;
+                if (data) {
+                  data.acItems = null;
+                  data.setAcDropdown?.(null);
+                }
+              },
+            };
           },
         }),
       ];
@@ -417,7 +477,7 @@ function treeInsertNode(nodes, node, folderPath) {
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function FilesEditor({ graphData = { nodes: [], links: [] }, workspace = null, workspaceName = null, workspaces = [], onWorkspaceChange = null, onCreateWorkspace = null, nodeTransparent = false, nodeBorder = false }) {
+export default function FilesEditor({ graphData = { nodes: [], links: [] }, workspace = null, workspaceName = null, workspaces = [], onWorkspaceChange = null, onCreateWorkspace = null, nodeTransparent = false, nodeBorder = false, disallowedAliases = new Set(), onReady = null, onFilesChange = null }) {
   const [files, setFiles] = useState([]);
   const [tree, setTree] = useState([]);
   const [openFolders, setOpenFolders] = useState(() => new Set());
@@ -461,6 +521,8 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
   const [propagateConfirm, setPropagateConfirm] = useState(null); // { title, oldName, filesAffected, referencesAffected, aliasesAffected } | null
   const [isDirty, setIsDirty] = useState(false);
   const saveTimerRef = useRef(null);
+  const workspaceRef = useRef(workspace);
+  useEffect(() => { workspaceRef.current = workspace; }, [workspace]);
   const entityDataRef = useRef({ entities: [], onOpen: null, onHover: null, onHoverEnd: null, currentFilename: null });
   const lastSavedContentRef = useRef(""); // tracks last-written markdown to skip no-op saves
   const openFileRef = useRef(null);        // always current openFile — safe to read inside onUpdate
@@ -469,13 +531,25 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
   const fileCacheRef = useRef({});         // filename → content string (cleared on workspace change)
   const backlinksCache = useRef({});       // filename → backlinks array (cleared on workspace change)
 
+  // ── File search ───────────────────────────────────────────────────────────────
+  const [fileSearchQuery, setFileSearchQuery] = useState("");
+  const fileSearchRef = useRef(null);
+
   // ── Entity hover preview tooltip ─────────────────────────────────────────────
   const [entityTooltip, setEntityTooltip] = useState(null); // { node, x, y } | null
+
+  // ── Editor context menu (right-click on selection) ───────────────────────────
+  const [editorContextMenu, setEditorContextMenu] = useState(null); // { x, y, selectedText } | null
+  const [acDropdown, setAcDropdown] = useState(null);              // { x, y, items, selectedIndex } | null
 
   // ── Aliases state ────────────────────────────────────────────────────────────
   const [aliases, setAliases] = useState([]);
   const [aliasInput, setAliasInput] = useState("");
   const aliasInputRef = useRef(null);
+
+  // ── Tags state ───────────────────────────────────────────────────────────────
+  const [tags, setTags] = useState([]);
+  const [tagInput, setTagInput] = useState("");
 
   // ── Backlinks ─────────────────────────────────────────────────────────────────
   const [backlinks, setBacklinks] = useState([]); // [{ filename }]
@@ -621,8 +695,9 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
   // Load aliases + title from graphData nodes (already fetched, no extra request needed)
   const [nodeTitle, setNodeTitle] = useState("");
   useEffect(() => {
-    if (!openNode) { setAliases([]); setNodeTitle(""); return; }
+    if (!openNode) { setAliases([]); setNodeTitle(""); setTags([]); return; }
     setAliases(openNode.aliases || []);
+    setTags(openNode.tags || []);
     setNodeTitle(openNode.name ?? "");
   }, [openNode]);
 
@@ -686,7 +761,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
 
   const saveAliases = useCallback((next) => {
     if (!openFile) return;
-    fetch(`/api/notes-raw-file?filename=${encodeURIComponent(openFile.filename)}&workspace=${encodeURIComponent(workspace ?? "")}`, {
+    fetch(`/api/notes-raw-file?filename=${encodeURIComponent(openFile.filename)}&workspace=${encodeURIComponent(workspaceRef.current ?? "")}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ aliases: next }),
@@ -711,6 +786,30 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
     setAliases(next);
     saveAliases(next);
   }, [aliases, saveAliases]);
+
+  const saveTags = useCallback((next) => {
+    if (!openFile) return;
+    fetch(`/api/notes-raw-file?filename=${encodeURIComponent(openFile.filename)}&workspace=${encodeURIComponent(workspaceRef.current ?? "")}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tags: next }),
+    }).catch(() => {});
+  }, [openFile]);
+
+  const addTag = useCallback((raw) => {
+    const val = raw.trim().toLowerCase().replace(/\s+/g, "-");
+    if (!val || tags.some((t) => t === val)) { setTagInput(""); return; }
+    const next = [...tags, val];
+    setTags(next);
+    saveTags(next);
+    setTagInput("");
+  }, [tagInput, tags, saveTags]);
+
+  const removeTag = useCallback((tag) => {
+    const next = tags.filter((t) => t !== tag);
+    setTags(next);
+    saveTags(next);
+  }, [tags, saveTags]);
 
   // Keep refs in sync with their state/callback counterparts every render
   openFileRef.current = openFile;
@@ -781,6 +880,10 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
     loadFiles();
   }, [loadFiles]);
 
+  // Notify parent whenever the file list changes (used by StoryGraph to compute ownFileIds
+  // without a separate fetch against /api/notes-raw-list).
+  useEffect(() => { onFilesChange?.(files); }, [files, onFilesChange]);
+
   // ── Open a file ──────────────────────────────────────────────────────────────
   const openFileByName = useCallback((filename) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -813,7 +916,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
     }
 
     setLoadingFile(true);
-    fetch(`/api/notes-raw-file?filename=${encodeURIComponent(filename)}&workspace=${encodeURIComponent(workspace ?? "")}`)
+    fetch(`/api/notes-raw-file?filename=${encodeURIComponent(filename)}&workspace=${encodeURIComponent(workspaceRef.current ?? "")}`)
       .then((r) => r.json())
       .then((d) => {
         fileCacheRef.current[d.filename] = { content: d.content, json: null };
@@ -851,7 +954,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
       return;
     }
     setSaveState("saving");
-    fetch(`/api/notes-raw-file?filename=${encodeURIComponent(currentFile.filename)}&workspace=${encodeURIComponent(workspace ?? "")}`, {
+    fetch(`/api/notes-raw-file?filename=${encodeURIComponent(currentFile.filename)}&workspace=${encodeURIComponent(workspaceRef.current ?? "")}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content }),
@@ -887,6 +990,36 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
     return () => window.removeEventListener("keydown", onKey);
   }, [saveFile]);
 
+  // ── Create note from selected text ─────────────────────────────────────────
+  const createNoteFromSelection = useCallback((selectedText) => {
+    if (!selectedText.trim() || !openFile) return;
+    const title = selectedText.trim();
+    // Slugify: lowercase, collapse whitespace to hyphens, strip non-alphanumeric (keep hyphens)
+    const slug = title
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, "")
+      .trim()
+      .replace(/[\s_]+/g, "-");
+    const filename = slug + ".md";
+    // Place the new file in the same folder as the current file
+    const currentFolder = openFile.filename.includes("/")
+      ? openFile.filename.split("/").slice(0, -1).join("/")
+      : "";
+    const filePath = currentFolder ? `${currentFolder}/${filename}` : filename;
+    const content = `# ${title}\n\n`;
+    fetch(
+      `/api/notes-raw-file?filename=${encodeURIComponent(filePath)}&workspace=${encodeURIComponent(workspaceRef.current ?? "")}`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, name: title }) }
+    )
+      .then((r) => { if (!r.ok) throw new Error("Create failed"); })
+      .then(() => {
+        if (currentFolder) setOpenFolders((prev) => new Set([...prev, currentFolder]));
+        loadFiles();
+        openFileByName(filePath);
+      })
+      .catch(console.error);
+  }, [openFile, loadFiles, openFileByName]);
+
   // ── Create new file ──────────────────────────────────────────────────────────
   const createFile = useCallback((parentPath, name) => {
     const trimmed = (name ?? "").trim();
@@ -907,6 +1040,13 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
       })
       .catch(console.error);
   }, [loadFiles, openFileByName, workspace]);
+
+  // Expose openFileByName + createFile + loadFiles to the parent on every change.
+  // Using a ref-based guard (onReadyCalledRef) here would prevent the parent from
+  // getting updated callbacks after a workspace switch, so we call onReady freely.
+  useEffect(() => {
+    onReady?.({ openFileByName, createFile, loadFiles });
+  }, [onReady, openFileByName, createFile, loadFiles]);
 
   // ── Create new folder ──────────────────────────────────────────────────
   const createFolder = useCallback((parentPath, name) => {
@@ -969,7 +1109,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
   const deleteFile = useCallback((filename, e) => {
     e.stopPropagation();
     if (!window.confirm(`Delete "${filename}"? This cannot be undone.`)) return;
-    fetch(`/api/notes-raw-file?filename=${encodeURIComponent(filename)}&workspace=${encodeURIComponent(workspace ?? "")}`, { method: "DELETE" })
+    fetch(`/api/notes-raw-file?filename=${encodeURIComponent(filename)}&workspace=${encodeURIComponent(workspaceRef.current ?? "")}`, { method: "DELETE" })
       .then(() => {
         loadFiles();
         if (openFile?.filename === filename) {
@@ -1037,21 +1177,66 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
     if (!graphData.nodes.length || !files.length) return [];
     // Build basename → full relative path map (e.g. "maren-ashveil.md" → "notes-raw/maren-ashveil.md")
     const fileBasenameMap = new Map(files.map((f) => [f.filename.split("/").pop(), f.filename]));
+    const fileSet = new Set(files.map((f) => f.filename));
     // Derive the node ID for the currently open file so we can exclude all supplemental copies
     // of the same node (not just the exact filename). Prefer openNode.id (handles merged copies
     // whose filename doesn't match the canonical node ID).
     const openBasename = openFile?.filename.split("/").pop() ?? "";
     const openFileNodeId = openNode?.id ?? openBasename.replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+    // Words in the current node's name — used below to suppress auto-partial aliases from
+    // OTHER nodes that would spuriously match a word in the current node's name.
+    // e.g. editing "Chief Surveyor Vane" must not hyperlink "Vane" via Orrus Vane's auto-partial.
+    const openNodeNameWords = new Set(
+      (openNode?.name ?? "").toLowerCase().split(/\s+/).filter((w) => w.length > 0)
+    );
+
+    // For a given text (name or alias) and array of candidate files for one node,
+    // return the file whose stem best matches the text. Falls back to first file.
+    function bestFileForText(text, nodeFiles) {
+      const norm = text.toLowerCase().replace(/[^a-z0-9]/g, "");
+      for (const f of nodeFiles) {
+        const stem = f.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/[-_]/g, "").toLowerCase();
+        if (stem === norm) return f;
+      }
+      return nodeFiles[0];
+    }
+
     const result = [];
     for (const node of graphData.nodes) {
       if (node.id === openFileNodeId) continue; // skip self AND all supplemental files for the same node
+      // Also skip nodes whose sourceFile is the currently open file (handles cases where the
+      // node ID stem doesn't match the filename, e.g. chief_surveyor_vane → cartographic_division.md)
+      if (node.sourceFile && openFile && node.sourceFile === openFile.filename) continue;
+      // Resolve the primary file path: prefer node.sourceFile, then fall back to stem-based lookup.
       const stem = node.id.replace(/_/g, "-");
-      const fullPath = fileBasenameMap.get(stem + ".md") ?? fileBasenameMap.get(stem + ".txt");
-      if (!fullPath) continue;
+      const bySourceFile = node.sourceFile ? files.find((f) => f.filename === node.sourceFile) : null;
+      const byStem = fileBasenameMap.get(stem + ".md") ?? fileBasenameMap.get(stem + ".txt");
+      const primaryPath = bySourceFile?.filename ?? byStem;
+      if (!primaryPath) continue;
+
+      // Collect ALL files that belong to this node: primary + additionalSourceFiles that exist.
+      // Used to route aliases to the most contextually appropriate file.
+      const allNodeFiles = [primaryPath];
+      for (const sf of (node.additionalSourceFiles || [])) {
+        if (sf !== primaryPath && fileSet.has(sf)) allNodeFiles.push(sf);
+      }
+
       const cfg = NODE_TYPE_CONFIG[node.type] || NODE_TYPE_CONFIG.character;
-      result.push({ name: node.name, filename: fullPath, color: cfg.color });
+
+      // Push entry for the canonical name, and each alias, each routed to the best-matching file
+      // (e.g. alias "Shouyou" routes to dads/shouyou.md rather than hinata_wiki/sh_y_hinata.md).
+      const pushEntity = (name) => result.push({
+        name,
+        filename: bestFileForText(name, allNodeFiles),
+        color: cfg.color,
+        nodeId: node.id,
+        pattern: new RegExp(`\\b${name.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")}\\b`, "i"),
+      });
+
+      pushEntity(node.name);
+
       // Collect all alias forms: explicit aliases from JSON + auto-derived single words
-      // from multi-word names (e.g. "Orris Vane" → also match "Vane", "Orris").
+      // from multi-word names. Filter both against the persistent disallowed-aliases blacklist.
       const STOP_WORDS = new Set([
         "the","and","for","not","but","nor","yet","so","of","in","on","at","to",
         "by","up","as","an","a","or","its","it","he","she","they","his","her",
@@ -1061,22 +1246,19 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
       ]);
       const nameWords = node.name.trim().split(/\s+/);
       const autoPartials = nameWords.length > 1
-        ? nameWords.filter((w) => w.length > 2 && !STOP_WORDS.has(w.toLowerCase()))
+        ? nameWords.filter((w) => w.length > 2 && !STOP_WORDS.has(w.toLowerCase()) && !disallowedAliases.has(w.toLowerCase()) && !openNodeNameWords.has(w.toLowerCase()))
         : [];
       const allAliases = [
-        ...(node.aliases || []),
+        ...(node.aliases || []).filter((a) => !disallowedAliases.has(a.toLowerCase())),
         ...autoPartials.filter((w) => !(node.aliases || []).some((a) => a.toLowerCase() === w.toLowerCase())),
       ];
-      // Also add each alias so e.g. "Maren" links to the same file as "Maren Ashveil"
       for (const alias of allAliases) {
-        if (alias.toLowerCase() !== node.name.toLowerCase()) {
-          result.push({ name: alias, filename: fullPath, color: cfg.color });
-        }
+        if (alias.toLowerCase() !== node.name.toLowerCase()) pushEntity(alias);
       }
     }
     // Sort longer names first to prevent partial shadowing
     return result.sort((a, b) => b.name.length - a.name.length);
-  }, [graphData.nodes, files, openFile]);
+  }, [graphData.nodes, files, openFile, openNode, disallowedAliases]);
 
   // Keep decoration ref in sync — no transaction dispatch needed; ProseMirror
   // reruns decorations() on every state update so the ref is always current.
@@ -1084,12 +1266,21 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
     entityDataRef.current.entities = mentionableEntities;
     entityDataRef.current.onOpen = openFileByName;
     entityDataRef.current.currentFilename = openFile?.filename ?? null;
+    // Build a filename → nodeId map from mentionableEntities for fast tooltip lookup.
+    // This handles cases where filename stem doesn't match node.id (e.g. shouyou.md → sh_y_hinata).
+    const filenameToNodeId = new Map(
+      mentionableEntities.filter((e) => e.nodeId).map((e) => [e.filename, e.nodeId])
+    );
     entityDataRef.current.onHover = (filename, x, y) => {
-      // filename may be a full relative path; compare against node id using basename
-      const basename = filename.split("/").pop();
-      const node = graphData.nodes.find(
-        (n) => n.id.replace(/_/g, "-") + ".md" === basename || n.id.replace(/_/g, "-") + ".txt" === basename
-      );
+      const nodeId = filenameToNodeId.get(filename);
+      const node = nodeId
+        ? graphData.nodes.find((n) => n.id === nodeId)
+        : (() => {
+            const basename = filename.split("/").pop();
+            return graphData.nodes.find(
+              (n) => n.id.replace(/_/g, "-") + ".md" === basename || n.id.replace(/_/g, "-") + ".txt" === basename
+            );
+          })();
       if (node) setEntityTooltip({ node, x, y });
     };
     entityDataRef.current.onHoverEnd = () => setEntityTooltip(null);
@@ -1098,7 +1289,8 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
     // mentionableEntities already includes aliases as separate entries.
     const candidates = [...mentionableEntities];
     entityDataRef.current.candidates = candidates;
-  }, [mentionableEntities, openFileByName, openFile, graphData.nodes]);
+    entityDataRef.current.setAcDropdown = setAcDropdown;
+  }, [mentionableEntities, openFileByName, openFile, graphData.nodes, setAcDropdown]);
 
   // ── Bibliography: nodes mentioned in the open file's prose ──────────────────
   const bibliography = useMemo(() => {
@@ -1107,19 +1299,25 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
     const stemWords = new Set(
       openFile.filename.split("/").pop().replace(/\.(md|txt)$/i, "").split(/[-_]/).map((w) => w.toLowerCase())
     );
-    const seen = new Set(); // deduplicate by filename — one entry per node regardless of aliases
+    const seen = new Set(); // deduplicate by nodeId — one entry per node regardless of which alias or file matched
     const result = [];
     for (const entity of mentionableEntities) {
-      if (seen.has(entity.filename)) continue;
+      if (entity.nodeId && seen.has(entity.nodeId)) continue;
       // Skip if entity name words all appear in the filename stem (self)
       const words = entity.name.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/);
       if (words.length > 0 && words.every((w) => stemWords.has(w))) continue;
-      const escaped = entity.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      if (new RegExp(`\\b${escaped}\\b`, "i").test(rawText)) {
-        seen.add(entity.filename);
-        // Always resolve to canonical node name so aliases never appear as display text
-        const nodeId = entity.filename.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
-        const node = graphData.nodes.find((n) => n.id === nodeId);
+      if (entity.pattern.test(rawText)) {
+        if (entity.nodeId) seen.add(entity.nodeId);
+        else seen.add(entity.filename);
+        // Use entity.nodeId to look up the canonical node so aliases always display
+        // with the node's proper name and color, even when linking to an additionalSourceFile
+        // (e.g. "Shouyou" alias → dads/shouyou.md but node is sh_y_hinata).
+        const node = entity.nodeId
+          ? graphData.nodes.find((n) => n.id === entity.nodeId)
+          : graphData.nodes.find((n) => {
+              const nid = entity.filename.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+              return n.id === nid;
+            });
         result.push({ ...entity, name: node?.name ?? entity.name });
       }
     }
@@ -1132,9 +1330,50 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
     return new Set(bibliography.map((e) => e.filename).filter((f) => backlinkSet.has(f)));
   }, [bibliography, backlinks]);
 
+  // Map every workspace filename → canonical node.id, covering sourceFile, additionalSourceFiles,
+  // and stem-based matches. Used to show folder prefixes in References and Backlinks.
+  // NOTE: stem matching iterates files-first (not node-first via a basenameMap) so that
+  // two files with the same basename in different folders (e.g. dads/akaashi.md and
+  // tea_stained_polaroids/akaashi.md) both get mapped, rather than one overwriting the other.
+  const filenameToNodeId = useMemo(() => {
+    const map = new Map();
+    const fileSet = new Set(files.map((f) => f.filename));
+
+    // Pass 1: direct sourceFile / additionalSourceFiles (most reliable — set by the extractor)
+    for (const node of graphData.nodes) {
+      if (node.sourceFile && fileSet.has(node.sourceFile)) map.set(node.sourceFile, node.id);
+      for (const sf of (node.additionalSourceFiles || [])) {
+        if (fileSet.has(sf)) map.set(sf, node.id);
+      }
+    }
+
+    // Pass 2: stem matching for any files not yet mapped — iterate files so every file
+    // gets a chance regardless of whether another file shares the same basename.
+    for (const { filename } of files) {
+      if (map.has(filename)) continue;
+      const stem = filename.split("/").pop().replace(/\.(md|txt)$/i, "");
+      const stemUnder = stem.replace(/-/g, "_");
+      const node = graphData.nodes.find((n) => n.id === stemUnder || n.id === stem);
+      if (node) map.set(filename, node.id);
+    }
+
+    return map;
+  }, [graphData.nodes, files]);
+
+  // Node IDs that have files in 2+ locations — any entry in References or Backlinks
+  // for such a node should display its folder prefix to disambiguate.
+  const multiFileNodeIds = useMemo(() => {
+    const perNode = new Map(); // nodeId → Set<filename>
+    for (const [filename, nodeId] of filenameToNodeId) {
+      if (!perNode.has(nodeId)) perNode.set(nodeId, new Set());
+      perNode.get(nodeId).add(filename);
+    }
+    return new Set([...perNode.entries()].filter(([, s]) => s.size > 1).map(([id]) => id));
+  }, [filenameToNodeId]);
+
   const isEditorReady = !!editor && !loadingFile;
   const canEdit = isEditorReady && !!openFile;
-  const isPageLoading = loadingFile || loadingBacklinks;
+  const isPageLoading = loadingFile; // backlinks load in the background — don't block the editor
 
   // Flat list of every folder path in the tree (for expand/collapse all)
   const allFolderPaths = useMemo(() => {
@@ -1442,7 +1681,30 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
           )}
         </div>
 
-        {/* File tree */}
+        {/* File search */}
+        <div className="px-2 py-1.5 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md" style={{ backgroundColor: "rgba(255,255,255,0.05)" }}>
+            <Search size={11} style={{ color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />
+            <input
+              ref={fileSearchRef}
+              type="text"
+              value={fileSearchQuery}
+              onChange={(e) => setFileSearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Escape") { setFileSearchQuery(""); fileSearchRef.current?.blur(); } }}
+              placeholder="Search files…"
+              className="flex-1 bg-transparent outline-none text-xs"
+              style={{ color: "rgba(255,255,255,0.8)", caretColor: "#60a5fa" }}
+              spellCheck={false}
+            />
+            {fileSearchQuery && (
+              <button onMouseDown={(e) => { e.preventDefault(); setFileSearchQuery(""); }} style={{ color: "rgba(255,255,255,0.3)" }} onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")} onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}>
+                <X size={11} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* File tree (or flat search results) */}
         <div
           className="flex-1 overflow-y-auto py-1 px-1"
           style={{ outline: dropIndicator?.type === "root" ? "1px solid rgba(96,165,250,0.25)" : "none", outlineOffset: "-2px" }}
@@ -1450,7 +1712,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
           onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDropIndicator(null); }}
           onDrop={(e) => { e.preventDefault(); if (dragItem) moveFile(dragItem.path, ""); setDragItem(null); setDropIndicator(null); }}
         >
-          {inlineNew?.parentPath === "" && (
+          {inlineNew?.parentPath === "" && !fileSearchQuery && (
             <div className="py-0.5 px-2">
               <input
                 autoFocus
@@ -1469,10 +1731,76 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
               />
             </div>
           )}
-          {tree.length === 0 && !inlineNew && (
-            <p className="text-xs px-3 py-2" style={{ color: "rgba(255,255,255,0.2)" }}>No files yet</p>
+          {fileSearchQuery ? (() => {
+            const raw = fileSearchQuery.toLowerCase();
+            const isTagSearch = raw.startsWith("tag:");
+            const tagQ = isTagSearch ? raw.slice(4).trim() : null;
+
+            let matches;
+            if (isTagSearch) {
+              // Match files whose node has a tag containing the tag query
+              matches = files.filter((f) => {
+                const basename = f.filename.split("/").pop();
+                const stemId = basename.replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+                const node = graphData.nodes.find((n) => n.id === stemId);
+                return (node?.tags || []).some((t) => t.includes(tagQ));
+              });
+            } else {
+              matches = files.filter((f) => f.filename.toLowerCase().includes(raw));
+            }
+
+            if (matches.length === 0) return (
+              <p className="text-xs px-3 py-2" style={{ color: "rgba(255,255,255,0.2)" }}>No files match</p>
+            );
+            return matches.map((f) => {
+              const basename = f.filename.split("/").pop();
+              const isActive = openFile?.filename === f.filename;
+              const q = isTagSearch ? null : raw;
+              const loIdx = q ? basename.toLowerCase().indexOf(q) : -1;
+              const highlighted = loIdx >= 0
+                ? <>{basename.slice(0, loIdx)}<span style={{ color: "#60a5fa" }}>{basename.slice(loIdx, loIdx + q.length)}</span>{basename.slice(loIdx + q.length)}</>
+                : basename;
+              // For tag search, show matching tags as a hint
+              const tagHints = isTagSearch ? (() => {
+                const stemId = basename.replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+                const node = graphData.nodes.find((n) => n.id === stemId);
+                return (node?.tags || []).filter((t) => t.includes(tagQ));
+              })() : [];
+              return (
+                <button
+                  key={f.filename}
+                  onClick={() => openFileByName(f.filename)}
+                  title={f.filename}
+                  className="w-full flex flex-col items-start px-2 py-1 rounded-md text-left"
+                  style={{
+                    backgroundColor: isActive ? "rgba(96,165,250,0.15)" : "transparent",
+                    color: isActive ? "#93c5fd" : "rgba(255,255,255,0.7)",
+                  }}
+                  onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                  onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = "transparent"; }}
+                >
+                  <div className="flex items-center gap-1.5 w-full">
+                    <FileText size={12} style={{ flexShrink: 0, opacity: 0.5 }} />
+                    <span className="text-xs truncate">{highlighted}</span>
+                  </div>
+                  {tagHints.length > 0 && (
+                    <div className="flex gap-1 mt-0.5 ml-5 flex-wrap">
+                      {tagHints.map((t) => (
+                        <span key={t} className="text-[10px] px-1 rounded" style={{ backgroundColor: "rgba(96,165,250,0.12)", color: "#93c5fd" }}>#{t}</span>
+                      ))}
+                    </div>
+                  )}
+                </button>
+              );
+            });
+          })() : (
+            <>
+              {tree.length === 0 && !inlineNew && (
+                <p className="text-xs px-3 py-2" style={{ color: "rgba(255,255,255,0.2)" }}>No files yet</p>
+              )}
+              {renderTree(tree, 0)}
+            </>
           )}
-          {renderTree(tree, 0)}
         </div>
       </aside>
 
@@ -1580,6 +1908,9 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto px-8 py-6 relative">
+            {/* ── Flex row: editor content (left) + minimap (right) ── */}
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 20 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
             {/* Editable node title */}
             {openNode ? (
               <input
@@ -1605,6 +1936,41 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
                 <span style={{ marginLeft: 10, color: "#4ade80" }}>{propagateMsg}</span>
               )}
             </p>
+            {/* Tags */}
+            {openNode && (
+              <div className="flex flex-wrap items-center gap-1.5 mb-1 min-h-[22px]">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs"
+                    style={{ backgroundColor: "rgba(96,165,250,0.12)", color: "#93c5fd", border: "1px solid rgba(96,165,250,0.2)" }}
+                  >
+                    #{tag}
+                    <button
+                      onClick={() => removeTag(tag)}
+                      style={{ color: "rgba(147,197,253,0.5)", lineHeight: 1 }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "#93c5fd")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(147,197,253,0.5)")}
+                      title="Remove tag"
+                    ><X size={9} /></button>
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(tagInput); }
+                    if (e.key === "Escape") setTagInput("");
+                  }}
+                  onBlur={() => { if (tagInput.trim()) addTag(tagInput); }}
+                  placeholder={tags.length === 0 ? "Add tag…" : "+"}
+                  className="bg-transparent outline-none text-xs"
+                  style={{ color: "rgba(255,255,255,0.4)", caretColor: "#60a5fa", width: tags.length === 0 ? 70 : 28, minWidth: 20 }}
+                  spellCheck={false}
+                />
+              </div>
+            )}
             {/* Duplicate / supplemental file indicator */}
             {supplementalFiles.length > 0 && (
               <div className="text-xs mb-4 flex flex-col gap-0.5">
@@ -1631,22 +1997,248 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
               </div>
             )}
             {supplementalFiles.length === 0 && <div className="mb-4" />}
-            {/* Minimap floated top-right so prose wraps around it */}
-            {openNodeId && graphData.nodes.some((n) => n.id === openNodeId) && (
-              <div style={{ float: "right", width: 320, marginLeft: 20, marginBottom: 12, borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "#0f0f1a", flexShrink: 0 }}>
-                <NodeMinimap
-                  nodeId={openNodeId}
-                  graphData={graphData}
-                  files={files}
-                  onOpen={openFileByName}
-                  nodeTransparent={nodeTransparent}
-                  nodeBorder={nodeBorder}
-                />
-              </div>
-            )}
-            <EditorContent editor={editor} />
+            <div
+              className="relative"
+              onContextMenu={(e) => {
+                if (!editor) return;
+                e.preventDefault();
+                const selectedText = editor.state.doc.textBetween(
+                  editor.state.selection.from,
+                  editor.state.selection.to,
+                  " "
+                ).trim();
+                setEditorContextMenu({ x: e.clientX, y: e.clientY, selectedText });
+              }}
+            >
+              <EditorContent editor={editor} />
+            </div>
 
-            {/* ── Entity hover preview tooltip ─────────────────────── */}
+            {/* ── Selection context menu ────────────────────────────── */}
+            {editorContextMenu && (
+              <>
+                {/* Backdrop — dismiss on click outside */}
+                <div
+                  className="fixed inset-0 z-40"
+                  onMouseDown={() => setEditorContextMenu(null)}
+                />
+                <div
+                  className="fixed z-50 py-1 rounded-lg shadow-xl"
+                  style={{
+                    left: editorContextMenu.x,
+                    top: editorContextMenu.y,
+                    minWidth: 200,
+                    backgroundColor: "rgba(22,22,35,0.98)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                  }}
+                >
+                  {/* Standard edit actions: Cut / Copy / Paste */}
+                  {(() => {
+                    const text = editorContextMenu.selectedText;
+                    const hasSelection = text.length > 0;
+                    const iconStyle = { flexShrink: 0, color: "rgba(255,255,255,0.4)" };
+                    const btnClass = "w-full text-left px-3 py-2 text-sm flex items-center gap-2";
+                    const btnStyle = { color: "rgba(255,255,255,0.85)" };
+                    const dimStyle = { color: "rgba(255,255,255,0.35)", cursor: "default" };
+                    const hoverOn  = (e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.07)");
+                    const hoverOff = (e) => (e.currentTarget.style.backgroundColor = "transparent");
+                    return (
+                      <>
+                        {hasSelection && (
+                          <button className={btnClass} style={btnStyle} onMouseEnter={hoverOn} onMouseLeave={hoverOff}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setEditorContextMenu(null);
+                              navigator.clipboard.writeText(text).then(() => {
+                                editor?.commands.deleteSelection();
+                              }).catch(() => {});
+                            }}>
+                            <Scissors size={13} style={iconStyle} />
+                            Cut
+                          </button>
+                        )}
+                        {hasSelection && (
+                          <button className={btnClass} style={btnStyle} onMouseEnter={hoverOn} onMouseLeave={hoverOff}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setEditorContextMenu(null);
+                              navigator.clipboard.writeText(text).catch(() => {});
+                            }}>
+                            <Copy size={13} style={iconStyle} />
+                            Copy
+                          </button>
+                        )}
+                        <button className={btnClass} style={hasSelection ? btnStyle : dimStyle}
+                          onMouseEnter={hoverOn} onMouseLeave={hoverOff}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setEditorContextMenu(null);
+                            navigator.clipboard.readText().then((t) => {
+                              if (t) editor?.commands.insertContent(t);
+                            }).catch(() => {});
+                          }}>
+                          <Clipboard size={13} style={iconStyle} />
+                          Paste
+                        </button>
+                        <div className="my-1 mx-2" style={{ height: 1, backgroundColor: "rgba(255,255,255,0.07)" }} />
+                      </>
+                    );
+                  })()}
+                  {/* Selection-only actions: Add alias + Create note */}
+                  {editorContextMenu.selectedText && (() => {
+                    const text = editorContextMenu.selectedText;
+                    const showAlias = openNode &&
+                      !aliases.some((a) => a.toLowerCase() === text.toLowerCase()) &&
+                      openNode.name.toLowerCase() !== text.toLowerCase();
+                    return (
+                      <>
+                        {showAlias && (
+                          <button
+                            className="w-full text-left px-3 py-2 text-sm flex items-center gap-2"
+                            style={{ color: "rgba(255,255,255,0.85)" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.07)")}
+                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setEditorContextMenu(null);
+                              const next = [...aliases, text];
+                              setAliases(next);
+                              saveAliases(next);
+                            }}
+                          >
+                            <Tag size={13} style={{ flexShrink: 0, color: "rgba(255,255,255,0.4)" }} />
+                            <span>
+                              Add alias{" "}
+                              <span className="font-medium" style={{ color: "#fff" }}>
+                                &ldquo;{text.length > 30 ? text.slice(0, 30) + "…" : text}&rdquo;
+                              </span>
+                            </span>
+                          </button>
+                        )}
+                        {showAlias && (
+                          <div className="my-1 mx-2" style={{ height: 1, backgroundColor: "rgba(255,255,255,0.07)" }} />
+                        )}
+                        <button
+                          className="w-full text-left px-3 py-2 text-sm flex items-center gap-2"
+                          style={{ color: "rgba(255,255,255,0.85)" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.07)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setEditorContextMenu(null);
+                            createNoteFromSelection(text);
+                          }}
+                        >
+                          <FilePlus size={13} style={{ flexShrink: 0, color: "rgba(255,255,255,0.4)" }} />
+                          <span>
+                            Create note for{" "}
+                            <span className="font-medium" style={{ color: "#fff" }}>
+                              &ldquo;{text.length > 30 ? text.slice(0, 30) + "…" : text}&rdquo;
+                            </span>
+                          </span>
+                        </button>
+                      </>
+                    );
+                  })()}
+                </div>
+              </>
+            )}
+
+            {/* ── Autocomplete dropdown ─────────────────────────────── */}
+            {acDropdown && (() => {
+              const MARGIN = 8;
+              const MAX_ITEMS = 8;
+              const visibleItems = acDropdown.items.slice(0, MAX_ITEMS);
+              // Position the dropdown below the cursor. Clamp to viewport horizontally.
+              const W = 240;
+              let left = acDropdown.x;
+              if (left + W > window.innerWidth - MARGIN) left = window.innerWidth - W - MARGIN;
+              if (left < MARGIN) left = MARGIN;
+              const top = acDropdown.y + 4;
+              return (
+                <div
+                  className="fixed z-50 rounded-lg overflow-hidden"
+                  style={{
+                    left,
+                    top,
+                    width: W,
+                    backgroundColor: "rgba(20,20,32,0.97)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.65)",
+                  }}
+                  // Prevent the editor from losing focus when clicking an item
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  {/* Header hint */}
+                  <div className="px-3 pt-1.5 pb-1 flex items-center gap-3">
+                    <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.4)" }}>Auto-complete</span>
+                    <span className="text-xs" style={{ color: "rgba(255,255,255,0.22)" }}>Tab · ↑↓ · Esc</span>
+                  </div>
+                  <div className="pb-1">
+                    {visibleItems.map((item, idx) => {
+                      const isSelected = idx === acDropdown.selectedIndex;
+                      return (
+                        <div
+                          key={item.name}
+                          onMouseDown={() => {
+                            if (!editor) return;
+                            editor.commands.insertContent(item.completion);
+                            entityDataRef.current.acItems = null;
+                            entityDataRef.current.acSelectedIndex = 0;
+                            entityDataRef.current._acFirstName = undefined;
+                            setAcDropdown(null);
+                          }}
+                          onMouseEnter={() =>
+                            setAcDropdown((prev) =>
+                              prev ? { ...prev, selectedIndex: idx } : null
+                            )
+                          }
+                          className="px-3 py-0.5 flex items-center gap-2 cursor-pointer text-sm"
+                          style={{
+                            backgroundColor: isSelected
+                              ? "rgba(255,255,255,0.09)"
+                              : "transparent",
+                          }}
+                        >
+                          {/* Color swatch */}
+                          {item.color && (
+                            <span
+                              className="shrink-0 rounded-full"
+                              style={{
+                                width: 8,
+                                height: 8,
+                                backgroundColor: item.color,
+                                opacity: 0.8,
+                              }}
+                            />
+                          )}
+                          {/* Already-typed portion (bright — user already typed this) */}
+                          {/* Wrap both spans so gap-2 only separates swatch from text */}
+                          <span>
+                            <span className="font-medium" style={{ color: "#fff" }}>
+                              {item.name.slice(0, item.prefixLen)}
+                            </span>
+                            {/* Remaining portion to insert (dim — suggestion) */}
+                            <span style={{ color: "rgba(255,255,255,0.45)" }}>
+                              {item.completion}
+                            </span>
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {acDropdown.items.length > MAX_ITEMS && (
+                      <div
+                        className="px-3 py-1 text-xs"
+                        style={{ color: "rgba(255,255,255,0.25)" }}
+                      >
+                        +{acDropdown.items.length - MAX_ITEMS} more — keep typing to narrow
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
             {entityTooltip && (() => {
               const cfg = NODE_TYPE_CONFIG[entityTooltip.node.type] || NODE_TYPE_CONFIG.character;
               // Anchor the tooltip's bottom edge 12px above the cursor using
@@ -1716,6 +2308,20 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
                 })()}
               </p>
             )}
+            </div>{/* end left content column */}
+            {openNodeId && graphData.nodes.some((n) => n.id === openNodeId) && (
+              <div style={{ width: 320, flexShrink: 0, borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "#0f0f1a" }}>
+                <NodeMinimap
+                  nodeId={openNodeId}
+                  graphData={graphData}
+                  files={files}
+                  onOpen={openFileByName}
+                  nodeTransparent={nodeTransparent}
+                  nodeBorder={nodeBorder}
+                />
+              </div>
+            )}
+            </div>{/* end flex row */}
 
             {/* ── Aliases ──────────────────────────────────────────── */}
             <div className="mt-8 pt-6" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
@@ -1838,10 +2444,19 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
                   }}
                 >
                   {bibliography.map((entity, i) => {
-                    const nodeId = entity.filename.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
-                    const node = graphData.nodes.find((n) => n.id === nodeId);
+                    // Use entity.nodeId (set by mentionableEntities) for reliable node lookup,
+                    // falling back to the old stem-from-filename derivation for legacy entries.
+                    const node = entity.nodeId
+                      ? graphData.nodes.find((n) => n.id === entity.nodeId)
+                      : graphData.nodes.find((n) => {
+                          const nid = entity.filename.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+                          return n.id === nid;
+                        });
                     const cfg = NODE_TYPE_CONFIG[node?.type] || NODE_TYPE_CONFIG.character;
                     const isMutual = mutualFilenames.has(entity.filename);
+                    const bibFolderParts = entity.filename.split("/");
+                    const bibFolderLabel = bibFolderParts.length > 1 ? bibFolderParts.slice(0, -1).join("/") : null;
+                    const showBibFolder = bibFolderLabel && multiFileNodeIds.has(entity.nodeId);
                     return (
                       <li key={entity.filename} className="flex items-start gap-2 min-w-0">
                         <span className="flex-shrink-0 text-xs font-mono mt-0.5" style={{ color: "rgba(255,255,255,0.25)", minWidth: "1.5rem" }}>
@@ -1851,23 +2466,30 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
                           onClick={() => openFileByName(entity.filename)}
                           className="text-left min-w-0 group"
                         >
-                          <span
-                            className="text-sm font-medium group-hover:underline"
-                            style={{ color: entity.color, textUnderlineOffset: "2px" }}
-                          >
-                            {entity.name}
-                          </span>
-                          <span
-                            className="ml-1.5 text-xs px-1.5 py-0.5 rounded"
-                            style={{ backgroundColor: cfg.color + "1a", color: cfg.color }}
-                          >
-                            {cfg.label}
-                          </span>
-                          {isMutual && (
-                            <span title="Mutual — also links back to this file" style={{ display: "inline-flex", alignItems: "center", marginLeft: "0.375rem", color: "rgba(255,255,255,0.3)", verticalAlign: "middle" }}>
-                              <ArrowLeftRight size={11} />
+                          <span className="flex items-center flex-wrap gap-x-1">
+                            {showBibFolder && (
+                              <span className="text-sm" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                {bibFolderLabel}/
+                              </span>
+                            )}
+                            <span
+                              className="text-sm font-medium group-hover:underline"
+                              style={{ color: entity.color, textUnderlineOffset: "2px" }}
+                            >
+                              {entity.name}
                             </span>
-                          )}
+                            <span
+                              className="text-xs px-1.5 py-0.5 rounded"
+                              style={{ backgroundColor: cfg.color + "1a", color: cfg.color }}
+                            >
+                              {cfg.label}
+                            </span>
+                            {isMutual && (
+                              <span title="Mutual — also links back to this file" style={{ display: "inline-flex", alignItems: "center", color: "rgba(255,255,255,0.3)" }}>
+                                <ArrowLeftRight size={11} />
+                              </span>
+                            )}
+                          </span>
                         </button>
                       </li>
                     );
@@ -1881,6 +2503,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
               <div className="mt-8 pt-6" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
                 <h2 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: "rgba(255,255,255,0.3)" }}>
                   Backlinks
+                  {loadingBacklinks && <Loader size={10} className="animate-spin ml-2 inline" style={{ color: "rgba(255,255,255,0.3)" }} />}
                   <span
                     className="ml-2 px-1.5 py-0.5 rounded-md text-[10px] font-medium"
                     style={{ backgroundColor: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.3)" }}
@@ -1898,40 +2521,54 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
                   }}
                 >
                   {backlinks.map(({ filename: blFilename }, i) => {
-                    const nodeId = blFilename.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
-                    const node = graphData.nodes.find((n) => n.id === nodeId);
+                    const parts = blFilename.split("/");
+                    const stemNodeId = parts[parts.length - 1].replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+                    // Resolve via filenameToNodeId first so merged/renamed nodes (e.g. shouyou.md → sh_y_hinata)
+                    // display their authoritative name and colour rather than the raw filename stem.
+                    const resolvedNodeId = filenameToNodeId.get(blFilename) ?? stemNodeId;
+                    const node = graphData.nodes.find((n) => n.id === resolvedNodeId);
                     const cfg = NODE_TYPE_CONFIG[node?.type] || NODE_TYPE_CONFIG.character;
-                    const displayName = node?.name ?? blFilename.split("/").pop().replace(/\.(md|txt)$/i, "");
+                    const displayName = node?.name ?? parts[parts.length - 1].replace(/\.(md|txt)$/i, "");
                     const color = node ? cfg.color : "rgba(255,255,255,0.5)";
                     const isMutual = mutualFilenames.has(blFilename);
+                    // Show folder path when the node has files in multiple locations
+                    const folderLabel = parts.length > 1 ? parts.slice(0, -1).join("/") : null;
+                    const showFolder = folderLabel && multiFileNodeIds.has(resolvedNodeId);
                     return (
-                      <li key={blFilename} className="flex items-start gap-2 min-w-0">
-                        <span className="flex-shrink-0 text-xs font-mono mt-0.5" style={{ color: "rgba(255,255,255,0.25)", minWidth: "1.5rem" }}>
-                          {i + 1}.
-                        </span>
+                      <li key={blFilename} className="min-w-0">
                         <button
                           onClick={() => openFileByName(blFilename)}
                           className="text-left min-w-0 group"
                         >
-                          <span
-                            className="text-sm font-medium group-hover:underline"
-                            style={{ color, textUnderlineOffset: "2px" }}
-                          >
-                            {displayName}
-                          </span>
-                          {node && (
+                          <span className="flex items-center flex-wrap gap-x-1">
+                            <span className="flex-shrink-0 text-xs font-mono" style={{ color: "rgba(255,255,255,0.25)", minWidth: "1.5rem" }}>
+                              {i + 1}.
+                            </span>
+                            {showFolder && (
+                              <span className="text-sm" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                {folderLabel}/
+                              </span>
+                            )}
                             <span
-                              className="ml-1.5 text-xs px-1.5 py-0.5 rounded"
-                              style={{ backgroundColor: cfg.color + "1a", color: cfg.color }}
+                              className="text-sm font-medium group-hover:underline"
+                              style={{ color, textUnderlineOffset: "2px" }}
                             >
-                              {cfg.label}
+                              {displayName}
                             </span>
-                          )}
-                          {isMutual && (
-                            <span title="Mutual — this file also appears in References" style={{ display: "inline-flex", alignItems: "center", marginLeft: "0.375rem", color: "rgba(255,255,255,0.3)", verticalAlign: "middle" }}>
-                              <ArrowLeftRight size={11} />
-                            </span>
-                          )}
+                            {node && (
+                              <span
+                                className="text-xs px-1.5 py-0.5 rounded"
+                                style={{ backgroundColor: cfg.color + "1a", color: cfg.color }}
+                              >
+                                {cfg.label}
+                              </span>
+                            )}
+                            {isMutual && (
+                              <span title="Mutual — this file also appears in References" style={{ display: "inline-flex", alignItems: "center", color: "rgba(255,255,255,0.3)" }}>
+                                <ArrowLeftRight size={11} />
+                              </span>
+                            )}
+                          </span>
                         </button>
                       </li>
                     );

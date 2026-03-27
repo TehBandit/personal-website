@@ -1,0 +1,47 @@
+{
+  "id": "inkhand",
+  "name": "The Inkhand",
+  "type": "character",
+  "excerpt": "A mysterious broker associated with the Tide Compact, known for using distinctive reddish ink.",
+  "connections": [
+    {
+      "target": "admiralty",
+      "label": "accesses survey data"
+    },
+    {
+      "target": "deepwater_guild",
+      "label": "accesses internal records"
+    },
+    {
+      "target": "tide_compact",
+      "label": "founding member"
+    },
+    {
+      "target": "dovan_strake",
+      "label": "avoids discussing"
+    },
+    {
+      "target": "maren_ashveil",
+      "label": "mentioned in connection"
+    },
+    {
+      "target": "rella_corse",
+      "label": "functional arrangement"
+    }
+  ],
+  "notes": "The Inkhand is a name associated with the Tide Compact as its third founding member, whose identity remains unknown. They communicate exclusively through written notes in a distinctive reddish ink, described as rust-colored or dried-blood dark, and marked with a hand symbol. The Inkhand is believed to have access to Admiralty survey data and internal records from the Deepwater Guild, suggesting they might be an archivist or scribe within these institutions. The Inkhand's existence is shrouded in mystery, with speculation about their true identity or even their existence as a single person.\n\nThe Inkhand is a founding member of the Tide Compact. The role within the Compact is unclear, with some suggesting a connection to the Deepwater Guild, possibly as a scribe or archivist.\n\nThe Inkhand is the third founding member of the Tide Compact. They communicate exclusively through written notes using a distinctive reddish ink, described as rust-colored or dried-blood dark, and marked with a hand symbol. The Inkhand is believed to have access to Admiralty survey data and internal records from the Deepwater Guild, suggesting they might be an archivist or scribe. The Inkhand's identity remains unknown, and there is speculation they could be more than one person or a fictional entity. Rella Corse describes the arrangement with the Inkhand as functional, while Dovan Strake avoids discussing them. Maren Ashveil's name has been mentioned in connection with the Inkhand, but this is unverified.\n\nThe Inkhand is a founding member of the Tide Compact. Their role is unclear, with speculation about connections to the Deepwater Guild, possibly as a scribe or archivist.\n\nThe Inkhand is a name that appears in accounts of the Tide Compact as its third founding member, a broker or intermediary whose actual identity has never been established. The Inkhand communicates exclusively through written notes, using a distinctive reddish ink that some sources describe as rust-colored and others as dried-blood dark. The notes are always unsigned except for a small pressed mark: a hand, palm-forward, rendered in the same ink. Recipients describe the handwriting as precise and unhurried, the kind produced by someone with formal scribal training. The Inkhand is believed to have access to documents that would not normally be available outside of institutional archives — specifically, Admiralty survey data and, in at least one instance, an internal record from the Deepwater Guild that predated its official circulation by several days. This has led to speculation that the Inkhand is an archivist or scribe employed by one of these institutions, using their position to supply the Compact with information it can sell or use for leverage.\n\nThe Inkhand is an enigmatic figure within the Tide Compact, known for using distinctive reddish ink. Their true identity remains unconfirmed, leading to various theories about their role. Some suggest the Inkhand is the Compact's link to the Deepwater Guild, possibly a scribe or archivist with access to sensitive records. Others believe the Inkhand is a fictional creation to enhance the Compact's perceived influence. Despite the ambiguity, the Inkhand's presence adds an air of mystery and potential reach to the organization.",
+  "aliases": [],
+  "sourceFile": "uploads/the_inkhand.md",
+  "context_summary": [
+    "- The Inkhand is a mysterious broker associated with the Tide Compact.",
+    "- Their identity remains unknown.",
+    "- They communicate through written notes in reddish ink.",
+    "- The ink is described as rust-colored or dried-blood dark.",
+    "- The notes are marked with a hand symbol.",
+    "- The Inkhand is believed to have access to Admiralty survey data.",
+    "- They may be an archivist or scribe within the Deepwater Guild.",
+    "- Speculation exists about their true identity or existence as a single person.",
+    "- Rella Corse describes the arrangement with the Inkhand as functional.",
+    "- Dovan Strake avoids discussing the Inkhand."
+  ]
+}

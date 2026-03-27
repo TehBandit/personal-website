@@ -4,6 +4,27 @@ import { bumpWorkspaceVersion, rebuildGraphCache } from "./bump-version.js";
 
 const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
 
+/**
+ * Recursively collect all .md/.txt files under `dir`, returning paths
+ * relative to `baseDir` with forward slashes. Skips `excludeDir` entirely.
+ */
+function scanRawFiles(dir, baseDir, excludeDir) {
+  const results = [];
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return results; }
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (path.resolve(fullPath) === path.resolve(excludeDir)) continue;
+    const relPath = path.relative(baseDir, fullPath).replace(/\\/g, "/");
+    if (entry.isDirectory()) {
+      results.push(...scanRawFiles(fullPath, baseDir, excludeDir));
+    } else if (entry.name.endsWith(".md") || entry.name.endsWith(".txt")) {
+      results.push(relPath);
+    }
+  }
+  return results;
+}
+
 function resolveDirs(workspace) {
   if (!workspace || !/^[a-z0-9-]+$/.test(workspace)) return null;
   const wsDir = path.join(WORKSPACES_DIR, workspace);
@@ -62,6 +83,60 @@ export default function handler(req, res) {
     const parentDir = path.dirname(filePath);
     if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
     fs.writeFileSync(filePath, req.body?.content ?? "", "utf-8");
+
+    // If a name is provided, also create the corresponding node JSON in notes/ so that
+    // backlinks scanning and graph colouring work immediately without a manual seed/extract.
+    const { name: nodeName } = req.body || {};
+    if (nodeName && typeof nodeName === "string" && nodeName.trim()) {
+      const nodeId = path.basename(filename).replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+      const nodeJsonPath = path.join(notesDir, `${nodeId}.json`);
+      if (!fs.existsSync(nodeJsonPath)) {
+        if (!fs.existsSync(notesDir)) fs.mkdirSync(notesDir, { recursive: true });
+        const nodeData = {
+          id: nodeId,
+          name: nodeName.trim().substring(0, 120),
+          type: "character",
+          excerpt: "",
+          notes: "",
+          aliases: [],
+          connections: [],
+          sourceFile: filename,
+        };
+        fs.writeFileSync(nodeJsonPath, JSON.stringify(nodeData, null, 2), "utf-8");
+
+        // Seed connections: scan all raw files for mentions of the new node's name.
+        // For each raw file that mentions the name and has a corresponding node JSON,
+        // add a connection from that node → new node. This wires the new node into
+        // the graph immediately, mirroring what the AI extraction would do over time.
+        const escaped = nodeName.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const namePattern = new RegExp(`\\b${escaped}\\b`, "i");
+        const allRawFiles = scanRawFiles(dir, dir, notesDir);
+
+        for (const relPath of allRawFiles) {
+          if (relPath === filename) continue; // skip the new file itself
+          let rawContent;
+          try { rawContent = fs.readFileSync(path.join(dir, relPath), "utf-8"); } catch { continue; }
+          if (!namePattern.test(rawContent)) continue;
+
+          // Derive the nodeId for the file that mentions us
+          const mentionerStem = relPath.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+          const mentionerJsonPath = path.join(notesDir, `${mentionerStem}.json`);
+          if (!fs.existsSync(mentionerJsonPath)) continue;
+
+          let mentionerData;
+          try { mentionerData = JSON.parse(fs.readFileSync(mentionerJsonPath, "utf-8")); } catch { continue; }
+          const alreadyLinked = (mentionerData.connections || []).some((c) => c.target === nodeId);
+          if (!alreadyLinked) {
+            mentionerData.connections = [...(mentionerData.connections || []), { target: nodeId, label: "references" }];
+            fs.writeFileSync(mentionerJsonPath, JSON.stringify(mentionerData, null, 2), "utf-8");
+          }
+        }
+
+        rebuildGraphCache(req.query.workspace, notesDir);
+        bumpWorkspaceVersion(req.query.workspace);
+      }
+    }
+
     return res.status(201).json({ filename });
   }
 
@@ -78,14 +153,20 @@ export default function handler(req, res) {
     const nodeId = path.basename(filename).replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
     const jsonPath = path.join(notesDir, `${nodeId}.json`);
     if (!fs.existsSync(jsonPath)) return res.status(404).json({ error: "Node JSON not found" });
-    const { aliases, name, propagate } = req.body || {};
+    const { aliases, tags, name, propagate } = req.body || {};
     if (aliases !== undefined && !Array.isArray(aliases)) return res.status(400).json({ error: "aliases must be an array" });
+    if (tags !== undefined && !Array.isArray(tags)) return res.status(400).json({ error: "tags must be an array" });
     if (name !== undefined && (typeof name !== "string" || !name.trim())) return res.status(400).json({ error: "name must be a non-empty string" });
     const data = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
     if (aliases !== undefined) {
       data.aliases = aliases
         .filter((a) => typeof a === "string" && a.trim().length > 0)
         .map((a) => a.trim().substring(0, 60));
+    }
+    if (tags !== undefined) {
+      data.tags = tags
+        .filter((t) => typeof t === "string" && t.trim().length > 0)
+        .map((t) => t.trim().toLowerCase().replace(/\s+/g, "-").substring(0, 40));
     }
     let filesUpdated = [];
     if (name !== undefined) {
@@ -142,7 +223,7 @@ export default function handler(req, res) {
     fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2), "utf-8");
     rebuildGraphCache(req.query.workspace, dirs.notesDir);
     bumpWorkspaceVersion(req.query.workspace);
-    return res.status(200).json({ aliases: data.aliases, name: data.name, filesUpdated });
+    return res.status(200).json({ aliases: data.aliases, tags: data.tags, name: data.name, filesUpdated });
   }
 
   // ── DELETE: remove file or empty folder ────────────────────────────────────
