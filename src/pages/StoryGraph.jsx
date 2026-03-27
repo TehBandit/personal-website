@@ -2,7 +2,8 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import ForceGraph2D from "react-force-graph-2d";
 import Header from "../components/Header.jsx";
 import FilesEditor from "../components/FilesEditor.jsx";
-import { X, Network, Upload, FileText, CheckCircle, AlertCircle, RotateCcw, ChevronDown, Search, Crosshair, SlidersHorizontal, Folder, FilePlus } from "lucide-react";
+import { X, Network, Upload, FileText, CheckCircle, AlertCircle, RotateCcw, ChevronDown, Search, Crosshair, SlidersHorizontal, Folder, FilePlus, MessageSquare } from "lucide-react";
+import WorkspaceChat from "../components/WorkspaceChat.jsx";
 import { NODE_TYPE_CONFIG } from "../constants/nodeTypes.js";
 import { darkenHex } from "../utils/color.js";
 import { computeOwnFileIds } from "../utils/graphHelpers.js";
@@ -456,6 +457,11 @@ export default function StoryGraph() {
     setTimeout(() => api.openFileByName(filename), 80);
   }, [ownFileIds, graphData.nodes, storyFiles]);
 
+  const openNodeById = useCallback((nodeId) => {
+    const node = graphData.nodes.find((n) => n.id === nodeId);
+    if (node) openNodeFile(node);
+  }, [graphData.nodes, openNodeFile]);
+
   // react-force-graph-2d has no native onNodeDblClick — detect via click timing.
   const lastNodeClickRef = useRef({ id: null, time: 0 });
 
@@ -835,7 +841,7 @@ export default function StoryGraph() {
 
         {/* Tab switcher */}
         <div className="flex items-center gap-0.5 ml-4 p-0.5 rounded-lg" style={{ backgroundColor: "rgba(255,255,255,0.05)" }}>
-          {[{ id: "graph", icon: <Network size={12} />, label: "Graph" }, { id: "files", icon: <FileText size={12} />, label: "Files" }].map(({ id, icon, label }) => (
+          {[{ id: "graph", icon: <Network size={12} />, label: "Graph" }, { id: "files", icon: <FileText size={12} />, label: "Files" }, { id: "chat", icon: <MessageSquare size={12} />, label: "Chat" }].map(({ id, icon, label }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
@@ -881,6 +887,11 @@ export default function StoryGraph() {
             onFilesChange={setStoryFiles}
           />
         </div>
+
+        {/* ── Chat tab ── */}
+        {activeTab === "chat" && (
+          <WorkspaceChat workspace={workspace} onOpenNode={openNodeById} />
+        )}
 
         {/* ── Graph tab (kept mounted to preserve simulation state) ── */}
         <div className="flex flex-1 overflow-hidden min-h-0" style={{ display: activeTab === "graph" ? "flex" : "none" }}>
