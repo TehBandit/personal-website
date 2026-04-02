@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import ForceGraph2D from "react-force-graph-2d";
 import Header from "../components/Header.jsx";
 import FilesEditor from "../components/FilesEditor.jsx";
-import { X, Network, Upload, FileText, CheckCircle, AlertCircle, RotateCcw, ChevronDown, Search, Crosshair, SlidersHorizontal, Folder, FilePlus, MessageSquare } from "lucide-react";
+import { X, Network, Upload, FileText, CheckCircle, AlertCircle, RotateCcw, ChevronDown, Search, Crosshair, SlidersHorizontal, Folder, FilePlus, MessageSquare, GitFork, Send } from "lucide-react";
 import WorkspaceChat from "../components/WorkspaceChat.jsx";
 import { NODE_TYPE_CONFIG } from "../constants/nodeTypes.js";
 import { darkenHex } from "../utils/color.js";
@@ -76,6 +76,8 @@ export default function StoryGraph() {
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadFolderName, setUploadFolderName] = useState("");
   const [activeTab, setActiveTab] = useState("graph");
+  const [pendingChatQuestion, setPendingChatQuestion] = useState(null);
+  const [askInput, setAskInput] = useState("");
   const [uploadFile, setUploadFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [extracting, setExtracting] = useState(false);
@@ -465,7 +467,90 @@ export default function StoryGraph() {
   // react-force-graph-2d has no native onNodeDblClick — detect via click timing.
   const lastNodeClickRef = useRef({ id: null, time: 0 });
 
+  // ── Path tracing ─────────────────────────────────────────────────────────────
+  // activePath: { nodeIds: Set<string>, edgeKeys: Set<string>, ordered: Node[] } | null
+  const [activePath, setActivePath] = useState(null);
+  // findingPathFrom: the source node when user initiated "Find path to…" via right-click
+  const [findingPathFrom, setFindingPathFrom] = useState(null);
+  // traceSearchQuery: text in the detail-panel trace search box
+  const [traceSearchQuery, setTraceSearchQuery] = useState("");
+  const [traceSearchOpen, setTraceSearchOpen] = useState(false);
+  const traceInputRef = useRef(null);
+  // graphContextMenu: { x, y, node } — fixed-position right-click menu on a graph node
+  const [graphContextMenu, setGraphContextMenu] = useState(null);
+
+  // BFS shortest path between two node IDs, returns ordered node array or null
+  const findShortestPath = useCallback((fromId, toId) => {
+    if (fromId === toId) return null;
+    const adj = new Map();
+    for (const link of graphData.links) {
+      const s = typeof link.source === "object" ? link.source.id : link.source;
+      const t = typeof link.target === "object" ? link.target.id : link.target;
+      if (!adj.has(s)) adj.set(s, []);
+      if (!adj.has(t)) adj.set(t, []);
+      adj.get(s).push(t);
+      adj.get(t).push(s);
+    }
+    const prev = new Map();
+    const visited = new Set([fromId]);
+    const queue = [fromId];
+    while (queue.length) {
+      const cur = queue.shift();
+      if (cur === toId) break;
+      for (const nb of (adj.get(cur) || [])) {
+        if (!visited.has(nb)) { visited.add(nb); prev.set(nb, cur); queue.push(nb); }
+      }
+    }
+    if (!prev.has(toId)) return null; // no path
+    const path = [];
+    let cur = toId;
+    while (cur !== undefined) { path.unshift(cur); cur = prev.get(cur); }
+    const nodeMap = new Map(graphData.nodes.map((n) => [n.id, n]));
+    return path.map((id) => nodeMap.get(id)).filter(Boolean);
+  }, [graphData]);
+
+  const commitPath = useCallback((fromId, toId) => {
+    const ordered = findShortestPath(fromId, toId);
+    if (!ordered) { setActivePath(null); return false; }
+    const nodeIds = new Set(ordered.map((n) => n.id));
+    const edgeKeys = new Set();
+    for (let i = 0; i < ordered.length - 1; i++) {
+      edgeKeys.add(`${ordered[i].id}|${ordered[i + 1].id}`);
+      edgeKeys.add(`${ordered[i + 1].id}|${ordered[i].id}`);
+    }
+    setActivePath({ nodeIds, edgeKeys, ordered });
+    return true;
+  }, [findShortestPath]);
+
+  const clearPath = useCallback(() => {
+    setActivePath(null);
+    setFindingPathFrom(null);
+    setTraceSearchQuery("");
+    setTraceSearchOpen(false);
+  }, []);
+
+  const showPathOnGraph = useCallback((graphResult) => {
+    if (!graphResult) return;
+    if (graphResult.type === "path" && graphResult.nodeIds?.length >= 2) {
+      commitPath(graphResult.nodeIds[0], graphResult.nodeIds[graphResult.nodeIds.length - 1]);
+    } else if (graphResult.type === "neighbors" && graphResult.focusNodeId) {
+      const node = graphData.nodes.find((n) => n.id === graphResult.focusNodeId);
+      if (node) { setSelectedNode(node); setFocusNode(node); }
+    }
+    setActiveTab("graph");
+  }, [commitPath, graphData.nodes]);
+
   const handleNodeClick = useCallback((node) => {
+    // When in "find path to" mode, left-click picks the destination
+    if (findingPathFrom) {
+      commitPath(findingPathFrom.id, node.id);
+      setFindingPathFrom(null);
+      setSelectedNode(node);
+      fgRef.current?.centerAt(node.x, node.y, 600);
+      fgRef.current?.zoom(2.2, 600);
+      return;
+    }
+
     setSelectedNode(node);
     fgRef.current?.centerAt(node.x, node.y, 600);
     fgRef.current?.zoom(2.2, 600);
@@ -479,7 +564,19 @@ export default function StoryGraph() {
     } else {
       lastNodeClickRef.current = { id: node.id, time: now };
     }
-  }, [openNodeFile]);
+  }, [openNodeFile, findingPathFrom, commitPath]);
+
+  const handleNodeRightClick = useCallback((node, event) => {
+    event.preventDefault();
+    // If already in path-finding mode, right-click also completes the path
+    if (findingPathFrom) {
+      commitPath(findingPathFrom.id, node.id);
+      setFindingPathFrom(null);
+      setSelectedNode(node);
+      return;
+    }
+    setGraphContextMenu({ x: event.clientX, y: event.clientY, node });
+  }, [findingPathFrom, commitPath]);
 
   const commitSearch = useCallback((node) => {
     setSearchQuery("");
@@ -576,6 +673,18 @@ export default function StoryGraph() {
     return () => window.removeEventListener("keydown", onKey);
   }, [focusNode]);
 
+  // Escape also clears path / cancels find-path-to mode
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        if (findingPathFrom) { setFindingPathFrom(null); return; }
+        if (activePath) { clearPath(); }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [findingPathFrom, activePath, clearPath]);
+
   // Custom canvas rendering for each node
   const nodeCanvasObject = useCallback(
     (node, ctx, globalScale) => {
@@ -587,15 +696,31 @@ export default function StoryGraph() {
       const isHovered = hoveredNode?.id === node.id;
       const isInHoveredNeighborhood = !hoveredNeighborIds || hoveredNeighborIds.has(node.id);
       const inFocusSet = !focusNeighborIds || focusNeighborIds.has(node.id);
+      const onPath = activePath ? activePath.nodeIds.has(node.id) : null;
+      const isPathEndpoint = activePath && (activePath.ordered[0]?.id === node.id || activePath.ordered[activePath.ordered.length - 1]?.id === node.id);
 
-      if (!inFocusSet) {
+      // Path mode: dim everything not on path
+      if (activePath) {
+        ctx.globalAlpha = onPath ? 1 : 0.08;
+      } else if (!inFocusSet) {
+        ctx.globalAlpha = 0.05; // outside focus — strongly dim
         ctx.globalAlpha = 0.05; // outside focus — strongly dim
       } else if (!!hoveredNode && !isInHoveredNeighborhood) {
         ctx.globalAlpha = 0.2;  // inside focus but outside hover — mildly dim
       }
 
-      // Glow halo when selected
-      if (isSelected) {
+      // Glow halo: path endpoints get a strong amber glow, path middle nodes a blue glow
+      if (isPathEndpoint) {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, r + 7, 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(251,191,36,0.3)";
+        ctx.fill();
+      } else if (onPath) {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, r + 5, 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(96,165,250,0.25)";
+        ctx.fill();
+      } else if (isSelected) {
         ctx.beginPath();
         ctx.arc(node.x, node.y, r + 5, 0, 2 * Math.PI);
         ctx.fillStyle = baseColor + "35";
@@ -649,7 +774,9 @@ export default function StoryGraph() {
         : 1;
 
       // Mirror the same dim logic used for the node body so labels follow suit
-      const dimAlpha = !inFocusSet ? 0.05 : (!!hoveredNode && !isInHoveredNeighborhood) ? 0.2 : 1;
+      const dimAlpha = activePath
+        ? (onPath ? 1 : 0.08)
+        : (!inFocusSet ? 0.05 : (!!hoveredNode && !isInHoveredNeighborhood) ? 0.2 : 1);
       const labelAlpha = zoomAlpha * dimAlpha;
 
       const fontSize = Math.max(12 / globalScale, 3.5);
@@ -664,13 +791,17 @@ export default function StoryGraph() {
       ctx.fillText(label, node.x, labelY);
       ctx.globalAlpha = 1;
     },
-    [selectedNode, hoveredNode, hoveredNeighborIds, focusNeighborIds, nodeRadius, ownFileIds, nodeTransparent, nodeBorder]
+    [selectedNode, hoveredNode, hoveredNeighborIds, focusNeighborIds, activePath, nodeRadius, ownFileIds, nodeTransparent, nodeBorder]
   );
 
   const linkColor = useCallback(
     (link) => {
       const sourceId = typeof link.source === "object" ? link.source.id : link.source;
       const targetId = typeof link.target === "object" ? link.target.id : link.target;
+      if (activePath) {
+        const key = `${sourceId}|${targetId}`;
+        return activePath.edgeKeys.has(key) ? "rgba(251,191,36,0.85)" : "rgba(255,255,255,0.04)";
+      }
       if (focusNeighborIds) {
         const bothInFocus = focusNeighborIds.has(sourceId) && focusNeighborIds.has(targetId);
         if (!bothInFocus) return "rgba(255,255,255,0.03)";
@@ -681,13 +812,17 @@ export default function StoryGraph() {
       const isImmediateNeighborLink = sourceId === hoveredNode.id || targetId === hoveredNode.id;
       return isImmediateNeighborLink ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.06)";
     },
-    [hoveredNode, focusNode, focusNeighborIds]
+    [hoveredNode, focusNode, focusNeighborIds, activePath]
   );
 
   const linkWidth = useCallback(
     (link) => {
       const sourceId = typeof link.source === "object" ? link.source.id : link.source;
       const targetId = typeof link.target === "object" ? link.target.id : link.target;
+      if (activePath) {
+        const key = `${sourceId}|${targetId}`;
+        return activePath.edgeKeys.has(key) ? 2.8 : 0.4;
+      }
       if (focusNeighborIds) {
         const bothInFocus = focusNeighborIds.has(sourceId) && focusNeighborIds.has(targetId);
         if (!bothInFocus) return 0.3;
@@ -696,7 +831,7 @@ export default function StoryGraph() {
       if (!hoveredNode) return 1.5;
       return sourceId === hoveredNode.id || targetId === hoveredNode.id ? 2.2 : 1;
     },
-    [hoveredNode, focusNode, focusNeighborIds]
+    [hoveredNode, focusNode, focusNeighborIds, activePath]
   );
 
   // Expand click hit-area beyond the visual radius
@@ -791,6 +926,22 @@ export default function StoryGraph() {
         return { other, label: l.label };
       });
   }, [selectedNode, graphData.links, graphData.nodes]);
+
+  // Suggestions for the "Trace connection" search box in the detail panel
+  const traceSuggestions = useMemo(() => {
+    if (!traceSearchOpen || !selectedNode) return [];
+    const q = traceSearchQuery.trim().toLowerCase();
+    if (!q) return graphData.nodes.filter((n) => n.id !== selectedNode.id).slice(0, 8);
+    return graphData.nodes
+      .filter((n) => n.id !== selectedNode.id && n.name.toLowerCase().includes(q))
+      .sort((a, b) => {
+        const aS = a.name.toLowerCase().startsWith(q);
+        const bS = b.name.toLowerCase().startsWith(q);
+        if (aS !== bS) return aS ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      })
+      .slice(0, 8);
+  }, [traceSearchOpen, traceSearchQuery, graphData.nodes, selectedNode]);
 
   if (loading) {
     return (
@@ -890,7 +1041,15 @@ export default function StoryGraph() {
 
         {/* ── Chat tab ── */}
         {activeTab === "chat" && (
-          <WorkspaceChat workspace={workspace} onOpenNode={openNodeById} />
+          <WorkspaceChat
+            workspace={workspace}
+            onOpenNode={openNodeById}
+            graphData={graphData}
+            chatFocusNode={selectedNode}
+            onShowPath={showPathOnGraph}
+            pendingQuestion={pendingChatQuestion}
+            onPendingConsumed={() => setPendingChatQuestion(null)}
+          />
         )}
 
         {/* ── Graph tab (kept mounted to preserve simulation state) ── */}
@@ -1129,6 +1288,7 @@ export default function StoryGraph() {
             nodeCanvasObject={nodeCanvasObject}
             nodePointerAreaPaint={nodePointerAreaPaint}
             onNodeClick={handleNodeClick}
+            onNodeRightClick={handleNodeRightClick}
             onNodeHover={handleNodeHover}
             linkColor={linkColor}
             linkWidth={linkWidth}
@@ -1231,7 +1391,7 @@ export default function StoryGraph() {
           </div>
 
           {/* Focus mode banner */}
-          {focusNode && (
+          {focusNode && !findingPathFrom && (
             <div
               className="absolute top-3 left-1/2 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full"
               style={{
@@ -1250,6 +1410,73 @@ export default function StoryGraph() {
                 className="ml-1 transition-opacity opacity-50 hover:opacity-100"
                 style={{ color: "rgba(255,255,255,0.7)" }}
                 title="Exit focus (Esc)"
+              >
+                <X size={11} />
+              </button>
+            </div>
+          )}
+
+          {/* "Finding path to…" banner — shown while awaiting second node click */}
+          {findingPathFrom && (
+            <div
+              className="absolute top-3 left-1/2 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full"
+              style={{
+                transform: "translateX(-50%)",
+                backgroundColor: "rgba(15,15,26,0.88)",
+                border: "1px solid rgba(251,191,36,0.4)",
+                backdropFilter: "blur(8px)",
+              }}
+            >
+              <GitFork size={11} style={{ color: "#fbbf24", flexShrink: 0 }} />
+              <span className="text-xs" style={{ color: "rgba(255,255,255,0.75)" }}>
+                Click any node to trace path from{" "}
+                <span style={{ color: "#fde68a", fontWeight: 600 }}>{findingPathFrom.name}</span>
+              </span>
+              <button
+                onClick={() => setFindingPathFrom(null)}
+                className="ml-1 transition-opacity opacity-50 hover:opacity-100"
+                style={{ color: "rgba(255,255,255,0.7)" }}
+                title="Cancel (Esc)"
+              >
+                <X size={11} />
+              </button>
+            </div>
+          )}
+
+          {/* Path breadcrumb — shown when a path is active */}
+          {activePath && (
+            <div
+              className="absolute bottom-5 left-1/2 z-10 flex items-center gap-0 px-1 py-1 rounded-xl"
+              style={{
+                transform: "translateX(-50%)",
+                backgroundColor: "rgba(15,15,26,0.9)",
+                border: "1px solid rgba(251,191,36,0.3)",
+                backdropFilter: "blur(8px)",
+                maxWidth: "calc(100% - 32px)",
+                overflowX: "auto",
+              }}
+            >
+              {activePath.ordered.map((n, i) => (
+                <span key={n.id} className="flex items-center gap-0 flex-shrink-0">
+                  <button
+                    onClick={() => handleNodeClick(n)}
+                    className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
+                    style={{ color: (i === 0 || i === activePath.ordered.length - 1) ? "#fde68a" : "#93c5fd" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                  >
+                    {n.name}
+                  </button>
+                  {i < activePath.ordered.length - 1 && (
+                    <span className="text-xs select-none" style={{ color: "rgba(251,191,36,0.5)", paddingRight: "2px" }}>→</span>
+                  )}
+                </span>
+              ))}
+              <button
+                onClick={clearPath}
+                className="ml-1 flex-shrink-0 transition-opacity opacity-40 hover:opacity-100 px-1.5"
+                style={{ color: "rgba(255,255,255,0.7)" }}
+                title="Clear path (Esc)"
               >
                 <X size={11} />
               </button>
@@ -1374,12 +1601,84 @@ export default function StoryGraph() {
 
             {/* Connections */}
             <div className="p-5">
-              <p
-                className="text-xs font-semibold uppercase tracking-widest mb-3"
-                style={{ color: "rgba(255,255,255,0.3)" }}
-              >
-                Connections ({selectedNodeConnections.length})
-              </p>
+              <div className="flex items-center justify-between mb-3">
+                <p
+                  className="text-xs font-semibold uppercase tracking-widest"
+                  style={{ color: "rgba(255,255,255,0.3)" }}
+                >
+                  Connections ({selectedNodeConnections.length})
+                </p>
+                <button
+                  onClick={() => {
+                    setTraceSearchOpen((v) => !v);
+                    setTraceSearchQuery("");
+                    if (!traceSearchOpen) setTimeout(() => traceInputRef.current?.focus(), 60);
+                  }}
+                  title="Trace path to another node"
+                  className="flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-colors"
+                  style={{
+                    color: traceSearchOpen ? "#fbbf24" : "rgba(255,255,255,0.35)",
+                    backgroundColor: traceSearchOpen ? "rgba(251,191,36,0.1)" : "transparent",
+                    border: `1px solid ${traceSearchOpen ? "rgba(251,191,36,0.25)" : "transparent"}`,
+                  }}
+                  onMouseEnter={(e) => { if (!traceSearchOpen) { e.currentTarget.style.color = "rgba(255,255,255,0.7)"; e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"; } }}
+                  onMouseLeave={(e) => { if (!traceSearchOpen) { e.currentTarget.style.color = "rgba(255,255,255,0.35)"; e.currentTarget.style.backgroundColor = "transparent"; } }}
+                >
+                  <GitFork size={12} />
+                  Trace
+                </button>
+              </div>
+
+              {/* Trace connection search box */}
+              {traceSearchOpen && (
+                <div className="mb-3 relative">
+                  <input
+                    ref={traceInputRef}
+                    value={traceSearchQuery}
+                    onChange={(e) => setTraceSearchQuery(e.target.value)}
+                    placeholder="Search nodes to trace…"
+                    className="w-full text-xs px-3 py-2 rounded-lg outline-none"
+                    style={{
+                      backgroundColor: "rgba(255,255,255,0.06)",
+                      border: "1px solid rgba(251,191,36,0.25)",
+                      color: "rgba(255,255,255,0.85)",
+                    }}
+                    onKeyDown={(e) => { if (e.key === "Escape") { setTraceSearchOpen(false); setTraceSearchQuery(""); } }}
+                  />
+                  {traceSuggestions.length > 0 && (
+                    <div
+                      className="absolute left-0 right-0 top-full mt-1 rounded-xl overflow-hidden z-20"
+                      style={{
+                        backgroundColor: "rgba(18,18,30,0.97)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+                      }}
+                    >
+                      {traceSuggestions.map((n) => (
+                        <button
+                          key={n.id}
+                          onClick={() => {
+                            commitPath(selectedNode.id, n.id);
+                            setTraceSearchOpen(false);
+                            setTraceSearchQuery("");
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors"
+                          style={{ color: "rgba(255,255,255,0.8)" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(251,191,36,0.08)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: ownFileIds.has(n.id) ? NODE_TYPE_CONFIG[n.type]?.color : "#6b7280" }}
+                          />
+                          {n.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex flex-col gap-1">
                 {selectedNodeConnections.map(({ other, label }, i) =>
                   other ? (
@@ -1408,10 +1707,139 @@ export default function StoryGraph() {
                 )}
               </div>
             </div>
+
+            {/* Ask AI */}
+            <div className="p-5 border-t flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+              <p className="text-xs font-semibold uppercase tracking-widest mb-2.5" style={{ color: "rgba(255,255,255,0.3)" }}>Ask AI</p>
+              <div className="flex gap-2">
+                <input
+                  value={askInput}
+                  onChange={(e) => setAskInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && askInput.trim()) {
+                      setPendingChatQuestion(askInput.trim());
+                      setAskInput("");
+                      setActiveTab("chat");
+                    }
+                  }}
+                  placeholder={`Ask about ${selectedNode.name}…`}
+                  className="flex-1 text-xs px-3 py-2 rounded-lg outline-none"
+                  style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.85)" }}
+                />
+                <button
+                  onClick={() => {
+                    if (askInput.trim()) {
+                      setPendingChatQuestion(askInput.trim());
+                      setAskInput("");
+                      setActiveTab("chat");
+                    }
+                  }}
+                  className="flex items-center justify-center px-2.5 rounded-lg flex-shrink-0"
+                  style={{ backgroundColor: "rgba(96,165,250,0.15)", color: "#93c5fd" }}
+                >
+                  <Send size={12} />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1.5 mt-2.5">
+                {[`Who is ${selectedNode.name}?`, `What connects to ${selectedNode.name}?`].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => { setPendingChatQuestion(s); setActiveTab("chat"); }}
+                    className="text-[10px] px-2 py-1 rounded-md transition-colors"
+                    style={{ backgroundColor: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.07)" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
         </div> {/* end graph tab */}
       </div>
+
+      {/* ── Graph node right-click context menu ── */}
+      {graphContextMenu && (
+        <>
+          {/* Invisible backdrop to dismiss on outside click */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setGraphContextMenu(null)}
+            onContextMenu={(e) => { e.preventDefault(); setGraphContextMenu(null); }}
+          />
+          <div
+            className="fixed z-50 rounded-xl overflow-hidden py-1"
+            style={{
+              left: graphContextMenu.x,
+              top: graphContextMenu.y,
+              backgroundColor: "rgba(18,18,30,0.97)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              backdropFilter: "blur(12px)",
+              minWidth: "170px",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+            }}
+          >
+            {/* Node label */}
+            <div className="px-3 py-1.5 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+              <p className="text-xs font-semibold truncate" style={{ color: "rgba(255,255,255,0.5)" }}>
+                {graphContextMenu.node.name}
+              </p>
+            </div>
+            <div className="py-1">
+              {/* Find path to… */}
+              <button
+                onClick={() => { setFindingPathFrom(graphContextMenu.node); setGraphContextMenu(null); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors"
+                style={{ color: "rgba(255,255,255,0.8)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(251,191,36,0.1)")}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+              >
+                <GitFork size={13} style={{ color: "#fbbf24", flexShrink: 0 }} />
+                Find path to…
+              </button>
+              {/* Clear path (only when a path is active) */}
+              {activePath && (
+                <button
+                  onClick={() => { clearPath(); setGraphContextMenu(null); }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors"
+                  style={{ color: "rgba(255,255,255,0.8)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                >
+                  <X size={13} style={{ color: "rgba(255,255,255,0.4)", flexShrink: 0 }} />
+                  Clear path
+                </button>
+              )}
+              {/* Focus */}
+              <button
+                onClick={() => { setFocusNode((prev) => prev?.id === graphContextMenu.node.id ? null : graphContextMenu.node); setGraphContextMenu(null); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors"
+                style={{ color: "rgba(255,255,255,0.8)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.1)")}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+              >
+                <Crosshair size={13} style={{ color: "#60a5fa", flexShrink: 0 }} />
+                {focusNode?.id === graphContextMenu.node.id ? "Exit focus" : "Focus"}
+              </button>
+              {/* Open file (only for own nodes) */}
+              {ownFileIds.has(graphContextMenu.node.id) && (
+                <button
+                  onClick={() => { openNodeFile(graphContextMenu.node); setGraphContextMenu(null); }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors"
+                  style={{ color: "rgba(255,255,255,0.8)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                >
+                  <FileText size={13} style={{ color: "rgba(255,255,255,0.4)", flexShrink: 0 }} />
+                  Open file
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── Upload modal ── */}
       {uploadOpen && (

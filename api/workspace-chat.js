@@ -159,12 +159,18 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { workspace, messages, rebuildIndex } = req.body || {};
+  const { workspace, messages, graphNodeIds, graphPathHint } = req.body || {};
 
   // Validate workspace
   if (!workspace || typeof workspace !== "string" || !/^[a-z0-9_-]+$/i.test(workspace)) {
     return res.status(400).json({ error: "Invalid workspace" });
   }
+
+  // Validate graphNodeIds if provided (array of safe id strings)
+  const pinnedNodeIds = Array.isArray(graphNodeIds)
+    ? graphNodeIds.filter((id) => typeof id === "string" && /^[a-z0-9_-]+$/i.test(id)).slice(0, 20)
+    : [];
+  const hasPinnedNodes = pinnedNodeIds.length > 0;
 
   // Validate messages array
   if (!Array.isArray(messages) || messages.length === 0) {
@@ -203,12 +209,26 @@ export default async function handler(req, res) {
     }
 
     // Retrieve relevant chunks
-    const chunks = await retrieve(cache, userQuery);
+    let chunks = await retrieve(cache, userQuery);
 
-    // Pre-flight relevance gate: if the best chunk isn't relevant enough,
+    // If the user is following up on a graph query, force-include all chunks
+    // for the pinned node IDs (path/neighbor nodes the graph identified)
+    if (hasPinnedNodes) {
+      const pinnedSet = new Set(pinnedNodeIds);
+      const forcedChunks = cache.chunks
+        .filter((c) => pinnedSet.has(c.nodeId))
+        .map((c) => ({ ...c, score: c.score ?? 1 }));
+      // Merge: forced chunks first, then any additional retrieved chunks not already covered
+      const forcedKeys = new Set(forcedChunks.map((c) => `${c.nodeId}:${c.chunkIndex}`));
+      const extra = chunks.filter((c) => !forcedKeys.has(`${c.nodeId}:${c.chunkIndex}`));
+      chunks = [...forcedChunks, ...extra];
+    }
+
+    // Pre-flight relevance gate: skip when we have pinned graph nodes
+    // (those are already known-relevant from the graph result)
     // short-circuit without calling GPT so it can't fall back on training data
-    const bestScore = chunks.length > 0 ? chunks[0].score : 0;
-    if (bestScore < RELEVANCE_GATE) {
+    const bestScore = chunks.length > 0 ? (chunks[0].score ?? 1) : 0;
+    if (!hasPinnedNodes && bestScore < RELEVANCE_GATE) {
       sseEvent(res, { type: "token", content: "I couldn't find any information about that in your notes. Try asking something related to the characters, locations, or events in your story." });
       sseEvent(res, { type: "citations", sources: [] });
       sseEvent(res, { type: "done" });
@@ -222,8 +242,12 @@ export default async function handler(req, res) {
     const history = messages.slice(-(MAX_HISTORY * 2 + 1), -1); // all but the last user message
     const filteredHistory = history.filter((m) => m.role === "user" || m.role === "assistant");
 
+    const graphContextNote = hasPinnedNodes
+      ? `\n\nThe user has been exploring graph connections between story elements. ${graphPathHint ? `The graph shows a path: ${graphPathHint}.` : ""} The notes below include the nodes involved in that connection. Explain how these elements relate to each other based on the notes.`
+      : "";
+
     const systemContent = context
-      ? `${SYSTEM_PROMPT}\n\n---\n## Relevant Story Notes\n\n${context}\n---`
+      ? `${SYSTEM_PROMPT}${graphContextNote}\n\n---\n## Relevant Story Notes\n\n${context}\n---`
       : SYSTEM_PROMPT;
 
     const apiMessages = [
