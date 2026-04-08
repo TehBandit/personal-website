@@ -17,7 +17,8 @@ import {
   CheckCircle, AlertCircle, Loader, ArrowLeftRight,
   ChevronsDownUp, ChevronsUpDown, Copy, GitMerge, Scissors, Clipboard, Search,
 } from "lucide-react";
-import { NODE_TYPE_CONFIG } from "../constants/nodeTypes.js";
+import { TYPE_PRESETS } from "../constants/nodeTypes.js";
+import { useNodeTypeConfig } from "../contexts/NodeTypeContext.jsx";
 import { darkenHex } from "../utils/color.js";
 import { computeOwnFileIds } from "../utils/graphHelpers.js";
 const MINIMAP_BG = "#0f0f1a";
@@ -27,6 +28,8 @@ const MINIMAP_BG = "#0f0f1a";
  * Clicking a neighbor node calls onOpen with that node's file path.
  */
 function NodeMinimap({ nodeId, graphData, files, onOpen, nodeTransparent = false, nodeBorder = false }) {
+  const NODE_TYPE_CONFIG = useNodeTypeConfig();
+  const nodeTypeFallback = Object.values(NODE_TYPE_CONFIG)[0];
   const fgRef = useRef(null);
 
   // Build the subgraph: focal node + immediate neighbors + connecting links
@@ -109,7 +112,7 @@ function NodeMinimap({ nodeId, graphData, files, onOpen, nodeTransparent = false
 
   const nodeCanvasObject = useCallback(
     (node, ctx, globalScale) => {
-      const cfg = NODE_TYPE_CONFIG[node.type] || NODE_TYPE_CONFIG.character;
+      const cfg = NODE_TYPE_CONFIG[node.type] || nodeTypeFallback;
       const isFocal = node.id === nodeId;
       const isDerived = !ownFileIds.has(node.id);
       const r = isFocal ? 7 : 5;
@@ -478,7 +481,14 @@ function treeInsertNode(nodes, node, folderPath) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function FilesEditor({ graphData = { nodes: [], links: [] }, workspace = null, workspaceName = null, workspaces = [], onWorkspaceChange = null, onCreateWorkspace = null, nodeTransparent = false, nodeBorder = false, disallowedAliases = new Set(), onReady = null, onFilesChange = null }) {
+  // eslint-disable-next-line no-shadow
+  const NODE_TYPE_CONFIG = useNodeTypeConfig();
+  const nodeTypeFallback = Object.values(NODE_TYPE_CONFIG)[0];
   const [files, setFiles] = useState([]);
+  const ownFileIds = useMemo(
+    () => computeOwnFileIds(graphData.nodes, files),
+    [graphData.nodes, files]
+  );
   const [tree, setTree] = useState([]);
   const [openFolders, setOpenFolders] = useState(() => new Set());
   const [inlineNew, setInlineNew] = useState(null); // { parentPath, type: "file"|"folder", value }
@@ -487,34 +497,6 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
   const [openFile, setOpenFile] = useState(null);   // { filename, content }
   const [folderDeleteModal, setFolderDeleteModal] = useState(null); // { folderPath, filePaths[] } | null
 
-  // Workspace picker state
-  const [wsDropdownOpen, setWsDropdownOpen] = useState(false);
-  const [newWsInput, setNewWsInput] = useState(false);
-  const [newWsName, setNewWsName] = useState("");
-  const wsDropdownRef = useRef(null);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    if (!wsDropdownOpen) return;
-    const handler = (e) => {
-      if (wsDropdownRef.current && !wsDropdownRef.current.contains(e.target)) {
-        setWsDropdownOpen(false);
-        setNewWsInput(false);
-        setNewWsName("");
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [wsDropdownOpen]);
-
-  const handleCreateWorkspace = (e) => {
-    e.preventDefault();
-    onCreateWorkspace?.(newWsName, () => {
-      setWsDropdownOpen(false);
-      setNewWsInput(false);
-      setNewWsName("");
-    });
-  };
   const [loadingFile, setLoadingFile] = useState(false);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
   const [propagateMsg, setPropagateMsg] = useState(""); // e.g. "3 files updated"
@@ -586,22 +568,30 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
   // Derive node ID from open filename (e.g. maren-ashveil.md → maren_ashveil)
   // Find the graph node for the currently open file.
   // Primary: match node id derived from filename (notes-raw files).
-  // Fallback: match by sourceFile basename (uploaded files whose filename ≠ node id).
+  // Fallback: match by sourceFile basename — but ONLY when the node id matches the
+  // file stem, so a multi-entity extract upload (many nodes sharing one sourceFile)
+  // doesn't spuriously attach the first extracted character as the file's node.
   const openNode = useMemo(() => {
     if (!openFile) return null;
     const filename = openFile.filename;
     const basename = filename.split("/").pop();
     const stemId = basename.replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
-    return (
-      // 1. Stem ID match (standard notes-raw files)
-      graphData.nodes.find((n) => n.id === stemId) ??
-      // 2. Primary sourceFile basename match (derive-uploaded files)
-      graphData.nodes.find((n) => n.sourceFile && n.sourceFile.split("/").pop() === basename) ??
-      // 3. Full path match against primarySourceFile
-      graphData.nodes.find((n) => n.sourceFile === filename) ??
-      // 4. Full path match against additionalSourceFiles (merged copies with different names)
-      graphData.nodes.find((n) => (n.additionalSourceFiles || []).includes(filename))
-    ) ?? null;
+    // 1. Stem ID match (standard notes-raw files and focused-note uploads)
+    const byId = graphData.nodes.find((n) => n.id === stemId);
+    if (byId) return byId;
+    // 2. Primary sourceFile basename match — only when the node id matches the file stem
+    //    (derive-uploaded files whose display name differs from their node id).
+    const bySourceFile = graphData.nodes.find(
+      (n) => n.sourceFile && n.sourceFile.split("/").pop() === basename && n.id === stemId
+    );
+    if (bySourceFile) return bySourceFile;
+    // 3. Full path match against primarySourceFile — same id-must-match guard
+    const byFullPath = graphData.nodes.find(
+      (n) => n.sourceFile === filename && n.id === stemId
+    );
+    if (byFullPath) return byFullPath;
+    // 4. Full path match against additionalSourceFiles (merged copies with different names)
+    return graphData.nodes.find((n) => (n.additionalSourceFiles || []).includes(filename)) ?? null;
   }, [openFile, graphData.nodes]);
 
   const openNodeId = openNode?.id ?? null;
@@ -1204,6 +1194,8 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
     const result = [];
     for (const node of graphData.nodes) {
       if (node.id === openFileNodeId) continue; // skip self AND all supplemental files for the same node
+      // Skip grey nodes — they have no dedicated file so they shouldn't appear in References
+      if (!ownFileIds.has(node.id)) continue;
       // Also skip nodes whose sourceFile is the currently open file (handles cases where the
       // node ID stem doesn't match the filename, e.g. chief_surveyor_vane → cartographic_division.md)
       if (node.sourceFile && openFile && node.sourceFile === openFile.filename) continue;
@@ -1221,7 +1213,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
         if (sf !== primaryPath && fileSet.has(sf)) allNodeFiles.push(sf);
       }
 
-      const cfg = NODE_TYPE_CONFIG[node.type] || NODE_TYPE_CONFIG.character;
+      const cfg = NODE_TYPE_CONFIG[node.type] || nodeTypeFallback;
 
       // Push entry for the canonical name, and each alias, each routed to the best-matching file
       // (e.g. alias "Shouyou" routes to dads/shouyou.md rather than hinata_wiki/sh_y_hinata.md).
@@ -1235,30 +1227,15 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
 
       pushEntity(node.name);
 
-      // Collect all alias forms: explicit aliases from JSON + auto-derived single words
-      // from multi-word names. Filter both against the persistent disallowed-aliases blacklist.
-      const STOP_WORDS = new Set([
-        "the","and","for","not","but","nor","yet","so","of","in","on","at","to",
-        "by","up","as","an","a","or","its","it","he","she","they","his","her",
-        "their","our","my","your","its","who","whom","which","that","this","these",
-        "those","from","with","into","onto","upon","over","under","about","after",
-        "before","old","new","one","two","three","four","five","six","seven",
-      ]);
-      const nameWords = node.name.trim().split(/\s+/);
-      const autoPartials = nameWords.length > 1
-        ? nameWords.filter((w) => w.length > 2 && !STOP_WORDS.has(w.toLowerCase()) && !disallowedAliases.has(w.toLowerCase()) && !openNodeNameWords.has(w.toLowerCase()))
-        : [];
-      const allAliases = [
-        ...(node.aliases || []).filter((a) => !disallowedAliases.has(a.toLowerCase())),
-        ...autoPartials.filter((w) => !(node.aliases || []).some((a) => a.toLowerCase() === w.toLowerCase())),
-      ];
+      // Only use explicit aliases defined in the node's aliases array.
+      const allAliases = (node.aliases || []).filter((a) => !disallowedAliases.has(a.toLowerCase()));
       for (const alias of allAliases) {
         if (alias.toLowerCase() !== node.name.toLowerCase()) pushEntity(alias);
       }
     }
     // Sort longer names first to prevent partial shadowing
     return result.sort((a, b) => b.name.length - a.name.length);
-  }, [graphData.nodes, files, openFile, openNode, disallowedAliases]);
+  }, [graphData.nodes, files, openFile, openNode, disallowedAliases, ownFileIds]);
 
   // Keep decoration ref in sync — no transaction dispatch needed; ProseMirror
   // reruns decorations() on every state update so the ref is always current.
@@ -1339,9 +1316,11 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
     const map = new Map();
     const fileSet = new Set(files.map((f) => f.filename));
 
-    // Pass 1: direct sourceFile / additionalSourceFiles (most reliable — set by the extractor)
+    // Pass 1: additionalSourceFiles for merged nodes (genuine ownership — the user
+    // explicitly merged these files into one node). We deliberately exclude node.sourceFile
+    // here because sourceFile is a *provenance* field (many extracted nodes can share the
+    // same sourceFile) not an ownership field. Stem-based ownership is handled by Pass 2.
     for (const node of graphData.nodes) {
-      if (node.sourceFile && fileSet.has(node.sourceFile)) map.set(node.sourceFile, node.id);
       for (const sf of (node.additionalSourceFiles || [])) {
         if (fileSet.has(sf)) map.set(sf, node.id);
       }
@@ -1551,30 +1530,11 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
         className="w-56 flex-shrink-0 flex flex-col border-r"
         style={{ backgroundColor: "#13131f", borderColor: "rgba(255,255,255,0.07)" }}
       >
-        {/* Workspace name header — clickable to switch workspace */}
+        {/* Sidebar toolbar: new file, new folder, expand/collapse */}
         <div
-          className="relative flex items-center gap-1 px-3 py-2.5 border-b flex-shrink-0"
+          className="flex items-center gap-1 px-2 py-2 border-b flex-shrink-0"
           style={{ borderColor: "rgba(255,255,255,0.07)" }}
-          ref={wsDropdownRef}
         >
-          <button
-            className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
-            onClick={() => setWsDropdownOpen((v) => !v)}
-            title="Switch workspace"
-          >
-            <span className="text-sm font-semibold truncate flex-1" style={{ color: "rgba(255,255,255,0.75)" }}>
-              {workspaceName || workspace || "Workspace"}
-            </span>
-            <ChevronRight
-              size={11}
-              style={{
-                transition: "transform 0.15s ease",
-                transform: wsDropdownOpen ? "rotate(90deg)" : "rotate(0deg)",
-                color: "rgba(255,255,255,0.3)",
-                flexShrink: 0,
-              }}
-            />
-          </button>
           <button
             title="New file"
             onClick={() => setInlineNew({ parentPath: "", type: "file", value: "" })}
@@ -1611,73 +1571,6 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
                 onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
               ><ChevronsUpDown size={14} /></button>
             )
-          )}
-
-          {/* Workspace dropdown */}
-          {wsDropdownOpen && (
-            <div
-              className="absolute left-0 top-full mt-1 z-50 rounded-xl shadow-2xl overflow-hidden w-full"
-              style={{ backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)" }}
-            >
-              {workspaces.map((ws) => (
-                <button
-                  key={ws.slug}
-                  onClick={() => { onWorkspaceChange?.(ws.slug); setWsDropdownOpen(false); }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left"
-                  style={{
-                    backgroundColor: ws.slug === workspace ? "rgba(255,255,255,0.07)" : "transparent",
-                    color: ws.slug === workspace ? "#fff" : "rgba(255,255,255,0.6)",
-                  }}
-                  onMouseEnter={(e) => { if (ws.slug !== workspace) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)"; }}
-                  onMouseLeave={(e) => { if (ws.slug !== workspace) e.currentTarget.style.backgroundColor = "transparent"; }}
-                >
-                  {ws.slug === workspace && (
-                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: "#60a5fa" }} />
-                  )}
-                  <span className="text-sm">{ws.name}</span>
-                </button>
-              ))}
-              <div className="border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-                {newWsInput ? (
-                  <form onSubmit={handleCreateWorkspace} className="px-3 py-2.5">
-                    <input
-                      autoFocus
-                      type="text"
-                      placeholder="Workspace name..."
-                      value={newWsName}
-                      onChange={(e) => setNewWsName(e.target.value)}
-                      className="w-full bg-transparent outline-none text-sm"
-                      style={{ color: "rgba(255,255,255,0.85)", caretColor: "#60a5fa" }}
-                      onKeyDown={(e) => { if (e.key === "Escape") { setNewWsInput(false); setNewWsName(""); } }}
-                    />
-                    <div className="flex gap-1.5 mt-2">
-                      <button
-                        type="submit"
-                        className="text-xs px-2.5 py-1 rounded-md font-medium"
-                        style={{ backgroundColor: "rgba(96,165,250,0.2)", color: "#93c5fd" }}
-                      >Create</button>
-                      <button
-                        type="button"
-                        onClick={() => { setNewWsInput(false); setNewWsName(""); }}
-                        className="text-xs px-2.5 py-1 rounded-md"
-                        style={{ color: "rgba(255,255,255,0.35)" }}
-                      >Cancel</button>
-                    </div>
-                  </form>
-                ) : (
-                  <button
-                    onClick={() => setNewWsInput(true)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left"
-                    style={{ color: "rgba(255,255,255,0.35)" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.65)"; e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.35)"; e.currentTarget.style.backgroundColor = "transparent"; }}
-                  >
-                    <span className="text-base leading-none font-light">+</span>
-                    <span className="text-sm">New workspace</span>
-                  </button>
-                )}
-              </div>
-            </div>
           )}
         </div>
 
@@ -2240,7 +2133,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
             })()}
 
             {entityTooltip && (() => {
-              const cfg = NODE_TYPE_CONFIG[entityTooltip.node.type] || NODE_TYPE_CONFIG.character;
+              const cfg = NODE_TYPE_CONFIG[entityTooltip.node.type] || nodeTypeFallback;
               // Anchor the tooltip's bottom edge 12px above the cursor using
               // translateY(-100%) so we never need to know the actual height.
               const MARGIN = 12;
@@ -2334,7 +2227,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
               {/* Primary name */}
               {(() => {
                 const node = graphData.nodes.find((n) => n.id === openNodeId);
-                const cfg = NODE_TYPE_CONFIG[node?.type] || NODE_TYPE_CONFIG.character;
+                const cfg = NODE_TYPE_CONFIG[node?.type] || nodeTypeFallback;
                 return node ? (
                   <div className="flex items-center gap-2 mb-3">
                     <span
@@ -2452,13 +2345,13 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
                           const nid = entity.filename.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
                           return n.id === nid;
                         });
-                    const cfg = NODE_TYPE_CONFIG[node?.type] || NODE_TYPE_CONFIG.character;
+                    const cfg = NODE_TYPE_CONFIG[node?.type] || nodeTypeFallback;
                     const isMutual = mutualFilenames.has(entity.filename);
                     const bibFolderParts = entity.filename.split("/");
                     const bibFolderLabel = bibFolderParts.length > 1 ? bibFolderParts.slice(0, -1).join("/") : null;
                     const showBibFolder = bibFolderLabel && multiFileNodeIds.has(entity.nodeId);
                     return (
-                      <li key={entity.filename} className="flex items-start gap-2 min-w-0">
+                      <li key={entity.nodeId ?? entity.filename} className="flex items-start gap-2 min-w-0">
                         <span className="flex-shrink-0 text-xs font-mono mt-0.5" style={{ color: "rgba(255,255,255,0.25)", minWidth: "1.5rem" }}>
                           {i + 1}.
                         </span>
@@ -2527,7 +2420,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
                     // display their authoritative name and colour rather than the raw filename stem.
                     const resolvedNodeId = filenameToNodeId.get(blFilename) ?? stemNodeId;
                     const node = graphData.nodes.find((n) => n.id === resolvedNodeId);
-                    const cfg = NODE_TYPE_CONFIG[node?.type] || NODE_TYPE_CONFIG.character;
+                    const cfg = NODE_TYPE_CONFIG[node?.type] || nodeTypeFallback;
                     const displayName = node?.name ?? parts[parts.length - 1].replace(/\.(md|txt)$/i, "");
                     const color = node ? cfg.color : "rgba(255,255,255,0.5)";
                     const isMutual = mutualFilenames.has(blFilename);
@@ -2690,7 +2583,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
                     <p className="text-xs px-4 py-3" style={{ color: "rgba(255,255,255,0.3)" }}>No nodes match</p>
                   )}
                   {filtered.map((n) => {
-                    const cfg = NODE_TYPE_CONFIG[n.type] || NODE_TYPE_CONFIG.character;
+                    const cfg = NODE_TYPE_CONFIG[n.type] || nodeTypeFallback;
                     return (
                       <button
                         key={n.id}
@@ -2721,7 +2614,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
                 </p>
                 <div className="flex gap-3">
                   {[openNode, picked].map((n) => {
-                    const cfg = NODE_TYPE_CONFIG[n.type] || NODE_TYPE_CONFIG.character;
+                    const cfg = NODE_TYPE_CONFIG[n.type] || nodeTypeFallback;
                     return (
                       <button
                         key={n.id}

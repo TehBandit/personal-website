@@ -51,7 +51,7 @@ body {
     repeat,
     repeat;
 
-  @apply lowercase min-h-screen flex flex-col;
+  @apply min-h-screen flex flex-col;
 }
 
 /* adds dropshadow to header */

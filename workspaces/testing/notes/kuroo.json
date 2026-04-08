@@ -1,0 +1,39 @@
+{
+  "id": "kuroo",
+  "name": "Kuroo",
+  "type": "entity",
+  "excerpt": "Bokuto's friend and coworker at Nekoma's coffeeshop, known for his teasing nature.",
+  "connections": [
+    {
+      "target": "bokuto",
+      "label": "friends and coworkers"
+    },
+    {
+      "target": "lev",
+      "label": "friends and coworkers"
+    },
+    {
+      "target": "akaashi",
+      "label": "teases Bokuto about"
+    },
+    {
+      "target": "kenma",
+      "label": "in a relationship with"
+    },
+    {
+      "target": "nekoma_coffeeshop",
+      "label": "works at"
+    }
+  ],
+  "notes": "Kuroo works at Nekoma's coffeeshop alongside Bokuto and Lev. He is supportive of Bokuto but often teases him about his crush on Akaashi. Kuroo is in a relationship with Kenma, and he has a playful and sarcastic personality.",
+  "aliases": [],
+  "sourceFile": "uploads/tea_stained_polaroids.md",
+  "context_summary": [
+    "- Kuroo works at Nekoma's coffeeshop.",
+    "- He is Bokuto's friend and coworker.",
+    "- Kuroo teases Bokuto about Akaashi.",
+    "- He is in a relationship with Kenma.",
+    "- Kuroo has a playful and sarcastic personality."
+  ],
+  "createdAt": 1774099269212
+}

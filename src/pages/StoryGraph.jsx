@@ -2,11 +2,14 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import ForceGraph2D from "react-force-graph-2d";
 import Header from "../components/Header.jsx";
 import FilesEditor from "../components/FilesEditor.jsx";
-import { X, Network, Upload, FileText, CheckCircle, AlertCircle, RotateCcw, ChevronDown, Search, Crosshair, SlidersHorizontal, Folder, FilePlus, MessageSquare, GitFork, Send } from "lucide-react";
+import { X, Network, Upload, FileText, CheckCircle, AlertCircle, RotateCcw, ChevronDown, Search, Crosshair, SlidersHorizontal, Folder, FilePlus, MessageSquare, GitFork, Send, BarChart2 } from "lucide-react";
 import WorkspaceChat from "../components/WorkspaceChat.jsx";
-import { NODE_TYPE_CONFIG } from "../constants/nodeTypes.js";
+import WorkspacePicker from "../components/WorkspacePicker.jsx";
+import Dashboard from "../components/Dashboard.jsx";
+import { NODE_TYPE_CONFIG as STATIC_NODE_TYPE_CONFIG } from "../constants/nodeTypes.js";
 import { darkenHex } from "../utils/color.js";
 import { computeOwnFileIds } from "../utils/graphHelpers.js";
+import { NodeTypeContext } from "../contexts/NodeTypeContext.jsx";
 
 const GRAPH_BG = "#0f0f1a";
 
@@ -99,6 +102,15 @@ export default function StoryGraph() {
   const [workspaces, setWorkspaces] = useState([]);
   const [workspace, setWorkspace] = useState(null);
 
+  // Derive active node-type config from the loaded workspace list
+  // (falls back to the static narrative config for legacy workspaces without nodeTypes)
+  // eslint-disable-next-line no-shadow
+  const NODE_TYPE_CONFIG = useMemo(() => {
+    const ws = workspaces.find((w) => w.slug === workspace);
+    return ws?.nodeTypes ?? STATIC_NODE_TYPE_CONFIG;
+  }, [workspace, workspaces]);
+  const nodeTypeFallback = useMemo(() => Object.values(NODE_TYPE_CONFIG)[0], [NODE_TYPE_CONFIG]);
+
   // Sidebar groups — all closed by default
   const [openGroups, setOpenGroups] = useState(() => new Set());
   // Derived sub-sections — collapsed by default
@@ -141,16 +153,16 @@ export default function StoryGraph() {
       .catch(() => setLoading(false));
   }, []);
 
-  const handleCreateWorkspace = async (name, closeCallback) => {
+  const handleCreateWorkspace = async (name, preset, closeCallback) => {
     if (!name?.trim()) return;
     const res = await fetch("/api/workspaces", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim() }),
+      body: JSON.stringify({ name: name.trim(), preset }),
     });
     if (res.ok) {
       const created = await res.json();
-      setWorkspaces((prev) => [...prev, { slug: created.slug, name: created.name }]);
+      setWorkspaces((prev) => [...prev, { slug: created.slug, name: created.name, nodeTypes: created.nodeTypes }]);
       setWorkspace(created.slug);
       closeCallback?.();
     }
@@ -238,9 +250,9 @@ export default function StoryGraph() {
     return map;
   }, [graphData.links]);
 
-  // Radius: min 4 at degree 0, grows with sqrt(degree), uncapped
+  // Radius: min 4 at degree 0, grows with sqrt(degree), more pronounced scaling
   const nodeRadius = useCallback(
-    (node) => 4 + Math.sqrt(degreeMap[node.id] || 0) * 4,
+    (node) => 4 + Math.sqrt(degreeMap[node.id] || 0) * 7,
     [degreeMap]
   );
 
@@ -475,6 +487,7 @@ export default function StoryGraph() {
   // traceSearchQuery: text in the detail-panel trace search box
   const [traceSearchQuery, setTraceSearchQuery] = useState("");
   const [traceSearchOpen, setTraceSearchOpen] = useState(false);
+  const [traceNoPath, setTraceNoPath] = useState(null); // { fromName, toName } | null
   const traceInputRef = useRef(null);
   // graphContextMenu: { x, y, node } — fixed-position right-click menu on a graph node
   const [graphContextMenu, setGraphContextMenu] = useState(null);
@@ -527,6 +540,7 @@ export default function StoryGraph() {
     setFindingPathFrom(null);
     setTraceSearchQuery("");
     setTraceSearchOpen(false);
+    setTraceNoPath(null);
   }, []);
 
   const showPathOnGraph = useCallback((graphResult) => {
@@ -689,7 +703,7 @@ export default function StoryGraph() {
   const nodeCanvasObject = useCallback(
     (node, ctx, globalScale) => {
       const isDerived = !ownFileIds.has(node.id);
-      const cfg = NODE_TYPE_CONFIG[node.type] || NODE_TYPE_CONFIG.character;
+      const cfg = NODE_TYPE_CONFIG[node.type] || nodeTypeFallback;
       const baseColor = isDerived ? "#6b7280" : cfg.color;
       const r = isDerived ? Math.max(nodeRadius(node) * 0.65, 3) : nodeRadius(node);
       const isSelected = selectedNode?.id === node.id;
@@ -876,6 +890,9 @@ export default function StoryGraph() {
   useEffect(() => {
     if (!selectedNode || !workspace || !ownFileIds.has(selectedNode.id)) {
       setSelectedNodeFileContent(null);
+      setTraceNoPath(null);
+      setTraceSearchOpen(false);
+      setTraceSearchQuery("");
       return;
     }
     // Fast path: graph cache already has the preview
@@ -972,6 +989,7 @@ export default function StoryGraph() {
   }
 
   return (
+    <NodeTypeContext.Provider value={NODE_TYPE_CONFIG}>
     <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: "#0f0f1a" }}>
       <Header />
 
@@ -983,6 +1001,14 @@ export default function StoryGraph() {
         <Network size={20} className="text-blue-400" />
         <h1 className="text-lg font-semibold text-white tracking-tight">Story Graph</h1>
 
+        <WorkspacePicker
+          workspaces={workspaces}
+          workspace={workspace}
+          workspaceName={workspaces.find((w) => w.slug === workspace)?.name ?? workspace}
+          onWorkspaceChange={setWorkspace}
+          onCreateWorkspace={handleCreateWorkspace}
+        />
+
         <span
           className="text-xs px-2 py-0.5 rounded-full font-medium"
           style={{ backgroundColor: "rgba(96,165,250,0.15)", color: "#93c5fd" }}
@@ -992,7 +1018,7 @@ export default function StoryGraph() {
 
         {/* Tab switcher */}
         <div className="flex items-center gap-0.5 ml-4 p-0.5 rounded-lg" style={{ backgroundColor: "rgba(255,255,255,0.05)" }}>
-          {[{ id: "graph", icon: <Network size={12} />, label: "Graph" }, { id: "files", icon: <FileText size={12} />, label: "Files" }, { id: "chat", icon: <MessageSquare size={12} />, label: "Chat" }].map(({ id, icon, label }) => (
+          {[{ id: "graph", icon: <Network size={12} />, label: "Graph" }, { id: "files", icon: <FileText size={12} />, label: "Files" }, { id: "chat", icon: <MessageSquare size={12} />, label: "Chat" }, { id: "dashboard", icon: <BarChart2 size={12} />, label: "Dashboard" }].map(({ id, icon, label }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
@@ -1040,7 +1066,8 @@ export default function StoryGraph() {
         </div>
 
         {/* ── Chat tab ── */}
-        {activeTab === "chat" && (
+        {/* ── Chat tab (kept mounted to preserve session state) ── */}
+        <div className="flex flex-1 overflow-hidden min-h-0" style={{ display: activeTab === "chat" ? "flex" : "none" }}>
           <WorkspaceChat
             workspace={workspace}
             onOpenNode={openNodeById}
@@ -1050,6 +1077,11 @@ export default function StoryGraph() {
             pendingQuestion={pendingChatQuestion}
             onPendingConsumed={() => setPendingChatQuestion(null)}
           />
+        </div>
+
+        {/* ── Dashboard tab ── */}
+        {activeTab === "dashboard" && (
+          <Dashboard graphData={graphData} nodeTypeConfig={NODE_TYPE_CONFIG} onOpenNode={openNodeById} />
         )}
 
         {/* ── Graph tab (kept mounted to preserve simulation state) ── */}
@@ -1241,7 +1273,7 @@ export default function StoryGraph() {
                 }}
               >
                 {searchSuggestions.map((node, idx) => {
-                  const cfg = NODE_TYPE_CONFIG[node.type] || NODE_TYPE_CONFIG.character;
+                  const cfg = NODE_TYPE_CONFIG[node.type] || nodeTypeFallback;
                   const isHighlighted = idx === searchHighlight;
                   const isTagSearch = searchQuery.trim().toLowerCase().startsWith("tag:");
                   const tagQ = isTagSearch ? searchQuery.trim().toLowerCase().slice(4).trim() : null;
@@ -1480,6 +1512,30 @@ export default function StoryGraph() {
               >
                 <X size={11} />
               </button>
+              <button
+                onClick={() => {
+                  const names = activePath.ordered.map((n) => n.name);
+                  const middle = names.slice(1, -1);
+                  const text = middle.length > 0
+                    ? `Trace the connection from ${names[0]} to ${names[names.length - 1]} through ${middle.join(" and ")}, explaining each relationship step by step based only on the notes.`
+                    : `Describe the relationship between ${names[0]} and ${names[names.length - 1]} in depth — their history, shared significance, any tensions or dynamics, and how each influences the other — drawing only from the notes. Do not just list the connection; give a thorough narrative account.`;
+                  setPendingChatQuestion({
+                    key: Date.now(),
+                    text,
+                    pinnedNodeIds: activePath.ordered.map((n) => n.id),
+                    pathHint: names.join(" → "),
+                  });
+                  setActiveTab("chat");
+                }}
+                className="ml-0.5 flex-shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg transition-colors"
+                style={{ color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.1)" }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = "#93c5fd"; e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.1)"; e.currentTarget.style.borderColor = "rgba(96,165,250,0.25)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.45)"; e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; }}
+                title="Ask AI to narrate this connection"
+              >
+                <MessageSquare size={10} />
+                Ask AI
+              </button>
             </div>
           )}
 
@@ -1575,7 +1631,8 @@ export default function StoryGraph() {
               )}
             </div>
 
-            {/* Notes */}
+            {/* Notes (own-file / coloured nodes only) */}
+            {ownFileIds.has(selectedNode.id) && (
             <div className="p-5 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
               <p
                 className="text-xs font-semibold uppercase tracking-widest mb-3"
@@ -1587,17 +1644,12 @@ export default function StoryGraph() {
                 className="text-sm leading-relaxed whitespace-pre-line"
                 style={{ color: "rgba(255,255,255,0.65)" }}
               >
-                {(() => {
-                  if (ownFileIds.has(selectedNode.id)) {
-                    const content = selectedNodeFileContent?.id === selectedNode.id
-                      ? selectedNodeFileContent.content
-                      : null;
-                    return content ?? null;
-                  }
-                  return selectedNode.notes;
-                })()}
+                {selectedNodeFileContent?.id === selectedNode.id
+                  ? selectedNodeFileContent.content
+                  : null}
               </p>
             </div>
+            )}
 
             {/* Connections */}
             <div className="p-5">
@@ -1612,6 +1664,7 @@ export default function StoryGraph() {
                   onClick={() => {
                     setTraceSearchOpen((v) => !v);
                     setTraceSearchQuery("");
+                    setTraceNoPath(null);
                     if (!traceSearchOpen) setTimeout(() => traceInputRef.current?.focus(), 60);
                   }}
                   title="Trace path to another node"
@@ -1635,7 +1688,7 @@ export default function StoryGraph() {
                   <input
                     ref={traceInputRef}
                     value={traceSearchQuery}
-                    onChange={(e) => setTraceSearchQuery(e.target.value)}
+                    onChange={(e) => { setTraceSearchQuery(e.target.value); setTraceNoPath(null); }}
                     placeholder="Search nodes to trace…"
                     className="w-full text-xs px-3 py-2 rounded-lg outline-none"
                     style={{
@@ -1643,9 +1696,23 @@ export default function StoryGraph() {
                       border: "1px solid rgba(251,191,36,0.25)",
                       color: "rgba(255,255,255,0.85)",
                     }}
-                    onKeyDown={(e) => { if (e.key === "Escape") { setTraceSearchOpen(false); setTraceSearchQuery(""); } }}
+                    onKeyDown={(e) => { if (e.key === "Escape") { setTraceSearchOpen(false); setTraceSearchQuery(""); setTraceNoPath(null); } }}
                   />
-                  {traceSuggestions.length > 0 && (
+                  {traceNoPath && (
+                    <div
+                      className="absolute left-0 right-0 top-full mt-1 rounded-xl px-3 py-2.5 z-20"
+                      style={{
+                        backgroundColor: "rgba(18,18,30,0.97)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+                      }}
+                    >
+                      <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
+                        No path between <span style={{ color: "rgba(255,255,255,0.7)" }}>{traceNoPath.fromName}</span> and <span style={{ color: "rgba(255,255,255,0.7)" }}>{traceNoPath.toName}</span>
+                      </p>
+                    </div>
+                  )}
+                  {!traceNoPath && traceSuggestions.length > 0 && (
                     <div
                       className="absolute left-0 right-0 top-full mt-1 rounded-xl overflow-hidden z-20"
                       style={{
@@ -1658,9 +1725,15 @@ export default function StoryGraph() {
                         <button
                           key={n.id}
                           onClick={() => {
-                            commitPath(selectedNode.id, n.id);
-                            setTraceSearchOpen(false);
-                            setTraceSearchQuery("");
+                            const ok = commitPath(selectedNode.id, n.id);
+                            if (ok) {
+                              setTraceSearchOpen(false);
+                              setTraceSearchQuery("");
+                              setTraceNoPath(null);
+                            } else {
+                              setTraceNoPath({ fromName: selectedNode.name, toName: n.name });
+                              setTraceSearchQuery("");
+                            }
                           }}
                           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors"
                           style={{ color: "rgba(255,255,255,0.8)" }}
@@ -1717,7 +1790,7 @@ export default function StoryGraph() {
                   onChange={(e) => setAskInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && askInput.trim()) {
-                      setPendingChatQuestion(askInput.trim());
+                      setPendingChatQuestion({ key: Date.now(), text: askInput.trim() });
                       setAskInput("");
                       setActiveTab("chat");
                     }
@@ -1729,7 +1802,7 @@ export default function StoryGraph() {
                 <button
                   onClick={() => {
                     if (askInput.trim()) {
-                      setPendingChatQuestion(askInput.trim());
+                      setPendingChatQuestion({ key: Date.now(), text: askInput.trim() });
                       setAskInput("");
                       setActiveTab("chat");
                     }
@@ -1744,7 +1817,7 @@ export default function StoryGraph() {
                 {[`Who is ${selectedNode.name}?`, `What connects to ${selectedNode.name}?`].map((s) => (
                   <button
                     key={s}
-                    onClick={() => { setPendingChatQuestion(s); setActiveTab("chat"); }}
+                    onClick={() => { setPendingChatQuestion({ key: Date.now(), text: s }); setActiveTab("chat"); }}
                     className="text-[10px] px-2 py-1 rounded-md transition-colors"
                     style={{ backgroundColor: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.07)" }}
                     onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
@@ -2052,7 +2125,7 @@ export default function StoryGraph() {
                       <RotateCcw size={13} /> Upload another
                     </button>
                     <button
-                      onClick={() => setUploadOpen(false)}
+                      onClick={() => { setActiveTab("graph"); setUploadOpen(false); }}
                       className="px-3 py-1.5 rounded-lg text-sm font-medium"
                       style={{ backgroundColor: "rgba(96,165,250,0.2)", color: "#93c5fd" }}
                     >
@@ -2097,7 +2170,7 @@ export default function StoryGraph() {
                       borderColor: dragOver ? "#60a5fa" : "rgba(255,255,255,0.12)",
                       backgroundColor: dragOver ? "rgba(96,165,250,0.06)" : "transparent",
                     }}
-                    onClick={() => folderInputRef.current?.click()}
+                    onClick={() => fileInputRef.current?.click()}
                     onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                     onDragLeave={() => setDragOver(false)}
                     onDrop={async (e) => {
@@ -2145,17 +2218,17 @@ export default function StoryGraph() {
                     )}
                   </div>
 
-                  {/* Fallback: single file picker — always shown when nothing is selected */}
+                  {/* Secondary: folder picker button */}
                   {!uploadFile && !uploadFiles.length && (
                     <button
                       type="button"
-                      onClick={() => fileInputRef.current?.click()}
+                      onClick={() => folderInputRef.current?.click()}
                       className="text-xs text-center w-full"
                       style={{ color: "rgba(255,255,255,0.3)", marginTop: "-8px" }}
                       onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.55)")}
                       onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
                     >
-                      or select a single file
+                      or browse for a folder
                     </button>
                   )}
 
@@ -2245,5 +2318,6 @@ export default function StoryGraph() {
         </div>
       )}
     </div>
+    </NodeTypeContext.Provider>
   );
 }

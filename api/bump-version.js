@@ -130,7 +130,7 @@ export function rebuildGraphCache(workspace, notesDir) {
     // Fourth pass: build graph cache from surviving nodes
     for (const { data } of allData) {
       if (data.__purged) continue;
-      const { id, name, type, excerpt, notes, aliases, tags, disambiguation, sourceFile, additionalSourceFiles, connections = [] } = data;
+      const { id, name, type, excerpt, notes, aliases, tags, disambiguation, sourceFile, additionalSourceFiles, createdAt, updatedAt, connections = [] } = data;
 
       // For nodes that own a dedicated raw file, embed a truncated preview of
       // that file's content (heading stripped) so the graph panel can show it
@@ -180,6 +180,8 @@ export function rebuildGraphCache(workspace, notesDir) {
         ...(additionalSourceFiles?.length ? { additionalSourceFiles } : {}),
         ...(disambiguation ? { disambiguation } : {}),
         ...(filePreview !== null ? { filePreview } : {}),
+        ...(createdAt ? { createdAt } : {}),
+        ...(updatedAt ? { updatedAt } : {}),
       });
 
       for (const conn of connections) {

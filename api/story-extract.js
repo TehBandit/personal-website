@@ -35,6 +35,7 @@ function patchNodeConnections(notesDir, nodeId, newConns) {
   }
 
   if (added > 0) {
+    data.updatedAt = Date.now();
     fs.writeFileSync(
       path.join(notesDir, `${nodeId}.json`),
       JSON.stringify(data, null, 2),
@@ -70,6 +71,7 @@ function patchNodeContent(notesDir, nodeId, notesAppend, newExcerpt) {
   }
 
   if (changed) {
+    data.updatedAt = Date.now();
     fs.writeFileSync(
       path.join(notesDir, `${nodeId}.json`),
       JSON.stringify(data, null, 2),
@@ -152,6 +154,25 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Invalid workspace" });
     }
     const notesDir = path.join(process.cwd(), "workspaces", workspace, "notes");
+
+    // --- Load workspace nodeTypes so extraction uses the correct type vocabulary ---
+    let workspaceNodeTypes = null;
+    try {
+      const wsMetaPath = path.join(process.cwd(), "workspaces", workspace, "workspace.json");
+      const wsMeta = JSON.parse(fs.readFileSync(wsMetaPath, "utf-8"));
+      if (wsMeta.nodeTypes && typeof wsMeta.nodeTypes === "object" && Object.keys(wsMeta.nodeTypes).length > 0) {
+        workspaceNodeTypes = wsMeta.nodeTypes;
+      }
+    } catch { /* use narrative defaults */ }
+    const typeKeys = workspaceNodeTypes
+      ? Object.keys(workspaceNodeTypes)
+      : ["character", "location", "faction", "artifact", "event"];
+    const typeList = typeKeys.join(" | ");
+    const defaultType = typeKeys[0];
+    const typeLabels = workspaceNodeTypes
+      ? Object.values(workspaceNodeTypes).map((t) => t.label || t).join(", ")
+      : "characters, locations, factions, artifacts, events";
+
     const existingNodes = [];
 
     if (fs.existsSync(notesDir)) {
@@ -163,7 +184,7 @@ export default async function handler(req, res) {
             existingNodes.push({
               id: data.id,
               name: data.name,
-              type: data.type || "character",
+              type: data.type || defaultType,
               excerpt: data.excerpt || "",
               notes: data.notes || "",
               aliases: data.aliases || [],
@@ -181,6 +202,121 @@ export default async function handler(req, res) {
     // --- Prompt OpenAI with JSON mode ---
     const openai = new OpenAI({ apiKey });
 
+    // ── Focused-note mode ─────────────────────────────────────────────────────
+    // When the caller provides a `title`, pre-create a node for the document
+    // itself (name = title, notes = raw text), then fall through to the normal
+    // multi-entity extraction so characters/places/etc are still extracted and
+    // linked to it.  The title node is added to existingNodes so the extraction
+    // AI sees it as "already in the graph" and connects extracted entities to it.
+    // focusedId/focusedTitle/focusedType are hoisted so the userPrompt and final
+    // response can reference them after the if block.
+    let focusedId = null;
+    let focusedTitle = null;
+    let focusedType = null;
+    let focusedIsNew = false;
+    if (req.body.title && req.body.title.trim()) {
+      focusedTitle = req.body.title.trim();
+      focusedId = focusedTitle.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+
+      const _fnFocused = req.body.filename || `upload-${Date.now()}.md`;
+      const _bnFocused = path.basename(_fnFocused).replace(/[^a-zA-Z0-9._-]/g, "_");
+      const _safeFocusedFilename = _bnFocused.replace(/\.(txt|docx)$/i, ".md");
+      const focusedSourceFile = `uploads/${_safeFocusedFilename}`;
+
+      // Ask gpt-4o-mini for a one-sentence excerpt, a type, and any connections
+      // to nodes already in the graph.  Characters found in this pass are NOT
+      // extracted yet — they come from the full extraction below.
+      const focusedSystem = `You are a knowledge-graph assistant processing a single focused note.
+The note is about the entity named "${focusedTitle}".
+Return ONLY valid JSON with this exact schema:
+{
+  "excerpt": "One punchy sentence describing ${focusedTitle}",
+  "type": "${typeList}",
+  "connections": [
+    { "target": "id_of_existing_entity", "label": "brief lowercase relationship (max 8 words)" }
+  ]
+}
+Rules:
+- "connections" may only reference entities already in the graph (ids listed in the user message)
+- Omit "connections" or leave it [] if no existing entity is clearly mentioned
+- "type" must be exactly one of: ${typeList}`;
+
+      const focusedUser = `EXISTING GRAPH NODES:
+${existingNodes.length > 0
+  ? existingNodes.map((n) => `  id: "${n.id}"  name: "${n.name}"  type: ${n.type}`).join("\n")
+  : "  (none yet)"}
+
+NOTE CONTENT:
+${rawText}`;
+
+      let focusedResult = {};
+      try {
+        const focusedCompletion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: focusedSystem },
+            { role: "user", content: focusedUser },
+          ],
+          temperature: 0.2,
+        });
+        focusedResult = JSON.parse(focusedCompletion.choices[0].message.content);
+      } catch { /* non-fatal — proceed without excerpt */ }
+
+      focusedType = typeKeys.includes(focusedResult.type) ? focusedResult.type : defaultType;
+      const focusedConns = Array.isArray(focusedResult.connections)
+        ? focusedResult.connections.filter((c) => c.target && existingIdSet.has(c.target))
+        : [];
+
+      if (!fs.existsSync(notesDir)) fs.mkdirSync(notesDir, { recursive: true });
+      const existingFocused = loadNodeFile(notesDir, focusedId);
+      focusedIsNew = !existingFocused;
+
+      if (existingFocused) {
+        patchNodeContent(notesDir, focusedId, rawText, focusedResult.excerpt || "");
+        if (focusedConns.length > 0) patchNodeConnections(notesDir, focusedId, focusedConns);
+      } else {
+        const focusedNode = {
+          id: focusedId,
+          name: focusedTitle,
+          type: focusedType,
+          excerpt: focusedResult.excerpt || "",
+          notes: rawText,
+          connections: focusedConns,
+          aliases: [],
+          sourceFile: focusedSourceFile,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        fs.writeFileSync(path.join(notesDir, `${focusedId}.json`), JSON.stringify(focusedNode, null, 2), "utf-8");
+      }
+
+      // Add the title node to existingNodes so the full extraction below sees it
+      // as already in the graph — extracted entities will connect to it naturally.
+      if (!existingIdSet.has(focusedId)) {
+        existingNodes.push({
+          id: focusedId,
+          name: focusedTitle,
+          type: focusedType,
+          excerpt: focusedResult.excerpt || "",
+          notes: rawText,
+          aliases: [],
+          context_summary: "",
+          disambiguation: "",
+        });
+        existingIdSet.add(focusedId);
+      }
+
+      // Save the raw file NOW so rebuildGraphCache (called at the end of the
+      // main extraction) finds the sourceFile on disk and does not purge this node.
+      const _focusedUploadsDir = path.join(process.cwd(), "workspaces", workspace, "uploads");
+      if (!fs.existsSync(_focusedUploadsDir)) fs.mkdirSync(_focusedUploadsDir, { recursive: true });
+      fs.writeFileSync(path.join(_focusedUploadsDir, _safeFocusedFilename), rawText, "utf-8");
+
+      // Fall through to the full multi-entity extraction ↓
+    }
+    // ── End focused-note mode ─────────────────────────────────────────────────
+
     const systemPrompt = `You are a narrative analyst. Your job is to extract named story elements from raw notes and automatically map every connection between them.
 
 You will receive:
@@ -188,7 +324,7 @@ You will receive:
 2. Raw notes to analyze
 
 Your tasks:
-- Identify all significant named entities: characters, locations, factions, artifacts, events
+- Identify all significant named entities: ${typeLabels}
 - For each NEW entity not already in the graph, write a focused excerpt and condensed notes
 - For each EXISTING entity where this text reveals meaningfully new information, add an update with only the additional details (do not repeat what is already in their notes)
 - Determine all meaningful connections — between new entities AND to existing graph entities
@@ -200,7 +336,7 @@ Return ONLY valid JSON matching this exact schema:
     {
       "id": "snake_case_unique_id",
       "name": "Display Name",
-      "type": "character | location | faction | artifact | event",
+      "type": "${typeList}",
       "excerpt": "One punchy sentence describing this element",
       "notes": "Full narrative notes about this element",
       "connections": [
@@ -266,7 +402,7 @@ ${
         return parts.join("\n");
       }).join("\n")
     : "  (none yet — this is the first upload)"
-}${req.body.title ? `\n\nDOCUMENT TITLE (primary subject of this file): ${req.body.title}` : ""}
+    }${focusedId ? `\n\nDOCUMENT NODE — this text belongs to the node with id="${focusedId}" name="${focusedTitle}". Every extracted entity found in this text MUST include a connection to "${focusedId}" in its connections array with an appropriate label (e.g. "appears in", "featured in", "central to").` : ""}
 
 RAW NOTES TO ANALYZE:
 ${rawText}`;
@@ -338,15 +474,17 @@ ${rawText}`;
       const nodeData = {
         id: safeId,
         name: node.name,
-        type: node.type || "character",
+        type: node.type || defaultType,
         excerpt: node.excerpt || "",
         connections: node.connections || [],
         notes: node.notes || "",
         aliases: node.aliases || [],
         sourceFile: uploadSourceFile,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
       fs.writeFileSync(filePath, JSON.stringify(nodeData, null, 2), "utf-8");
-      savedNodes.push({ id: safeId, name: node.name, type: node.type || "character" });
+      savedNodes.push({ id: safeId, name: node.name, type: node.type || defaultType });
       nodesForSummary.push({ filePath, nodeData });
     }
 
@@ -438,6 +576,12 @@ ${rawText}`;
     const uploadsDir = path.join(process.cwd(), "workspaces", workspace, _safeFolder);
     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
     fs.writeFileSync(path.join(uploadsDir, safeUploadFilename), rawText, "utf-8");
+
+    // Prepend the focused/title node to the response so the upload-complete
+    // screen shows it alongside the extracted entities.
+    if (focusedId && focusedTitle && focusedType) {
+      savedNodes.unshift({ id: focusedId, name: focusedTitle, type: focusedType });
+    }
 
     return res.status(200).json({
       added: savedNodes.length,

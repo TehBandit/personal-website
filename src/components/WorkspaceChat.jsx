@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Send, RefreshCw, BookOpen, ChevronDown, ChevronUp, Loader, AlertCircle, X, Trash2, PanelLeftOpen, PanelLeftClose, Network, SquarePen, Copy, Check, Pencil } from "lucide-react";
-import { NODE_TYPE_CONFIG } from "../constants/nodeTypes.js";
+import { useNodeTypeConfig } from "../contexts/NodeTypeContext.jsx";
 
 const BG = "#0a0a14";
 const SIDEBAR_BG = "#0c0c18";
@@ -157,6 +157,8 @@ function analyzeGraphQuery(text, graphData) {
 // ---------------------------------------------------------------------------
 
 function GraphMinimap({ graphResult, graphData, onOpenNode, onShowPath }) {
+  const NODE_TYPE_CONFIG = useNodeTypeConfig();
+  const nodeTypeFallback = Object.values(NODE_TYPE_CONFIG)[0];
   if (!graphData || !graphResult) return null;
   const { type, focusNodeId, nodeIds, linkLabels } = graphResult;
   const truncate = (s, max) => (s.length > max ? s.slice(0, max - 1) + "…" : s);
@@ -170,7 +172,7 @@ function GraphMinimap({ graphResult, graphData, onOpenNode, onShowPath }) {
     const H = Math.max(180, 150 + N * 6);
     const cx = W / 2, cy = H / 2;
     const R = N <= 3 ? 58 : N <= 6 ? 70 : N <= 9 ? 80 : 88;
-    const focusCfg = NODE_TYPE_CONFIG[focusNode.type] || NODE_TYPE_CONFIG.character;
+    const focusCfg = NODE_TYPE_CONFIG[focusNode.type] || nodeTypeFallback;
 
     const positions = displayNodes.map((node, i) => {
       const angle = (2 * Math.PI * i / N) - Math.PI / 2;
@@ -203,7 +205,7 @@ function GraphMinimap({ graphResult, graphData, onOpenNode, onShowPath }) {
           </g>
           {/* Neighbor nodes */}
           {positions.map(({ node, x, y }) => {
-            const cfg = NODE_TYPE_CONFIG[node.type] || NODE_TYPE_CONFIG.character;
+            const cfg = NODE_TYPE_CONFIG[node.type] || nodeTypeFallback;
             const isTop = y < cy - 10, isBottom = y > cy + 10;
             const isLeft = x < cx - 15, isRight = x > cx + 15;
             let lx, ly, la;
@@ -258,7 +260,7 @@ function GraphMinimap({ graphResult, graphData, onOpenNode, onShowPath }) {
           {pathNodes.map((node, i) => {
             const x = pad + i * gap;
             const isEndpoint = i === 0 || i === N - 1;
-            const cfg = NODE_TYPE_CONFIG[node.type] || NODE_TYPE_CONFIG.character;
+            const cfg = NODE_TYPE_CONFIG[node.type] || nodeTypeFallback;
             return (
               <g key={node.id} onClick={() => onOpenNode?.(node.id)} style={{ cursor: onOpenNode ? "pointer" : "default" }}>
                 <circle cx={x} cy={cy} r={isEndpoint ? 8 : 6} fill={cfg.color} stroke={isEndpoint ? "rgba(251,191,36,0.5)" : "rgba(255,255,255,0.12)"} strokeWidth={isEndpoint ? 2 : 1} />
@@ -295,7 +297,9 @@ function GraphMinimap({ graphResult, graphData, onOpenNode, onShowPath }) {
 // ---------------------------------------------------------------------------
 
 function CitationCard({ source, index, onOpenNode }) {
-  const cfg = NODE_TYPE_CONFIG[source.nodeType] || NODE_TYPE_CONFIG.character;
+  const NODE_TYPE_CONFIG = useNodeTypeConfig();
+  const nodeTypeFallback = Object.values(NODE_TYPE_CONFIG)[0];
+  const cfg = NODE_TYPE_CONFIG[source.nodeType] || nodeTypeFallback;
   const clickable = !!onOpenNode;
   return (
     <button
@@ -377,7 +381,7 @@ function stripBold(str) {
  * aliases + auto-partial single words from multi-word names (stop-words excluded).
  * Returns { map, regex } or null when graphData has no nodes.
  */
-function buildChatEntities(graphData) {
+function buildChatEntities(graphData, NODE_TYPE_CONFIG, nodeTypeFallback) {
   if (!graphData?.nodes?.length) return null;
   const STOP_WORDS = new Set([
     "the","and","for","not","but","nor","yet","so","of","in","on","at","to",
@@ -389,7 +393,7 @@ function buildChatEntities(graphData) {
   const seen = new Set();
   const list = [];
   for (const node of graphData.nodes) {
-    const cfg = NODE_TYPE_CONFIG[node.type] || NODE_TYPE_CONFIG.character;
+    const cfg = NODE_TYPE_CONFIG[node.type] || nodeTypeFallback;
     const push = (name) => {
       const key = name.toLowerCase();
       if (seen.has(key) || !name.trim()) return;
@@ -567,11 +571,13 @@ function renderContent(content, citations, onOpenNode, entityData) {
 }
 
 function MessageBubble({ message, onOpenNode, graphData, onRegenerate, onEditSubmit, isLast, onShowPath }) {
+  const NODE_TYPE_CONFIG = useNodeTypeConfig();
+  const nodeTypeFallback = Object.values(NODE_TYPE_CONFIG)[0];
   const isUser = message.role === "user";
   const isStreaming = message.streaming;
   const isThinking = isStreaming && message.content === "";
 
-  const entityData = useMemo(() => buildChatEntities(graphData), [graphData]);
+  const entityData = useMemo(() => buildChatEntities(graphData, NODE_TYPE_CONFIG, nodeTypeFallback), [graphData, NODE_TYPE_CONFIG, nodeTypeFallback]);
 
   const [copied, setCopied] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -1032,6 +1038,20 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
   });
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  // Tracks which workspace the current `sessions` state belongs to.
+  // Used to prevent the persist effect from writing stale sessions to the wrong
+  // workspace key during a workspace switch (effects run in definition order, so
+  // persist would otherwise fire before the reload effect updates sessions).
+  const sessionsWorkspaceRef = useRef(workspace);
+
+  // Reload sessions when the workspace prop changes
+  useEffect(() => {
+    sessionsWorkspaceRef.current = workspace;
+    const s = loadSessions(workspace);
+    setSessions(s);
+    setActiveId(s.length > 0 ? s[0].id : null);
+  }, [workspace]);
+
   // Chat state
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -1048,17 +1068,12 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
   const activeSession = sessions.find((s) => s.id === activeId) ?? null;
   const messages = activeSession?.messages ?? [];
 
-  // Persist sessions to localStorage whenever they change
+  // Persist sessions to localStorage. Workspace is read from the ref (not a dep)
+  // so this effect only fires when sessions actually changes — never on a bare
+  // workspace switch where sessions would still hold the previous workspace's data.
   useEffect(() => {
-    saveSessions(workspace, sessions);
-  }, [workspace, sessions]);
-
-  // Reset when workspace changes
-  useEffect(() => {
-    const s = loadSessions(workspace);
-    setSessions(s);
-    setActiveId(s.length > 0 ? s[0].id : null);
-  }, [workspace]);
+    saveSessions(sessionsWorkspaceRef.current, sessions);
+  }, [sessions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Smart auto-scroll: only scroll to bottom when user is already near the bottom
   useEffect(() => {
@@ -1071,10 +1086,13 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
     setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80);
   }, []);
 
-  // Update messages on the active session
-  const updateMessages = useCallback((updater) => {
+  // Update messages on the active session.
+  // sessionIdOverride lets sendMessage use the ID returned by ensureSession() rather
+  // than the stale activeId captured in the closure (which may still be null when a
+  // new session was lazily created on the very first message).
+  const updateMessages = useCallback((updater, sessionIdOverride) => {
     setSessions((prev) => prev.map((s) => {
-      if (s.id !== activeId) return s;
+      if (s.id !== (sessionIdOverride ?? activeId)) return s;
       const next = typeof updater === "function" ? updater(s.messages) : updater;
       const title = s.title ?? deriveTitle(next);
       return { ...s, messages: next, title, updatedAt: Date.now() };
@@ -1140,11 +1158,12 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
   }, [updateMessages]);
 
   const sendMessage = useCallback(
-    async (textOverride) => {
+    async (textOverride, options = {}) => {
+      const { forcedNodeIds = null, forcedPathHint = null, mode = null } = options;
       const text = (textOverride ?? input).trim();
       if (!text || sending) return;
 
-      ensureSession();
+      const effectiveId = ensureSession();
 
       setError(null);
       setInput("");
@@ -1172,11 +1191,11 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
           },
         };
         setSessions((prev) => {
-          const session = prev.find((s) => s.id === activeId) ?? prev[0];
+          const session = prev.find((s) => s.id === effectiveId) ?? prev[0];
           const newMsgs = [...(session?.messages ?? []), userMsg, assistantMsg];
           const title = session?.title ?? deriveTitle(newMsgs);
           return prev.map((s) => {
-            if (s.id !== (session?.id ?? activeId)) return s;
+            if (s.id !== (session?.id ?? effectiveId)) return s;
             return { ...s, messages: newMsgs, title, updatedAt: Date.now() };
           });
         });
@@ -1190,11 +1209,11 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
       // so sessions here is always fresh — we do NOT rely on the setSessions updater
       // side-effect, which runs asynchronously after React's batch flush and would
       // leave currentMessages undefined when assistantIdx is computed below.
-      const snapSession = sessions.find((s) => s.id === activeId) ?? sessions[0];
+      const snapSession = sessions.find((s) => s.id === effectiveId) ?? sessions[0];
       const currentMessages = [...(snapSession?.messages ?? []), userMsg];
 
       setSessions((prev) => {
-        const session = prev.find((s) => s.id === (snapSession?.id ?? activeId)) ?? prev[0];
+        const session = prev.find((s) => s.id === (snapSession?.id ?? effectiveId)) ?? prev[0];
         const msgs = [...(session?.messages ?? []), userMsg];
         return prev.map((s) => {
           if (s.id !== session?.id) return s;
@@ -1206,11 +1225,11 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
       // so follow-up questions can draw on the notes for those nodes
       const recentMsgs = activeSession?.messages ?? [];
       const recentGraphResult = [...recentMsgs].reverse().slice(0, 6).find((m) => m.graphResult)?.graphResult;
-      const graphNodeIds = recentGraphResult?.nodeIds?.length ? recentGraphResult.nodeIds : null;
+      const graphNodeIds = forcedNodeIds ?? (recentGraphResult?.nodeIds?.length ? recentGraphResult.nodeIds : null);
 
       // Collect graph path description for context hint (e.g. "A → B → C")
-      let graphPathHint = null;
-      if (recentGraphResult && graphData) {
+      let graphPathHint = forcedPathHint;
+      if (!graphPathHint && recentGraphResult && graphData) {
         const pathIds = recentGraphResult.type === "path" ? recentGraphResult.nodeIds : null;
         if (pathIds?.length) {
           const pathNames = pathIds
@@ -1222,7 +1241,7 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
 
       // Add streaming placeholder
       const assistantIdx = currentMessages.length;
-      updateMessages((prev) => [...prev, { role: "assistant", content: "", streaming: true, citations: null, createdAt: Date.now() }]);
+      updateMessages((prev) => [...prev, { role: "assistant", content: "", streaming: true, citations: null, createdAt: Date.now() }], effectiveId);
 
       const payload = currentMessages.map(({ role, content }) => ({ role, content }));
 
@@ -1237,6 +1256,7 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
             messages: payload,
             ...(graphNodeIds ? { graphNodeIds } : {}),
             ...(graphPathHint ? { graphPathHint } : {}),
+            ...(mode ? { mode } : {}),
           }),
           signal: abortRef.current.signal,
         });
@@ -1263,14 +1283,14 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
               const next = [...prev];
               next[assistantIdx] = { ...next[assistantIdx], content: accContent };
               return next;
-            });
+            }, effectiveId);
           } else if (parsed.type === "correction") {
             accContent = parsed.content;
             updateMessages((prev) => {
               const next = [...prev];
               next[assistantIdx] = { ...next[assistantIdx], content: accContent };
               return next;
-            });
+            }, effectiveId);
           } else if (parsed.type === "citations") {
             finalCitations = parsed.sources;
           } else if (parsed.type === "error") {
@@ -1292,17 +1312,17 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
           const next = [...prev];
           next[assistantIdx] = { role: "assistant", content: accContent, streaming: false, citations: finalCitations };
           return next;
-        });
+        }, effectiveId);
       } catch (err) {
         if (err.name === "AbortError") {
           updateMessages((prev) => {
             const next = [...prev];
             if (next[assistantIdx]) next[assistantIdx] = { ...next[assistantIdx], streaming: false };
             return next;
-          });
+          }, effectiveId);
         } else {
           setError(err.message || "Something went wrong");
-          updateMessages((prev) => prev.filter((_, i) => i !== assistantIdx));
+          updateMessages((prev) => prev.filter((_, i) => i !== assistantIdx), effectiveId);
         }
       } finally {
         setSending(false);
@@ -1317,33 +1337,39 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
   useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
   // When a pending question arrives (from detail panel "Ask AI"), create a new session and send.
-  // autoSendRef stores { text, sessionId } written by the pendingQuestion effect.
-  // A no-dep effect runs after every render; once activeId has committed to match the new
-  // session id it fires sendMessage exactly once, then clears itself. StrictMode's second
-  // invocation finds the ref already null and returns early.
+  // pendingQuestion is { key, text, pinnedNodeIds?, pathHint? } | null.
+  // handledPendingRef deduplicates by key to prevent StrictMode double-invocation.
+  // autoSendRef stores { text, sessionId, options? } for the no-dep effect below.
   const handledPendingRef = useRef(null);
-  const autoSendRef = useRef(null); // { text, sessionId }
+  const autoSendRef = useRef(null); // { text, sessionId, options? }
   useEffect(() => {
-    if (!pendingQuestion || pendingQuestion === handledPendingRef.current) return;
-    handledPendingRef.current = pendingQuestion;
+    if (!pendingQuestion || pendingQuestion.key === handledPendingRef.current) return;
+    handledPendingRef.current = pendingQuestion.key;
     onPendingConsumed?.();
     if (abortRef.current) abortRef.current.abort();
     setSending(false);
     setError(null);
     setInput("");
     const s = createSession();
-    autoSendRef.current = { text: pendingQuestion, sessionId: s.id };
+    autoSendRef.current = {
+      text: pendingQuestion.text,
+      sessionId: s.id,
+      options: {
+        forcedNodeIds: pendingQuestion.pinnedNodeIds || null,
+        forcedPathHint: pendingQuestion.pathHint || null,
+      },
+    };
     setSessions((prev) => [s, ...prev].slice(0, MAX_SESSIONS));
     setActiveId(s.id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingQuestion]);
-  // No-dep: runs after every render — exits immediately unless the new session is now active.
+  // No-dep: runs after every render — fires sendMessage once the new session's activeId commits.
   useEffect(() => {
     if (!autoSendRef.current) return;
     if (autoSendRef.current.sessionId !== activeId) return;
-    const { text } = autoSendRef.current;
+    const { text, options } = autoSendRef.current;
     autoSendRef.current = null;
-    sendMessageRef.current?.(text);
+    sendMessageRef.current?.(text, options);
   });
 
   const handleKeyDown = (e) => {

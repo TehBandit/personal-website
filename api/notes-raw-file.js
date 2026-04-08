@@ -101,6 +101,8 @@ export default function handler(req, res) {
           aliases: [],
           connections: [],
           sourceFile: filename,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
         };
         fs.writeFileSync(nodeJsonPath, JSON.stringify(nodeData, null, 2), "utf-8");
 
@@ -128,6 +130,7 @@ export default function handler(req, res) {
           const alreadyLinked = (mentionerData.connections || []).some((c) => c.target === nodeId);
           if (!alreadyLinked) {
             mentionerData.connections = [...(mentionerData.connections || []), { target: nodeId, label: "references" }];
+            mentionerData.updatedAt = Date.now();
             fs.writeFileSync(mentionerJsonPath, JSON.stringify(mentionerData, null, 2), "utf-8");
           }
         }
@@ -145,6 +148,18 @@ export default function handler(req, res) {
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found" });
     const content = req.body?.content ?? "";
     fs.writeFileSync(filePath, content, "utf-8");
+    // Touch updatedAt on the corresponding node JSON so streaks count raw-file edits
+    const rawStem = path.basename(filename).replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+    const rawNodeJsonPath = path.join(notesDir, `${rawStem}.json`);
+    if (fs.existsSync(rawNodeJsonPath)) {
+      try {
+        const nd = JSON.parse(fs.readFileSync(rawNodeJsonPath, "utf-8"));
+        nd.updatedAt = Date.now();
+        fs.writeFileSync(rawNodeJsonPath, JSON.stringify(nd, null, 2), "utf-8");
+        rebuildGraphCache(req.query.workspace, notesDir);
+        bumpWorkspaceVersion(req.query.workspace);
+      } catch { /* non-fatal */ }
+    }
     return res.status(200).json({ filename });
   }
 
@@ -220,6 +235,7 @@ export default function handler(req, res) {
       }
     }
 
+    data.updatedAt = Date.now();
     fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2), "utf-8");
     rebuildGraphCache(req.query.workspace, dirs.notesDir);
     bumpWorkspaceVersion(req.query.workspace);
@@ -231,11 +247,18 @@ export default function handler(req, res) {
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: "Not found" });
     if (req.query.isFolder === "true") {
       if (req.query.recursive === "true") {
-        // Collect all tracked raw files inside before wiping the folder
-        const deletedIds = collectNodeIds(filePath, dir);
+        // Collect node IDs both by filename-stem and by sourceFile reference
+        const stemIds = collectNodeIds(filePath, dir);
+        const folderRel = path.relative(dir, filePath).replace(/\\/g, "/");
+        const sourceFileIds = findNodesBySourceFilePrefix(notesDir, folderRel + "/");
+        const deletedIds = [...new Set([...stemIds, ...sourceFileIds])];
         try { fs.rmSync(filePath, { recursive: true, force: true }); } catch { /* ignore */ }
         if (deletedIds.length) {
           purgeNodes(notesDir, deletedIds);
+          rebuildGraphCache(req.query.workspace, notesDir);
+          bumpWorkspaceVersion(req.query.workspace);
+        } else {
+          // Still bump so the graph refreshes even if no nodes were tracked
           rebuildGraphCache(req.query.workspace, notesDir);
           bumpWorkspaceVersion(req.query.workspace);
         }
@@ -246,9 +269,11 @@ export default function handler(req, res) {
       return res.status(200).json({ path: filename });
     }
     fs.unlinkSync(filePath);
-    // Clean up the corresponding node JSON and any connections pointing to it
-    const nodeId = path.basename(filename).replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
-    purgeNodes(notesDir, [nodeId]);
+    // Clean up node JSONs: match by filename-stem AND by sourceFile field
+    const stemId = path.basename(filename).replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+    const sourceFileIds = findNodesBySourceFile(notesDir, filename);
+    const allIds = [...new Set([stemId, ...sourceFileIds])];
+    purgeNodes(notesDir, allIds);
     rebuildGraphCache(req.query.workspace, notesDir);
     bumpWorkspaceVersion(req.query.workspace);
     return res.status(200).json({ filename });
@@ -337,4 +362,48 @@ function purgeNodes(notesDir, nodeIds) {
       try { fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2), "utf-8"); } catch { /* ignore */ }
     }
   }
+}
+
+/**
+ * Find node IDs whose sourceFile (or additionalSourceFiles) exactly matches the
+ * given relative path. Used when a single raw file is deleted.
+ */
+function findNodesBySourceFile(notesDir, sourceFile) {
+  if (!fs.existsSync(notesDir)) return [];
+  const ids = [];
+  let entries;
+  try { entries = fs.readdirSync(notesDir).filter((f) => f.endsWith(".json")); } catch { return ids; }
+  for (const file of entries) {
+    let data;
+    try { data = JSON.parse(fs.readFileSync(path.join(notesDir, file), "utf-8")); } catch { continue; }
+    if (
+      data.sourceFile === sourceFile ||
+      (Array.isArray(data.additionalSourceFiles) && data.additionalSourceFiles.includes(sourceFile))
+    ) {
+      if (data.id) ids.push(data.id);
+    }
+  }
+  return ids;
+}
+
+/**
+ * Find node IDs whose sourceFile starts with the given folder prefix.
+ * Used when a folder is deleted recursively.
+ */
+function findNodesBySourceFilePrefix(notesDir, prefix) {
+  if (!fs.existsSync(notesDir)) return [];
+  const ids = [];
+  let entries;
+  try { entries = fs.readdirSync(notesDir).filter((f) => f.endsWith(".json")); } catch { return ids; }
+  for (const file of entries) {
+    let data;
+    try { data = JSON.parse(fs.readFileSync(path.join(notesDir, file), "utf-8")); } catch { continue; }
+    if (
+      (data.sourceFile && data.sourceFile.startsWith(prefix)) ||
+      (Array.isArray(data.additionalSourceFiles) && data.additionalSourceFiles.some((sf) => sf.startsWith(prefix)))
+    ) {
+      if (data.id) ids.push(data.id);
+    }
+  }
+  return ids;
 }

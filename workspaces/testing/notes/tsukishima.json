@@ -1,0 +1,21 @@
+{
+  "id": "tsukishima",
+  "name": "Tsukishima",
+  "type": "entity",
+  "excerpt": "Tsukishima is a student who often observes and comments on the interactions between his peers.",
+  "connections": [
+    {
+      "target": "kageyama_tobio",
+      "label": "observes interactions with"
+    },
+    {
+      "target": "five_plus_one",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Tsukishima is a student who prefers to sit with people he knows rather than strangers. He often observes and comments on the interactions between Hinata and Kageyama, finding them amusing and sometimes frustrating.",
+  "aliases": [],
+  "sourceFile": "uploads/five_plus_one.md",
+  "context_summary": "- Tsukishima is a student. - He prefers to sit with people he knows. - He observes interactions between Hinata and Kageyama. - He finds their interactions amusing and frustrating.",
+  "createdAt": 1775090583153
+}

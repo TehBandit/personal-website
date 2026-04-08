@@ -1,0 +1,29 @@
+{
+  "id": "hanamaki",
+  "name": "Hanamaki",
+  "type": "entity",
+  "excerpt": "Hanamaki is a friend of Iwaizumi and Oikawa, present during Iwaizumi's recovery.",
+  "connections": [
+    {
+      "target": "iwaizumi",
+      "label": "friend"
+    },
+    {
+      "target": "oikawa",
+      "label": "friend"
+    },
+    {
+      "target": "matsukawa",
+      "label": "friend"
+    },
+    {
+      "target": "anesthetic_truth",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Hanamaki is present during Iwaizumi's recovery, enjoying the humorous situation and supporting his friends. He joins Matsukawa in teasing Iwaizumi and is part of the group dynamic.",
+  "aliases": [],
+  "sourceFile": "uploads/anesthetic_truth.md",
+  "context_summary": "- Hanamaki is a friend of Iwaizumi and Oikawa.\n- He is present during Iwaizumi's recovery.\n- He enjoys the humorous situation.\n- He supports his friends during recovery.\n- He joins Matsukawa in teasing Iwaizumi.",
+  "createdAt": 1774340216740
+}

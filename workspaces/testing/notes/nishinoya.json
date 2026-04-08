@@ -1,0 +1,25 @@
+{
+  "id": "nishinoya",
+  "name": "Nishinoya",
+  "type": "entity",
+  "excerpt": "Nishinoya is a lively teammate known for his energetic presence.",
+  "connections": [
+    {
+      "target": "kageyama_tobio",
+      "label": "teammate of"
+    },
+    {
+      "target": "hinata",
+      "label": "teammate of"
+    },
+    {
+      "target": "five_plus_one",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Nishinoya is a lively teammate known for his energetic presence and humorous comments. He is part of the team dynamic that includes Kageyama and Hinata, often participating in their playful exchanges.",
+  "aliases": [],
+  "sourceFile": "uploads/five_plus_one.md",
+  "context_summary": "- Nishinoya is a lively teammate. - He has an energetic presence. - He makes humorous comments. - He participates in playful exchanges with Kageyama and Hinata.",
+  "createdAt": 1774179782796
+}

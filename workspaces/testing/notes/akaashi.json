@@ -1,0 +1,38 @@
+{
+  "id": "akaashi",
+  "name": "Akaashi",
+  "type": "entity",
+  "excerpt": "A quiet and focused photography student who becomes involved with Bokuto and is the father of Kageyama Tobio.",
+  "connections": [
+    {
+      "target": "bokuto",
+      "label": "photography subject"
+    },
+    {
+      "target": "photography_project",
+      "label": "creator of"
+    },
+    {
+      "target": "nekoma_coffeeshop",
+      "label": "frequent visitor"
+    }
+  ],
+  "notes": "Akaashi is a photography student who visits Nekoma's coffeeshop and catches Bokuto's attention. He is initially indifferent to Bokuto's advances but later asks him to model for a photography project. Akaashi is characterized by his quiet demeanor and dedication to photography. Over time, he develops a friendship with Bokuto, which hints at deeper feelings.\n\nAkaashi is revealed to be a part-time chef and the father of Kageyama. He plays volleyball with Bokuto and their sons, showcasing his skills as a setter.\n\nAkaashi is a part-time chef and the father of Kageyama Tobio. He is described as having sharp features and is admired by Bokuto. Akaashi plays volleyball and has a polite demeanor, especially when playing with the children.",
+  "aliases": [],
+  "sourceFile": "uploads/tea_stained_polaroids.md",
+  "context_summary": [
+    "- Akaashi is a photography student.",
+    "- He visits Nekoma's coffeeshop.",
+    "- He catches Bokuto's attention.",
+    "- He is initially indifferent to Bokuto.",
+    "- He later asks Bokuto to model for a project.",
+    "- He has a quiet demeanor.",
+    "- He is dedicated to photography.",
+    "- He develops a friendship with Bokuto.",
+    "- He is a part-time chef.",
+    "- He is the father of Kageyama Tobio.",
+    "- He plays volleyball with Bokuto and their sons.",
+    "- He showcases his skills as a setter."
+  ],
+  "createdAt": 1774340996855
+}

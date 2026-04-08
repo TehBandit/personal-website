@@ -1,0 +1,26 @@
+{
+  "id": "photography_project",
+  "name": "Photography Project",
+  "type": "event",
+  "excerpt": "Akaashi's final photography assignment involving Bokuto as a model.",
+  "connections": [
+    {
+      "target": "akaashi",
+      "label": "creator"
+    },
+    {
+      "target": "bokuto",
+      "label": "subject"
+    }
+  ],
+  "notes": "Akaashi's photography project is a key event in the narrative, requiring him to take daily photographs of Bokuto for a month. The project serves as a catalyst for their developing relationship, allowing them to spend significant time together and explore their dynamic.",
+  "aliases": [],
+  "sourceFile": "uploads/tea_stained_polaroids.md",
+  "context_summary": [
+    "- Akaashi's project involves photographing Bokuto.",
+    "- It lasts for a month.",
+    "- The project helps develop their relationship.",
+    "- They spend significant time together during the project."
+  ],
+  "createdAt": 1775137430306
+}

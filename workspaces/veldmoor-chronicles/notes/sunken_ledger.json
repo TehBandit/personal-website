@@ -29,5 +29,6 @@
     }
   ],
   "notes": "The Sunken Ledger is an artifact that Fen Caldra found six years ago in a sealed crate within the Salt Warren. He read enough of it to understand its value and danger. Fen has kept it hidden in a location only he knows, contemplating its fate for years without deciding.",
-  "sourceFile": "fen-caldra.txt"
+  "sourceFile": "fen-caldra.txt",
+  "createdAt": 1774688822428
 }

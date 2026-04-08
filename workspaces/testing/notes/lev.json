@@ -1,0 +1,34 @@
+{
+  "id": "lev",
+  "name": "Lev",
+  "type": "entity",
+  "excerpt": "A tall and cheerful coworker of Bokuto at Nekoma's coffeeshop.",
+  "connections": [
+    {
+      "target": "bokuto",
+      "label": "friends and coworkers"
+    },
+    {
+      "target": "kuroo",
+      "label": "friends and coworkers"
+    },
+    {
+      "target": "akaashi",
+      "label": "teases Bokuto about"
+    },
+    {
+      "target": "nekoma_coffeeshop",
+      "label": "works at"
+    }
+  ],
+  "notes": "Lev works at Nekoma's coffeeshop with Bokuto and Kuroo. He is known for his height and cheerful demeanor. Lev enjoys teasing Bokuto about his crush on Akaashi and is supportive of his friends.",
+  "aliases": [],
+  "sourceFile": "uploads/tea_stained_polaroids.md",
+  "context_summary": [
+    "- Lev is a tall and cheerful coworker.",
+    "- He works at Nekoma's coffeeshop.",
+    "- Lev enjoys teasing Bokuto about Akaashi.",
+    "- He is supportive of his friends."
+  ],
+  "createdAt": 1773557295770
+}

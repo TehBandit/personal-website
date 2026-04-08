@@ -1,0 +1,21 @@
+{
+  "id": "hinata",
+  "name": "Hinata",
+  "type": "entity",
+  "excerpt": "Hinata is a lively and enthusiastic student with a close relationship with Kageyama.",
+  "connections": [
+    {
+      "target": "kageyama_tobio",
+      "label": "close relationship with"
+    },
+    {
+      "target": "five_plus_one",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Hinata is a lively and enthusiastic student known for his bright, spiky orange hair. He has a close relationship with Kageyama, often seen interacting with him in various settings, from the school canteen to volleyball practice. Their dynamic is characterized by playful banter and mutual support.",
+  "aliases": [],
+  "sourceFile": "uploads/five_plus_one.md",
+  "context_summary": "- Hinata is a lively student. - He has bright, spiky orange hair. - He has a close relationship with Kageyama. - They interact in various settings. - Their dynamic includes playful banter and mutual support.",
+  "createdAt": 1775106320216
+}

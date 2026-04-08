@@ -1,0 +1,29 @@
+{
+  "id": "oikawa",
+  "name": "Oikawa",
+  "type": "entity",
+  "excerpt": "Oikawa is Iwaizumi's boyfriend, deeply touched by his candid confessions.",
+  "connections": [
+    {
+      "target": "iwaizumi",
+      "label": "boyfriend"
+    },
+    {
+      "target": "matsukawa",
+      "label": "friend"
+    },
+    {
+      "target": "hanamaki",
+      "label": "friend"
+    },
+    {
+      "target": "anesthetic_truth",
+      "label": "central to"
+    }
+  ],
+  "notes": "Oikawa is present at Iwaizumi's bedside when he wakes up from surgery. He is moved by Iwaizumi's heartfelt confessions and reassures him of their relationship, expressing his own love and happiness.\n\nOikawa observes Kageyama's interactions with Hinata and expresses a desire for a similar relationship with Iwaizumi.",
+  "aliases": [],
+  "sourceFile": "uploads/anesthetic_truth.md",
+  "context_summary": "- Oikawa is Iwaizumi's boyfriend. - He is present at Iwaizumi's bedside after surgery. - He is moved by Iwaizumi's confessions. - He reassures Iwaizumi of their relationship. - He expresses love and happiness. - He observes Kageyama's interactions with Hinata.",
+  "createdAt": 1775142243752
+}

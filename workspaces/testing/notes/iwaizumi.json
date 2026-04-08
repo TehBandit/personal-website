@@ -1,0 +1,29 @@
+{
+  "id": "iwaizumi",
+  "name": "Iwaizumi",
+  "type": "entity",
+  "excerpt": "Iwaizumi is Oikawa's boyfriend who reveals his true feelings under anesthesia.",
+  "connections": [
+    {
+      "target": "oikawa",
+      "label": "boyfriend"
+    },
+    {
+      "target": "matsukawa",
+      "label": "friend"
+    },
+    {
+      "target": "hanamaki",
+      "label": "friend"
+    },
+    {
+      "target": "anesthetic_truth",
+      "label": "central to"
+    }
+  ],
+  "notes": "Iwaizumi wakes up from surgery under the influence of anesthesia, leading to candid confessions about his feelings for Oikawa. Despite being groggy and disoriented, he expresses disbelief at Oikawa's beauty and affectionately insists on his love for him.",
+  "aliases": [],
+  "sourceFile": "uploads/anesthetic_truth.md",
+  "context_summary": "- Iwaizumi is Oikawa's boyfriend.\n- He wakes up from surgery under anesthesia.\n- He confesses his feelings for Oikawa while groggy.\n- He expresses disbelief at Oikawa's beauty.\n- He insists on his love for Oikawa.",
+  "createdAt": 1774781176162
+}

@@ -40,6 +40,279 @@ Rules for the CITED line:
 - If no notes were relevant, write: CITED: none
 - The CITED line must be the very last line of your response, preceded by a blank line`;
 
+const CONTRADICTION_PROMPT = `You are reviewing a set of worldbuilding and story notes for internal consistency.
+Your ONLY task is to identify factual contradictions, timeline inconsistencies, or logical conflicts within the notes provided.
+Look for:
+- Characters described differently across notes (age, appearance, status, allegiances, backstory, motivations)
+- Events described in conflicting ways or impossible order
+- Relationships, alliances, or enmities that contradict each other
+- Locations or objects described inconsistently
+- Any facts stated one way in one note and a different way in another
+
+For each contradiction found, clearly state:
+1. The conflicting claims
+2. Which notes they come from
+
+If no contradictions are found, say so clearly and briefly — do not invent issues that aren't there.
+Do NOT use any external knowledge — only compare the notes against each other.
+
+Inline citation format: cite each note you reference as [1], [2], etc. in the order you first use them.
+At the very end of your response, on its own line:
+CITED: nodeId_1, nodeId_2, ...
+If no contradictions found: CITED: none`;
+
+// ---------------------------------------------------------------------------
+// Workspace metadata — computed from cache chunks, no extra I/O needed
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a per-node metadata summary from the embedding cache.
+ * Returns:
+ *   nodes: Map<nodeId, { name, type, wordCount, text, tags, excerpt }>
+ *   totalNotes: number
+ *   byType: Map<type, nodeId[]>
+ */
+function computeWorkspaceMeta(cache) {
+  if (!cache?.chunks?.length) return null;
+  const nodes = new Map();
+  for (const chunk of cache.chunks) {
+    if (!nodes.has(chunk.nodeId)) {
+      nodes.set(chunk.nodeId, {
+        name: chunk.nodeName,
+        type: chunk.nodeType || "character",
+        wordCount: 0,
+        text: "",
+        tags: chunk.tags || [],
+        excerpt: chunk.excerpt || "",
+      });
+    }
+    const n = nodes.get(chunk.nodeId);
+    // Accumulate raw text (strip the "Name: " prefix added during chunking)
+    const raw = chunk.text.startsWith(chunk.nodeName + ": ")
+      ? chunk.text.slice(chunk.nodeName.length + 2)
+      : chunk.text;
+    n.text += (n.text ? " " : "") + raw;
+    n.wordCount += raw.split(/\s+/).filter(Boolean).length;
+  }
+  const byType = new Map();
+  for (const [id, n] of nodes) {
+    if (!byType.has(n.type)) byType.set(n.type, []);
+    byType.get(n.type).push(id);
+  }
+  return { nodes, totalNotes: nodes.size, byType };
+}
+
+// Tool schemas for gpt-4o-mini intent classification
+const META_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "get_workspace_summary",
+      description: "Get the total number of notes in the workspace and a breakdown by type.",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_notes_by_word_count",
+      description: "Find notes above, below, or between specific word count thresholds. Also handles requests for the longest or shortest notes.",
+      parameters: {
+        type: "object",
+        properties: {
+          min: { type: "number", description: "Minimum word count (inclusive). Omit for no lower bound." },
+          max: { type: "number", description: "Maximum word count (inclusive). Omit for no upper bound." },
+          sort: { type: "string", enum: ["asc", "desc"], description: "'desc' for longest first (default), 'asc' for shortest first." },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_notes_mentioning",
+      description: "Find notes that mention one or more specific terms, names, or phrases. When multiple terms are given, a note must mention all of them to match.",
+      parameters: {
+        type: "object",
+        properties: {
+          terms: { type: "array", items: { type: "string" }, description: "Terms to search for. A note must contain every term to be included." },
+        },
+        required: ["terms"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_notes_by_type",
+      description: "List all notes of a specific type (character, location, faction, artifact, event, etc.), or list all types with counts if no type is specified.",
+      parameters: {
+        type: "object",
+        properties: {
+          type: { type: "string", description: "The note type to filter by. Omit to list all types." },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_tags",
+      description: "List all tags used across notes, with the number of notes each tag appears in.",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_sparse_notes",
+      description: "Find notes that are underdeveloped, sparse, stubs, or have very little content written. Optionally specify a word count threshold.",
+      parameters: {
+        type: "object",
+        properties: {
+          threshold: { type: "number", description: "Word count below which a note is considered sparse. Defaults to 60." },
+        },
+        required: [],
+      },
+    },
+  },
+];
+
+/**
+ * Use gpt-4o-mini tool-calling to classify whether the query is a metadata
+ * question. If so, execute the appropriate handler against the pre-computed
+ * workspace meta and return a plain-text answer string.
+ * Returns null if the query is not a metadata question.
+ */
+async function resolveMetaQuery(query, meta) {
+  if (!meta) return null;
+  const { nodes, totalNotes, byType } = meta;
+  const nodeList = [...nodes.values()];
+
+  // Ask gpt-4o-mini to classify intent — cheap, fast, no streaming needed
+  const intentRes = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [{ role: "user", content: query }],
+    tools: META_TOOLS,
+    tool_choice: "auto",
+    temperature: 0,
+    max_tokens: 100,
+  });
+
+  const toolCall = intentRes.choices[0]?.message?.tool_calls?.[0];
+  if (!toolCall) return null; // not a meta query — fall through to RAG
+
+  let args = {};
+  try { args = JSON.parse(toolCall.function.arguments); } catch {}
+  const name = toolCall.function.name;
+
+  // ── get_workspace_summary ──────────────────────────────────────────────────
+  if (name === "get_workspace_summary") {
+    const typeSummary = [...byType.entries()]
+      .sort((a, b) => b[1].length - a[1].length)
+      .map(([t, ids]) => `${ids.length} ${t}${ids.length !== 1 ? "s" : ""}`)
+      .join(", ");
+    return `You have **${totalNotes}** notes in this workspace (${typeSummary}).`;
+  }
+
+  // ── get_notes_by_word_count ────────────────────────────────────────────────
+  if (name === "get_notes_by_word_count") {
+    const { min, max, sort = "desc" } = args;
+    let matches = nodeList.slice();
+    if (min != null) matches = matches.filter((n) => n.wordCount >= min);
+    if (max != null) matches = matches.filter((n) => n.wordCount <= max);
+    matches.sort((a, b) => sort === "asc" ? a.wordCount - b.wordCount : b.wordCount - a.wordCount);
+    const label =
+      min != null && max != null ? `between ${min} and ${max} words` :
+      min != null ? `over ${min} words` :
+      max != null ? `under ${max} words` :
+      "sorted by word count";
+    if (matches.length === 0) return `No notes are ${label}.`;
+    const lines = matches.map((n) => `- **${n.name}** — ${n.wordCount} words`);
+    return `**${matches.length}** note${matches.length !== 1 ? "s" : ""} ${label}:\n\n${lines.join("\n")}`;
+  }
+
+  // ── get_notes_mentioning ───────────────────────────────────────────────────
+  if (name === "get_notes_mentioning") {
+    const terms = (args.terms || []).map((t) => t.toLowerCase());
+    if (terms.length === 0) return null;
+    const matches = nodeList.filter((n) => {
+      const body = n.text.toLowerCase();
+      const nm = n.name.toLowerCase();
+      return terms.every((term) => body.includes(term) || nm.includes(term));
+    });
+    const termStr = (args.terms || []).map((t) => `"${t}"`).join(" and ");
+    if (matches.length === 0) return `No notes mention ${termStr}.`;
+    const names = matches.map((n) => `**${n.name}**`).join(", ");
+    return `**${matches.length}** note${matches.length !== 1 ? "s" : ""} mention ${termStr}: ${names}.`;
+  }
+
+  // ── get_notes_by_type ─────────────────────────────────────────────────────
+  if (name === "get_notes_by_type") {
+    const filterType = args.type?.toLowerCase();
+    if (filterType) {
+      const entry = [...byType.entries()].find(([t]) => t.toLowerCase() === filterType || t.toLowerCase().startsWith(filterType));
+      const ids = entry?.[1] ?? [];
+      if (ids.length === 0) return `No notes of type "${args.type}" found.`;
+      const names = ids.map((id) => `**${nodes.get(id)?.name}**`).filter(Boolean).join(", ");
+      return `**${ids.length}** ${args.type} note${ids.length !== 1 ? "s" : ""}: ${names}.`;
+    }
+    const lines = [...byType.entries()]
+      .sort((a, b) => b[1].length - a[1].length)
+      .map(([t, ids]) => {
+        const names = ids.map((id) => nodes.get(id)?.name).filter(Boolean);
+        return `**${t}** (${ids.length}): ${names.join(", ")}`;
+      });
+    return `Notes by type:\n\n${lines.join("\n")}`;
+  }
+
+  // ── get_tags ───────────────────────────────────────────────────────────────
+  if (name === "get_tags") {
+    const tagCount = new Map();
+    for (const n of nodeList) for (const t of (n.tags || [])) tagCount.set(t, (tagCount.get(t) || 0) + 1);
+    if (tagCount.size === 0) return "No tags found across your notes.";
+    const lines = [...tagCount.entries()].sort((a, b) => b[1] - a[1]).map(([t, c]) => `- **${t}** (${c} note${c !== 1 ? "s" : ""})`);
+    return `All tags in this workspace:\n\n${lines.join("\n")}`;
+  }
+
+  // ── get_sparse_notes ──────────────────────────────────────────────────────
+  if (name === "get_sparse_notes") {
+    const threshold = args.threshold ?? 60;
+    const sparse = nodeList
+      .filter((n) => n.wordCount < threshold)
+      .sort((a, b) => a.wordCount - b.wordCount)
+      .slice(0, 10);
+    if (sparse.length === 0) return `All notes appear to have substantial content (${threshold}+ words each).`;
+    const lines = sparse.map((n) => `- **${n.name}** (${n.type}) — ${n.wordCount} words`);
+    return `Notes with sparse content (under ${threshold} words):\n\n${lines.join("\n")}\n\nThese may be worth expanding.`;
+  }
+
+  return null;
+}
+
+/**
+ * Build a compact workspace stats block to inject into the system prompt
+ * so GPT can answer incidental meta questions during RAG conversations.
+ */
+function buildMetaContext(meta) {
+  if (!meta) return "";
+  const { nodes, totalNotes, byType } = meta;
+  const nodeList = [...nodes.values()];
+  const typeSummary = [...byType.entries()].map(([t, ids]) => `${ids.length} ${t}s`).join(", ");
+  const sorted = nodeList.slice().sort((a, b) => b.wordCount - a.wordCount);
+  const top3 = sorted.slice(0, 3).map((n) => `${n.name} (${n.wordCount}w)`).join(", ");
+  const sparse = nodeList.filter((n) => n.wordCount < 60).map((n) => n.name);
+  const allNames = nodeList.map((n) => n.name).join(", ");
+  return `\n\n---\n## Workspace Statistics (auto-generated, use for meta questions)\n` +
+    `Total notes: ${totalNotes} (${typeSummary})\n` +
+    `All note names: ${allNames}\n` +
+    `Longest notes: ${top3}\n` +
+    (sparse.length ? `Notes with sparse content (<60 words): ${sparse.join(", ")}\n` : "") +
+    `---`;
+}
+
 const TOP_K = 8;             // retrieve top-K chunks
 const MIN_SCORE = 0.2;       // discard chunks below this cosine similarity
 const RELEVANCE_GATE = 0.3;  // if best chunk is below this, skip GPT and reply inline
@@ -159,7 +432,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { workspace, messages, graphNodeIds, graphPathHint } = req.body || {};
+  const { workspace, messages, graphNodeIds, graphPathHint, mode } = req.body || {};
 
   // Validate workspace
   if (!workspace || typeof workspace !== "string" || !/^[a-z0-9_-]+$/i.test(workspace)) {
@@ -208,6 +481,63 @@ export default async function handler(req, res) {
       return;
     }
 
+    const meta = computeWorkspaceMeta(cache);
+
+    // ── Contradiction check mode ────────────────────────────────────────────
+    if (mode === "contradiction") {
+      // Gather first chunk per node for broad coverage (no similarity filter needed)
+      const seenNodes = new Set();
+      const broadChunks = [];
+      for (const chunk of (cache?.chunks ?? [])) {
+        if (!seenNodes.has(chunk.nodeId)) {
+          seenNodes.add(chunk.nodeId);
+          broadChunks.push(chunk);
+        }
+        if (broadChunks.length >= 30) break;
+      }
+      if (broadChunks.length === 0) {
+        sseEvent(res, { type: "token", content: "No notes found in the knowledge base. Build the index first." });
+        sseEvent(res, { type: "citations", sources: [] });
+        sseEvent(res, { type: "done" });
+        res.end();
+        return;
+      }
+      const context = buildContext(broadChunks);
+      const systemContent = `${CONTRADICTION_PROMPT}\n\n---\n## Story Notes\n\n${context}\n---`;
+      const contradictionStream = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: systemContent },
+          { role: "user", content: userQuery },
+        ],
+        stream: true,
+        temperature: 0.3,
+        max_tokens: 2048,
+      });
+      let accContent = "";
+      for await (const chk of contradictionStream) {
+        const delta = chk.choices[0]?.delta?.content;
+        if (delta) { accContent += delta; sseEvent(res, { type: "token", content: delta }); }
+      }
+      const { cleanContent, citedIds } = parseCitedLine(accContent);
+      const citations = buildCitations(broadChunks, citedIds);
+      if (cleanContent !== accContent) sseEvent(res, { type: "correction", content: cleanContent });
+      sseEvent(res, { type: "citations", sources: citations });
+      sseEvent(res, { type: "done" });
+      res.end();
+      return;
+    }
+
+    // ── Pure metadata query intercept (no GPT needed) ─────────────────────
+    const metaAnswer = await resolveMetaQuery(userQuery, meta);
+    if (metaAnswer) {
+      sseEvent(res, { type: "token", content: metaAnswer });
+      sseEvent(res, { type: "citations", sources: [] });
+      sseEvent(res, { type: "done" });
+      res.end();
+      return;
+    }
+
     // Retrieve relevant chunks
     let chunks = await retrieve(cache, userQuery);
 
@@ -246,9 +576,10 @@ export default async function handler(req, res) {
       ? `\n\nThe user has been exploring graph connections between story elements. ${graphPathHint ? `The graph shows a path: ${graphPathHint}.` : ""} The notes below include the nodes involved in that connection. Explain how these elements relate to each other based on the notes.`
       : "";
 
+    const metaBlock = buildMetaContext(meta);
     const systemContent = context
-      ? `${SYSTEM_PROMPT}${graphContextNote}\n\n---\n## Relevant Story Notes\n\n${context}\n---`
-      : SYSTEM_PROMPT;
+      ? `${SYSTEM_PROMPT}${metaBlock}${graphContextNote}\n\n---\n## Relevant Story Notes\n\n${context}\n---`
+      : `${SYSTEM_PROMPT}${metaBlock}`;
 
     const apiMessages = [
       { role: "system", content: systemContent },
