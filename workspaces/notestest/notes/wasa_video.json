@@ -2,17 +2,21 @@
   "id": "wasa_video",
   "name": "Wasa Video",
   "type": "source",
-  "excerpt": "Wasa Video discusses the historical account of the Wasa warship.",
+  "excerpt": "Wasa Video is a case study of the warship Wasa, illustrating project management failures.",
   "connections": [
+    {
+      "target": "project_scope_management",
+      "label": "illustrates failures in"
+    },
     {
       "target": "bit_4484_notes_8_9_2020",
       "label": "featured in"
     }
   ],
-  "notes": "- Wasa Video covers the changes made to the Wasa warship, including speeding up the ship and increasing its size.\n\nThe Wasa warship needed double the cannons and much more space, and it sunk after 15 minutes at sea.",
+  "notes": "The Wasa Video is a case study that discusses the warship Wasa, which underwent numerous changes such as speeding up the ship, increasing its size, and adding double cannons, leading to its sinking after 15 minutes. It highlights the consequences of unmanaged scope changes.",
   "aliases": [],
   "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
-  "createdAt": 1775792946476,
-  "updatedAt": 1775794259810,
-  "context_summary": "- Wasa Video discusses the historical account of the Wasa warship.\n- It covers changes made to the Wasa warship.\n- The ship was sped up and increased in size.\n- It needed double the cannons and much more space.\n- The Wasa sank after 15 minutes at sea."
+  "createdAt": 1775833654151,
+  "updatedAt": 1775833654151,
+  "context_summary": "- Case study of the warship Wasa.\n- Illustrates project management failures.\n- Ship underwent changes like speeding up and increasing size.\n- Added double cannons.\n- Sank after 15 minutes."
 }

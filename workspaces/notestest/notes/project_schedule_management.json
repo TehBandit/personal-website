@@ -2,20 +2,17 @@
   "id": "project_schedule_management",
   "name": "Project Schedule Management",
   "type": "concept",
-  "excerpt": "Project Schedule Management involves tracking and managing the project schedule.",
+  "excerpt": "Project Schedule Management involves knowing and influencing the schedule status and changes.",
   "connections": [
     {
       "target": "bit_4484_notes_8_9_2020",
-      "label": "featured in"
-    },
-    {
-      "target": "slipped_milestone",
-      "label": "manages slipped milestones"
+      "label": "appears in"
     }
   ],
-  "notes": "- Project Schedule Management includes knowing the status of the schedule and influencing factors that can cause schedule issues.\n\n- Project Schedule Management involves managing slipped milestones, which are milestones reached later than expected.\n\n- Project Schedule Management involves the processes required to manage the timely completion of the project.\n- It includes activities such as defining activities, sequencing activities, estimating activity durations, and developing and controlling the schedule.\n\n- Project Schedule Management is closely related to Project Time Management, focusing on the scheduling aspect of time management.\n\n- Project Schedule Management includes processes required to manage the timely completion of the project.\n- It involves defining and sequencing activities, estimating activity durations, developing the schedule, and controlling the schedule.",
+  "notes": "Project Schedule Management focuses on understanding the status of the schedule, influencing factors that can cause schedule issues, determining changes, and managing them effectively. It includes concepts like slipped milestones and the importance of clear communication with sponsors.",
   "aliases": [],
   "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
-  "createdAt": 1775792946477,
-  "updatedAt": 1775794259817
+  "createdAt": 1775833654152,
+  "updatedAt": 1775833654152,
+  "context_summary": "- Focuses on schedule status.\n- Influences factors causing schedule issues.\n- Determines schedule changes.\n- Manages changes effectively.\n- Includes concepts like slipped milestones."
 }

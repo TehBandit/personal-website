@@ -8,14 +8,15 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import { Markdown } from "tiptap-markdown";
+import { Underline as UnderlineExt } from "@tiptap/extension-underline";
 import {
   FileText, Plus, Save, Trash2, X, Tag, ChevronRight,
   Folder, FolderOpen, FolderPlus, FilePlus,
-  Bold, Italic, List, ListOrdered,
+  Bold, Italic, Underline, List, ListOrdered,
   Heading1, Heading2, Heading3,
   Quote, Code, Minus, Undo, Redo,
   CheckCircle, AlertCircle, Loader, ArrowLeftRight,
-  ChevronsDownUp, ChevronsUpDown, Copy, GitMerge, Scissors, Clipboard, Search,
+  ChevronsDownUp, ChevronsUpDown, Copy, GitMerge, Scissors, Clipboard, Search, Upload,
 } from "lucide-react";
 import { TYPE_PRESETS } from "../constants/nodeTypes.js";
 import { useNodeTypeConfig } from "../contexts/NodeTypeContext.jsx";
@@ -533,6 +534,29 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
   const fileCacheRef = useRef({});         // filename → content string (cleared on workspace change)
   const backlinksCache = useRef({});       // filename → backlinks array (cleared on workspace change)
 
+  // ── Docx import (ref + state only — handler defined after loadFiles/openFileByName)
+  const docxImportRef = useRef(null);
+  const [docxImporting, setDocxImporting] = useState(false);
+
+  // ── Resizable sidebar ─────────────────────────────────────────────────────────
+  const [sidebarWidth, setSidebarWidth] = useState(224); // 224 = w-56
+  const startSidebarResize = useCallback((e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = sidebarWidth;
+    const onMove = (mv) => setSidebarWidth(Math.max(140, Math.min(480, startW + mv.clientX - startX)));
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [sidebarWidth]);
+
   // ── File search ───────────────────────────────────────────────────────────────
   const [fileSearchQuery, setFileSearchQuery] = useState("");
   const fileSearchRef = useRef(null);
@@ -829,10 +853,26 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
   const autocompleteExtension = useMemo(() => buildAutocompleteExtension(entityDataRef), []);
 
   // ── TipTap editor ────────────────────────────────────────────────────────────
+  // Extend UnderlineExt with a tiptap-markdown serializer so underline marks
+  // round-trip through the .md file as <u>text</u> HTML.
+  const UnderlineWithMd = useMemo(() =>
+    UnderlineExt.extend({
+      addStorage() {
+        return {
+          ...this.parent?.(),
+          markdown: {
+            serialize: { open: "<u>", close: "</u>", mixable: true, expelEnclosingWhitespace: true },
+          },
+        };
+      },
+    })
+  , []);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ codeBlock: { languageClassPrefix: "" } }),
-      Markdown.configure({ html: false, tightLists: true }),
+      Markdown.configure({ html: true, tightLists: true }),
+      UnderlineWithMd,
       Placeholder.configure({ placeholder: "Start writing your story notes…" }),
       CharacterCount,
       entityLinksExtension,
@@ -976,6 +1016,62 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
       .catch(console.error)
       .finally(() => setLoadingFile(false));
   }, [editor]);
+
+  // ── Docx import handler — defined here so loadFiles + openFileByName are in scope ──
+  const handleDocxImport = useCallback(async (file) => {
+    if (!file || !workspace) return;
+    setDocxImporting(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = "";
+      const CHUNK = 8192;
+      for (let i = 0; i < bytes.length; i += CHUNK)
+        binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+      const base64 = btoa(binary);
+
+      const res = await fetch("/api/docx-to-md", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base64, workspace }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || "Conversion failed");
+      }
+      const { markdown } = await res.json();
+
+      const stem = file.name.replace(/\.docx$/i, "");
+      const slug = stem.toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[\s_]+/g, "-");
+      const filename = slug + ".md";
+
+      const currentFolder = openFileRef.current?.filename.includes("/")
+        ? openFileRef.current.filename.split("/").slice(0, -1).join("/")
+        : "";
+      const filePath = currentFolder ? `${currentFolder}/${filename}` : filename;
+
+      const createRes = await fetch(
+        `/api/notes-raw-file?filename=${encodeURIComponent(filePath)}&workspace=${encodeURIComponent(workspace)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: markdown }),
+        }
+      );
+      if (!createRes.ok) {
+        const d = await createRes.json();
+        throw new Error(d.error || "File create failed");
+      }
+
+      if (currentFolder) setOpenFolders((prev) => new Set([...prev, currentFolder]));
+      loadFiles();
+      openFileByName(filePath);
+    } catch (err) {
+      console.error("docx import error:", err);
+    } finally {
+      setDocxImporting(false);
+    }
+  }, [workspace, loadFiles, openFileByName]);
 
   // When editor is ready and we already have openFile set, push content in
   useEffect(() => {
@@ -1603,9 +1699,17 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
 
       {/* ── File sidebar ────────────────────────────────────────────────────── */}
       <aside
-        className="w-56 flex-shrink-0 flex flex-col border-r"
-        style={{ backgroundColor: "#13131f", borderColor: "rgba(255,255,255,0.07)" }}
+        className="flex-shrink-0 flex flex-col border-r relative"
+        style={{ width: sidebarWidth, backgroundColor: "#13131f", borderColor: "rgba(255,255,255,0.07)" }}
       >
+        {/* Resize handle */}
+        <div
+          onMouseDown={startSidebarResize}
+          className="absolute top-0 right-0 w-1 h-full z-10 cursor-col-resize"
+          style={{ background: "transparent" }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.12)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+        />
         {/* Sidebar toolbar: new file, new folder, expand/collapse */}
         <div
           className="flex items-center gap-1 px-2 py-2 border-b flex-shrink-0"
@@ -1627,6 +1731,25 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
             onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
           ><FolderPlus size={14} /></button>
+          <input
+            ref={docxImportRef}
+            type="file"
+            accept=".docx"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              if (e.target.files?.[0]) handleDocxImport(e.target.files[0]);
+              e.target.value = "";
+            }}
+          />
+          <button
+            title={docxImporting ? "Importing…" : "Import .docx"}
+            onClick={() => docxImportRef.current?.click()}
+            disabled={docxImporting}
+            className="p-1 rounded-md flex-shrink-0"
+            style={{ color: docxImporting ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.35)" }}
+            onMouseEnter={(e) => { if (!docxImporting) e.currentTarget.style.color = "#fff"; }}
+            onMouseLeave={(e) => { if (!docxImporting) e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}
+          >{docxImporting ? <Loader size={14} className="animate-spin" /> : <Upload size={14} />}</button>
           {allFolderPaths.length > 0 && (
             openFolders.size >= allFolderPaths.length ? (
               <button
@@ -1810,6 +1933,9 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
           </ToolbarBtn>
           <ToolbarBtn title="Italic" disabled={!canEdit} active={editor?.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}>
             <Italic size={14} />
+          </ToolbarBtn>
+          <ToolbarBtn title="Underline (Ctrl+U)" disabled={!canEdit} active={editor?.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()}>
+            <Underline size={14} />
           </ToolbarBtn>
           <ToolbarBtn title="Inline code" disabled={!canEdit} active={editor?.isActive("code")} onClick={() => editor.chain().focus().toggleCode().run()}>
             <Code size={14} />

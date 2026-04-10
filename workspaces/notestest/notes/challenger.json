@@ -1,0 +1,18 @@
+{
+  "id": "challenger",
+  "name": "Challenger",
+  "type": "concept",
+  "excerpt": "Challenger is a case study highlighting communication failures in project management.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_8_9_2020",
+      "label": "featured in"
+    }
+  ],
+  "notes": "The Challenger case study illustrates the failure of communication between lower and top levels, leading to a critical failure with the O-Ring. It emphasizes the importance of effective communication in project management.",
+  "aliases": [],
+  "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1775833654153,
+  "updatedAt": 1775833654153,
+  "context_summary": "- Case study highlighting communication failures.\n- Illustrates failure between lower and top levels.\n- Critical failure involved the O-Ring.\n- Emphasizes importance of effective communication."
+}

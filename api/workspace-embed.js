@@ -68,7 +68,7 @@ function buildChunksForNode(node, rawDir) {
   if (node.sourceFile) {
     const rawPath = path.join(rawDir, node.sourceFile);
     if (fs.existsSync(rawPath)) {
-      notesText = fs.readFileSync(rawPath, "utf-8").trim();
+      notesText = stripMarkdown(fs.readFileSync(rawPath, "utf-8").trim());
     }
   }
   if (!notesText && typeof node.notes === "string") {
@@ -107,6 +107,28 @@ function buildChunksForNode(node, rawDir) {
   }
 
   return chunks;
+}
+
+/**
+ * Strip Markdown formatting tokens from text so the AI receives clean prose.
+ * Applied to raw .md file content before embedding — the editor/viewer retains
+ * the original markdown for rendering, but the embedding index stores plain text.
+ */
+function stripMarkdown(text) {
+  return text
+    .replace(/^#{1,6}\s+/gm, "")           // headings
+    .replace(/\*\*([^*\n]+)\*\*/g, "$1")   // bold
+    .replace(/\*([^*\n]+)\*/g, "$1")       // italic
+    .replace(/~~([^~\n]+)~~/g, "$1")       // strikethrough
+    .replace(/`([^`\n]+)`/g, "$1")         // inline code
+    .replace(/^[-*+]\s+/gm, "")            // unordered list markers
+    .replace(/^\d+\.\s+/gm, "")            // ordered list markers
+    .replace(/^>\s*/gm, "")               // blockquotes
+    .replace(/^---+$/gm, "")              // horizontal rules
+    .replace(/<u>([^<]*)<\/u>/gi, "$1")   // underline html tags
+    .replace(/<[^>]+>/g, "")              // any remaining html tags
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function splitIntoSegments(text, maxChars) {

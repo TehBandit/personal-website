@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import fs from "fs";
 import path from "path";
 import mammoth from "mammoth";
+import { htmlToMarkdown, MAMMOTH_OPTIONS } from "./_docx-md.js";
 import { deduplicateNodes, remapConnections } from "./dedup-nodes.js";
 import { bumpWorkspaceVersion, rebuildGraphCache } from "./bump-version.js";
 
@@ -134,10 +135,15 @@ export default async function handler(req, res) {
 
     // --- Extract raw text from the file payload ---
     let rawText = text || "";
+    let markdownContent = null; // formatted markdown, only set for docx
     if (type === "docx" && base64) {
       const buffer = Buffer.from(base64, "base64");
-      const result = await mammoth.extractRawText({ buffer });
-      rawText = result.value;
+      const [rawResult, htmlResult] = await Promise.all([
+        mammoth.extractRawText({ buffer }),
+        mammoth.convertToHtml({ buffer }, MAMMOTH_OPTIONS),
+      ]);
+      rawText = rawResult.value;
+      markdownContent = htmlToMarkdown(htmlResult.value);
     }
 
     rawText = rawText.trim();
@@ -311,7 +317,7 @@ ${rawText}`;
       // main extraction) finds the sourceFile on disk and does not purge this node.
       const _focusedUploadsDir = path.join(process.cwd(), "workspaces", workspace, "uploads");
       if (!fs.existsSync(_focusedUploadsDir)) fs.mkdirSync(_focusedUploadsDir, { recursive: true });
-      fs.writeFileSync(path.join(_focusedUploadsDir, _safeFocusedFilename), rawText, "utf-8");
+      fs.writeFileSync(path.join(_focusedUploadsDir, _safeFocusedFilename), markdownContent ?? rawText, "utf-8");
 
       // Fall through to the full multi-entity extraction ↓
     }
@@ -575,7 +581,7 @@ ${rawText}`;
     // --- Save source file to workspace folder for record-keeping ---
     const uploadsDir = path.join(process.cwd(), "workspaces", workspace, _safeFolder);
     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-    fs.writeFileSync(path.join(uploadsDir, safeUploadFilename), rawText, "utf-8");
+    fs.writeFileSync(path.join(uploadsDir, safeUploadFilename), markdownContent ?? rawText, "utf-8");
 
     // Prepend the focused/title node to the response so the upload-complete
     // screen shows it alongside the extracted entities.

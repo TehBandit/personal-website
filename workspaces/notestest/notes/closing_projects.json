@@ -1,18 +1,18 @@
 {
   "id": "closing_projects",
   "name": "Closing Projects",
-  "type": "topic",
-  "excerpt": "Closing Projects involves finalizing all project activities and formally closing the project.",
+  "type": "concept",
+  "excerpt": "Closing Projects involves methods like integration, addition, extinction, and starvation.",
   "connections": [
     {
       "target": "bit_4484_notes_8_9_2020",
       "label": "appears in"
     }
   ],
-  "notes": "Closing Projects includes methods such as Integration, Addition, Extinction, and Starvation. It involves outputs like a Transition Plan and Lessons Learned Report, and typically concludes with a Close-out Meeting.",
+  "notes": "Closing Projects is the final phase in project management, involving methods such as integration, addition, extinction, and starvation. It includes outputs like a transition plan, lessons learned report, and a close-out meeting.",
   "aliases": [],
   "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
-  "createdAt": 1775794259809,
-  "updatedAt": 1775794259809,
-  "context_summary": "- Closing Projects involves finalizing all project activities.\n- It formally closes the project.\n- Methods include Integration, Addition, Extinction, and Starvation.\n- Outputs include a Transition Plan and Lessons Learned Report.\n- It typically concludes with a Close-out Meeting."
+  "createdAt": 1775833654153,
+  "updatedAt": 1775833654153,
+  "context_summary": "- Final phase in project management.\n- Involves integration, addition, extinction, and starvation methods.\n- Outputs include transition plan and lessons learned report.\n- Conducts a close-out meeting."
 }

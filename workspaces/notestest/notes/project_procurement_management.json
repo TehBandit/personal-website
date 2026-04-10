@@ -2,20 +2,17 @@
   "id": "project_procurement_management",
   "name": "Project Procurement Management",
   "type": "concept",
-  "excerpt": "Project Procurement Management involves managing procurement processes and changes.",
+  "excerpt": "Project Procurement Management involves handling constructive change orders.",
   "connections": [
     {
       "target": "bit_4484_notes_8_9_2020",
-      "label": "featured in"
-    },
-    {
-      "target": "constructive_change_orders",
-      "label": "includes change orders"
+      "label": "appears in"
     }
   ],
-  "notes": "- Project Procurement Management includes constructive change orders, which are oral or written requests made by someone with authority.\n\n- Project Procurement Management involves acquiring goods and services from outside the performing organization.\n- It includes processes such as planning procurements, conducting procurements, controlling procurements, and closing procurements.",
+  "notes": "Project Procurement Management deals with the acquisition of goods and services from external sources. It includes managing constructive change orders, which are oral or written requests made by someone with authority.",
   "aliases": [],
   "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
-  "createdAt": 1775792946479,
-  "updatedAt": 1775794259818
+  "createdAt": 1775833654153,
+  "updatedAt": 1775833654153,
+  "context_summary": "- Handles acquisition of goods and services.\n- Manages constructive change orders.\n- Involves requests made by authorized personnel."
 }

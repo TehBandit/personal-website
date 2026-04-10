@@ -150,7 +150,31 @@ export default function StoryGraph() {
   // Derived sub-sections — collapsed by default
   const [openDerived, setOpenDerived] = useState(() => new Set());
 
-  // Graph display settings
+  // ── Resizable sidebars ─────────────────────────────────────────────────────
+  const [leftSidebarWidth, setLeftSidebarWidth]   = useState(240); // 240 = w-60
+  const [rightPanelWidth,  setRightPanelWidth]    = useState(320); // 320 = w-80
+
+  const makeResizeHandler = useCallback((setter, direction = "right") => (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    let startW;
+    setter((w) => { startW = w; return w; });
+    const onMove = (mv) => {
+      const delta = direction === "right" ? mv.clientX - startX : startX - mv.clientX;
+      setter(Math.max(160, Math.min(520, startW + delta)));
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, []);
+
   const [nodeTransparent, setNodeTransparent] = useState(false);
   const [nodeBorder, setNodeBorder] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -1162,9 +1186,17 @@ export default function StoryGraph() {
 
         {/* ── Left sidebar: grouped collapsible element list ── */}
         <aside
-          className="w-60 flex-shrink-0 flex flex-col overflow-y-auto border-r"
-          style={{ backgroundColor: "#13131f", borderColor: "rgba(255,255,255,0.07)" }}
+          className="flex-shrink-0 flex flex-col overflow-y-auto border-r relative"
+          style={{ width: leftSidebarWidth, backgroundColor: "#13131f", borderColor: "rgba(255,255,255,0.07)" }}
         >
+          {/* Resize handle */}
+          <div
+            onMouseDown={makeResizeHandler(setLeftSidebarWidth, "right")}
+            className="absolute top-0 right-0 w-1 h-full z-10 cursor-col-resize"
+            style={{ background: "transparent" }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.12)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          />
           <div className="p-3">
             {Object.entries(NODE_TYPE_CONFIG).map(([type, cfg]) => {
               const nodesOfType = graphData.nodes.filter((n) => (n.type || "character") === type);
@@ -1626,9 +1658,17 @@ export default function StoryGraph() {
         {/* ── Right detail panel ── */}
         {selectedNode && (
           <div
-            className="w-80 flex-shrink-0 flex flex-col overflow-y-auto border-l"
-            style={{ backgroundColor: "#13131f", borderColor: "rgba(255,255,255,0.07)" }}
+            className="flex-shrink-0 flex flex-col overflow-y-auto border-l relative"
+            style={{ width: rightPanelWidth, backgroundColor: "#13131f", borderColor: "rgba(255,255,255,0.07)" }}
           >
+            {/* Resize handle */}
+            <div
+              onMouseDown={makeResizeHandler(setRightPanelWidth, "left")}
+              className="absolute top-0 left-0 w-1 h-full z-10 cursor-col-resize"
+              style={{ background: "transparent" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.12)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            />
             {/* Header */}
             <div className="px-5 pt-4 pb-4 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
               {/* Top row: type badge + icon buttons */}
