@@ -24,6 +24,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { deduplicateNodes, remapConnections } from "../api/dedup-nodes.js";
+import { walkRelPaths, normalizeSourceFile } from "../api/_walk.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -35,23 +36,9 @@ function log(msg) {
   process.stdout.write(msg + "\n");
 }
 
-/**
- * Recursively collect all .txt and .md files under `dir`, returning paths
- * relative to `base` with forward slashes (e.g. "notes-raw/char.txt").
- * `exclude` is a Set of absolute directory paths to skip entirely.
- */
+/** Collect relative paths of .md/.txt files, skipping excluded dirs. */
 function getAllTxtFiles(dir, base = dir, exclude = new Set()) {
-  const results = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const fullPath = path.join(dir, entry.name);
-    if (exclude.has(fullPath)) continue;
-    if (entry.isDirectory()) {
-      results.push(...getAllTxtFiles(fullPath, base, exclude));
-    } else if (entry.name.endsWith(".txt") || entry.name.endsWith(".md")) {
-      results.push(path.relative(base, fullPath).replace(/\\/g, "/"));
-    }
-  }
-  return results;
+  return walkRelPaths(dir, base, exclude);
 }
 
 function loadExistingNodes() {
@@ -101,12 +88,13 @@ function patchNodeConnections(nodeId, newConns) {
  */
 function stripConnectionsFromSource(filename) {
   if (!fs.existsSync(NOTES_DIR)) return;
+  const normalized = normalizeSourceFile(filename);
   for (const f of fs.readdirSync(NOTES_DIR).filter((f) => f.endsWith(".json"))) {
     const nodeId = path.basename(f, ".json");
     const data = loadNodeFile(nodeId);
     if (!data) continue;
     const before = (data.connections || []).length;
-    data.connections = (data.connections || []).filter((c) => c.sourceFile !== filename);
+    data.connections = (data.connections || []).filter((c) => normalizeSourceFile(c.sourceFile) !== normalized);
     if (data.connections.length !== before) {
       fs.writeFileSync(path.join(NOTES_DIR, f), JSON.stringify(data, null, 2), "utf-8");
     }
@@ -124,10 +112,11 @@ function getRefreshIdsForFile(filename) {
   const ids = new Set();
   if (!fs.existsSync(NOTES_DIR)) return ids;
   const stem = path.basename(filename).replace(/\.(md|txt)$/i, "").replace(/-/g, "_").toLowerCase();
+  const normalized = normalizeSourceFile(filename);
   for (const f of fs.readdirSync(NOTES_DIR).filter((f) => f.endsWith(".json"))) {
     const data = loadNodeFile(path.basename(f, ".json"));
     if (!data) continue;
-    if (data.sourceFile === filename) ids.add(data.id);
+    if (normalizeSourceFile(data.sourceFile) === normalized) ids.add(data.id);
     // migration fallback: stem match when sourceFile isn't stamped yet
     else if (!data.sourceFile && data.id === stem) ids.add(data.id);
   }
@@ -306,7 +295,7 @@ function saveNodes(extracted, sourceFile = null, refreshNodeIds = new Set()) {
 
       // Keep connections that came from OTHER source files, replace this file's
       const otherConns = (existing.connections || []).filter(
-        (c) => c.sourceFile && c.sourceFile !== sourceFile
+        (c) => c.sourceFile && normalizeSourceFile(c.sourceFile) !== sourceFile
       );
 
       // Merge aliases: keep existing ones from other sources, merge in fresh AI + user aliases
@@ -438,11 +427,23 @@ async function main() {
           data.sourceFile = `notes-raw/${data.sourceFile}`;
           changed = true;
         }
+        // Normalize .txt → .md to match story-extract / story-derive convention
+        if (data.sourceFile && /\.txt$/i.test(data.sourceFile)) {
+          data.sourceFile = data.sourceFile.replace(/\.txt$/i, ".md");
+          changed = true;
+        }
         data.connections = (data.connections || []).map((c) => {
-          if (c.sourceFile && !c.sourceFile.includes("/") && !c.sourceFile.includes("\\")) {
-            changed = true;
-            return { ...c, sourceFile: `notes-raw/${c.sourceFile}` };
+          let connChanged = false;
+          let sf = c.sourceFile;
+          if (sf && !sf.includes("/") && !sf.includes("\\")) {
+            sf = `notes-raw/${sf}`;
+            connChanged = true;
           }
+          if (sf && /\.txt$/i.test(sf)) {
+            sf = sf.replace(/\.txt$/i, ".md");
+            connChanged = true;
+          }
+          if (connChanged) { changed = true; return { ...c, sourceFile: sf }; }
           return c;
         });
         if (changed) { fs.writeFileSync(fp, JSON.stringify(data, null, 2), "utf-8"); migrated++; }
@@ -538,7 +539,7 @@ async function main() {
     if (isUpdate) stripConnectionsFromSource(filename);
     const extracted = await extractFromText(openai, rawText, filename, refreshNodeIds);
     extracted._userAliases = userAliases;
-    const saved = saveNodes(extracted, filename, refreshNodeIds);
+    const saved = saveNodes(extracted, normalizeSourceFile(filename), refreshNodeIds);
 
     if (saved.length === 0) {
       log(`  → No nodes extracted (skipping)\n`);

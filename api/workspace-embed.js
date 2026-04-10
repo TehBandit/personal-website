@@ -66,7 +66,16 @@ function buildChunksForNode(node, rawDir) {
   // Raw prose file takes priority for "notes" chunk
   let notesText = "";
   if (node.sourceFile) {
-    const rawPath = path.join(rawDir, node.sourceFile);
+    let rawPath = path.join(rawDir, node.sourceFile);
+    // Try alternate extension (.txt ↔ .md) in case sourceFile was stored
+    // before extension normalization
+    if (!fs.existsSync(rawPath)) {
+      const alt = /\.txt$/i.test(node.sourceFile)
+        ? node.sourceFile.replace(/\.txt$/i, ".md")
+        : node.sourceFile.replace(/\.md$/i, ".txt");
+      const altPath = path.join(rawDir, alt);
+      if (fs.existsSync(altPath)) rawPath = altPath;
+    }
     if (fs.existsSync(rawPath)) {
       notesText = stripMarkdown(fs.readFileSync(rawPath, "utf-8").trim());
     }

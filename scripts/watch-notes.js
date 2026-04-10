@@ -15,6 +15,7 @@ import { spawn } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
 import { readFileSync, readdirSync } from "fs";
+import { walkRelPaths } from "../api/_walk.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -29,20 +30,9 @@ if (!/^[a-z0-9-]+$/.test(WORKSPACE)) {
 const NOTES_RAW_DIR = path.join(ROOT, "workspaces", WORKSPACE); // workspace root
 const NOTES_DIR = path.join(NOTES_RAW_DIR, "notes"); // output dir to ignore
 
-/**
- * Recursively collect all .txt relative paths under `dir`, skipping excluded dirs.
- */
+/** Collect relative paths of .md/.txt files, skipping excluded dirs. */
 function getAllRawRelPaths(dir, base = dir, exclude = new Set()) {
-  const results = [];
-  try {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name);
-      if (exclude.has(full)) continue;
-      if (entry.isDirectory()) results.push(...getAllRawRelPaths(full, base, exclude));
-      else if (entry.name.endsWith(".txt") || entry.name.endsWith(".md")) results.push(path.relative(base, full).replace(/\\/g, "/"));
-    }
-  } catch { /* skip unreadable dirs */ }
-  return results;
+  return walkRelPaths(dir, base, exclude);
 }
 
 // Debounce per-file so rapid successive saves don't queue multiple runs

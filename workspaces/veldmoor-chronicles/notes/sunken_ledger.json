@@ -10,25 +10,25 @@
     {
       "target": "tiveck",
       "label": "documents cargo movements through",
-      "sourceFile": "sunken-ledger.txt"
+      "sourceFile": "notes-raw/sunken-ledger.md"
     },
     {
       "target": "admiralty",
       "label": "bypasses regulations of",
-      "sourceFile": "sunken-ledger.txt"
+      "sourceFile": "notes-raw/sunken-ledger.md"
     },
     {
       "target": "salt_warren",
       "label": "found in",
-      "sourceFile": "sunken-ledger.txt"
+      "sourceFile": "notes-raw/sunken-ledger.md"
     },
     {
       "target": "orris_vane",
       "label": "implicates",
-      "sourceFile": "sunken-ledger.txt"
+      "sourceFile": "notes-raw/sunken-ledger.md"
     }
   ],
   "notes": "The Sunken Ledger is an artifact that Fen Caldra found six years ago in a sealed crate within the Salt Warren. He read enough of it to understand its value and danger. Fen has kept it hidden in a location only he knows, contemplating its fate for years without deciding.",
-  "sourceFile": "fen-caldra.txt",
+  "sourceFile": "notes-raw/fen-caldra.md",
   "createdAt": 1774688822428
 }

@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { walkBasenameMap, normalizeSourceFile } from "./_walk.js";
 
 const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
 
@@ -59,7 +60,13 @@ export function rebuildGraphCache(workspace, notesDir) {
       const hasLiveConnection = (data.connections || []).some((c) => allIds.has(c.target));
       if (hasLiveConnection) continue; // connected nodes always survive
 
-      const sourceFileGone = data.sourceFile && !fs.existsSync(path.join(wsDir, data.sourceFile));
+      const sourceFileGone = data.sourceFile && (() => {
+        const sf = data.sourceFile;
+        if (fs.existsSync(path.join(wsDir, sf))) return false;
+        // Try the alternate extension (.txt ↔ .md) before declaring it gone
+        const alt = /\.txt$/i.test(sf) ? sf.replace(/\.txt$/i, ".md") : sf.replace(/\.md$/i, ".txt");
+        return !fs.existsSync(path.join(wsDir, alt));
+      })();
       if (!data.sourceFile || sourceFileGone) {
         try { fs.unlinkSync(path.join(notesDir, file)); } catch { /* ignore */ }
         allIds.delete(data.id);
@@ -131,23 +138,8 @@ export function rebuildGraphCache(workspace, notesDir) {
     // Fourth pass: build graph cache from surviving nodes
     //
     // Pre-build a basename → full-path map from a single recursive scan of the
-    // workspace directory (excluding notes/). This replaces the previous approach
-    // of running a recursive findRawFile() walk PER NODE — O(N×D) → O(D + N).
-    const rawFileMap = new Map(); // lowercase basename → full path
-    const walkDir = (dir) => {
-      let entries;
-      try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-      for (const entry of entries) {
-        const full = path.join(dir, entry.name);
-        if (entry.isDirectory() && path.resolve(full) !== path.resolve(notesDir)) {
-          walkDir(full);
-        } else if (entry.name.endsWith(".md") || entry.name.endsWith(".txt")) {
-          const key = entry.name.toLowerCase();
-          if (!rawFileMap.has(key)) rawFileMap.set(key, full);
-        }
-      }
-    };
-    walkDir(wsDir);
+    // workspace directory (excluding notes/). O(D + N) instead of O(N×D).
+    const rawFileMap = walkBasenameMap(wsDir, new Set([path.resolve(notesDir)]));
 
     const FILE_PREVIEW_LIMIT = 600;
 

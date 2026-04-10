@@ -2,28 +2,13 @@ import fs from "fs";
 import path from "path";
 import { findDuplicate } from "./dedup-nodes.js";
 import { bumpWorkspaceVersion, rebuildGraphCache } from "./bump-version.js";
+import { walkRelPaths, walkAbsPaths, walkNodeIds, normalizeSourceFile } from "./_walk.js";
 
 const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
 
-/**
- * Recursively collect all .md/.txt files under `dir`, returning paths
- * relative to `baseDir` with forward slashes. Skips `excludeDir` entirely.
- */
+/** Collect relative paths of .md/.txt files, skipping excludeDir. */
 function scanRawFiles(dir, baseDir, excludeDir) {
-  const results = [];
-  let entries;
-  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return results; }
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (path.resolve(fullPath) === path.resolve(excludeDir)) continue;
-    const relPath = path.relative(baseDir, fullPath).replace(/\\/g, "/");
-    if (entry.isDirectory()) {
-      results.push(...scanRawFiles(fullPath, baseDir, excludeDir));
-    } else if (entry.name.endsWith(".md") || entry.name.endsWith(".txt")) {
-      results.push(relPath);
-    }
-  }
-  return results;
+  return walkRelPaths(dir, baseDir, new Set([path.resolve(excludeDir)]));
 }
 
 function resolveDirs(workspace) {
@@ -293,7 +278,7 @@ export default function handler(req, res) {
     if (req.query.isFolder === "true") {
       if (req.query.recursive === "true") {
         // Collect node IDs both by filename-stem and by sourceFile reference
-        const stemIds = collectNodeIds(filePath, dir);
+        const stemIds = collectNodeIds(filePath);
         const folderRel = path.relative(dir, filePath).replace(/\\/g, "/");
         const sourceFileIds = findNodesBySourceFilePrefix(notesDir, folderRel + "/");
         const deletedIds = [...new Set([...stemIds, ...sourceFileIds])];
@@ -334,47 +319,14 @@ function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/**
- * Recursively collect all .md/.txt files in wsDir, excluding the notes/ output dir.
- */
+/** Collect absolute paths of .md/.txt files, skipping notesDir. */
 function collectRawFiles(wsDir, notesDir) {
-  const files = [];
-  const excludeDir = path.resolve(notesDir);
-  function walk(dir) {
-    let entries;
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-    for (const entry of entries) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (path.resolve(full) !== excludeDir) walk(full);
-      } else if (/\.(md|txt)$/i.test(entry.name)) {
-        files.push(full);
-      }
-    }
-  }
-  walk(wsDir);
-  return files;
+  return walkAbsPaths(wsDir, new Set([path.resolve(notesDir)]));
 }
 
-/**
- * Collect snake_case node IDs for every .md/.txt file found recursively under `folderPath`.
- * Paths are relative to `baseDir`.
- */
-function collectNodeIds(folderPath, baseDir) {
-  const ids = [];
-  function walk(dir) {
-    let entries;
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-    for (const entry of entries) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) { walk(full); }
-      else if (/\.(md|txt)$/i.test(entry.name)) {
-        ids.push(path.basename(entry.name).replace(/\.(md|txt)$/i, "").replace(/-/g, "_"));
-      }
-    }
-  }
-  walk(folderPath);
-  return ids;
+/** Collect snake_case node IDs from .md/.txt filenames under folderPath. */
+function collectNodeIds(folderPath) {
+  return walkNodeIds(folderPath);
 }
 
 /**
@@ -416,14 +368,15 @@ function purgeNodes(notesDir, nodeIds) {
 function findNodesBySourceFile(notesDir, sourceFile) {
   if (!fs.existsSync(notesDir)) return [];
   const ids = [];
+  const normalized = normalizeSourceFile(sourceFile);
   let entries;
   try { entries = fs.readdirSync(notesDir).filter((f) => f.endsWith(".json")); } catch { return ids; }
   for (const file of entries) {
     let data;
     try { data = JSON.parse(fs.readFileSync(path.join(notesDir, file), "utf-8")); } catch { continue; }
     if (
-      data.sourceFile === sourceFile ||
-      (Array.isArray(data.additionalSourceFiles) && data.additionalSourceFiles.includes(sourceFile))
+      normalizeSourceFile(data.sourceFile) === normalized ||
+      (Array.isArray(data.additionalSourceFiles) && data.additionalSourceFiles.some((sf) => normalizeSourceFile(sf) === normalized))
     ) {
       if (data.id) ids.push(data.id);
     }

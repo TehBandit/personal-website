@@ -11,15 +11,15 @@
     {
       "target": "sable_voss",
       "label": "created by",
-      "sourceFile": "sable-voss.txt"
+      "sourceFile": "notes-raw/sable-voss.md"
     },
     {
       "target": "14th_lowland",
       "label": "documents corruption in",
-      "sourceFile": "sable-voss.txt"
+      "sourceFile": "notes-raw/sable-voss.md"
     }
   ],
   "notes": "Sable Voss is drafting an account of the supply falsification she witnessed over six years, including dates, quantities, names, and the paper trail as she remembers it. She keeps it separate from other papers, in a sealed bundle under a flagstone.",
-  "sourceFile": "sable-voss.txt",
+  "sourceFile": "notes-raw/sable-voss.md",
   "createdAt": 1773372718189
 }
