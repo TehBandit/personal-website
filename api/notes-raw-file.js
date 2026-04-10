@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { findDuplicate } from "./dedup-nodes.js";
 import { bumpWorkspaceVersion, rebuildGraphCache } from "./bump-version.js";
 
 const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
@@ -84,60 +85,104 @@ export default function handler(req, res) {
     if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
     fs.writeFileSync(filePath, req.body?.content ?? "", "utf-8");
 
-    // If a name is provided, also create the corresponding node JSON in notes/ so that
-    // backlinks scanning and graph colouring work immediately without a manual seed/extract.
+    // If a name is provided, create or attach the corresponding node JSON in notes/.
+    // Importantly, dedupe against existing nodes first so adding a raw file for a grey
+    // node does not spawn a second JSON for the same character/faction.
     const { name: nodeName } = req.body || {};
     if (nodeName && typeof nodeName === "string" && nodeName.trim()) {
-      const nodeId = path.basename(filename).replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+      const trimmedName = nodeName.trim().substring(0, 120);
+      const requestedId = path.basename(filename).replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+      if (!fs.existsSync(notesDir)) fs.mkdirSync(notesDir, { recursive: true });
+
+      const existingNodes = fs.readdirSync(notesDir)
+        .filter((f) => f.endsWith(".json"))
+        .map((f) => {
+          try {
+            const data = JSON.parse(fs.readFileSync(path.join(notesDir, f), "utf-8"));
+            if (!data.id || !data.name) return null;
+            return {
+              id: data.id,
+              name: data.name,
+              type: data.type || "character",
+              aliases: data.aliases || [],
+              notes: data.notes || "",
+              connections: data.connections || [],
+              sourceFile: data.sourceFile || "",
+              additionalSourceFiles: data.additionalSourceFiles || [],
+            };
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean);
+
+      const matched = findDuplicate(trimmedName, requestedId, existingNodes);
+      const nodeId = matched?.id || requestedId;
       const nodeJsonPath = path.join(notesDir, `${nodeId}.json`);
-      if (!fs.existsSync(nodeJsonPath)) {
-        if (!fs.existsSync(notesDir)) fs.mkdirSync(notesDir, { recursive: true });
-        const nodeData = {
+
+      let nodeData;
+      if (fs.existsSync(nodeJsonPath)) {
+        try {
+          nodeData = JSON.parse(fs.readFileSync(nodeJsonPath, "utf-8"));
+        } catch {
+          nodeData = null;
+        }
+      }
+      if (!nodeData) {
+        nodeData = {
           id: nodeId,
-          name: nodeName.trim().substring(0, 120),
+          name: trimmedName,
           type: "character",
           excerpt: "",
           notes: "",
           aliases: [],
           connections: [],
-          sourceFile: filename,
+          sourceFile: "",
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
-        fs.writeFileSync(nodeJsonPath, JSON.stringify(nodeData, null, 2), "utf-8");
-
-        // Seed connections: scan all raw files for mentions of the new node's name.
-        // For each raw file that mentions the name and has a corresponding node JSON,
-        // add a connection from that node → new node. This wires the new node into
-        // the graph immediately, mirroring what the AI extraction would do over time.
-        const escaped = nodeName.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const namePattern = new RegExp(`\\b${escaped}\\b`, "i");
-        const allRawFiles = scanRawFiles(dir, dir, notesDir);
-
-        for (const relPath of allRawFiles) {
-          if (relPath === filename) continue; // skip the new file itself
-          let rawContent;
-          try { rawContent = fs.readFileSync(path.join(dir, relPath), "utf-8"); } catch { continue; }
-          if (!namePattern.test(rawContent)) continue;
-
-          // Derive the nodeId for the file that mentions us
-          const mentionerStem = relPath.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
-          const mentionerJsonPath = path.join(notesDir, `${mentionerStem}.json`);
-          if (!fs.existsSync(mentionerJsonPath)) continue;
-
-          let mentionerData;
-          try { mentionerData = JSON.parse(fs.readFileSync(mentionerJsonPath, "utf-8")); } catch { continue; }
-          const alreadyLinked = (mentionerData.connections || []).some((c) => c.target === nodeId);
-          if (!alreadyLinked) {
-            mentionerData.connections = [...(mentionerData.connections || []), { target: nodeId, label: "references" }];
-            mentionerData.updatedAt = Date.now();
-            fs.writeFileSync(mentionerJsonPath, JSON.stringify(mentionerData, null, 2), "utf-8");
-          }
-        }
-
-        rebuildGraphCache(req.query.workspace, notesDir);
-        bumpWorkspaceVersion(req.query.workspace);
       }
+
+      const aliasSet = new Set((nodeData.aliases || []).map((a) => a.toLowerCase()));
+      if (trimmedName.toLowerCase() !== (nodeData.name || "").toLowerCase() && !aliasSet.has(trimmedName.toLowerCase())) {
+        nodeData.aliases = [...(nodeData.aliases || []), trimmedName];
+      }
+      const allSourceFiles = [nodeData.sourceFile, ...(nodeData.additionalSourceFiles || []), filename].filter(Boolean);
+      const primarySourceFile = nodeData.sourceFile || filename;
+      nodeData.sourceFile = primarySourceFile;
+      const extraSourceFiles = [...new Set(allSourceFiles.filter((f) => f !== primarySourceFile))];
+      if (extraSourceFiles.length > 0) nodeData.additionalSourceFiles = extraSourceFiles;
+      else delete nodeData.additionalSourceFiles;
+      nodeData.updatedAt = Date.now();
+      fs.writeFileSync(nodeJsonPath, JSON.stringify(nodeData, null, 2), "utf-8");
+
+      // Seed connections: scan all raw files for mentions of the node's name.
+      const escaped = trimmedName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const namePattern = new RegExp(`\\b${escaped}\\b`, "i");
+      const allRawFiles = scanRawFiles(dir, dir, notesDir);
+
+      for (const relPath of allRawFiles) {
+        if (relPath === filename) continue; // skip the new file itself
+        let rawContent;
+        try { rawContent = fs.readFileSync(path.join(dir, relPath), "utf-8"); } catch { continue; }
+        if (!namePattern.test(rawContent)) continue;
+
+        const mentionerStem = relPath.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+        const mentionerJsonPath = path.join(notesDir, `${mentionerStem}.json`);
+        if (!fs.existsSync(mentionerJsonPath)) continue;
+
+        let mentionerData;
+        try { mentionerData = JSON.parse(fs.readFileSync(mentionerJsonPath, "utf-8")); } catch { continue; }
+        const alreadyLinked = (mentionerData.connections || []).some((c) => c.target === nodeId);
+        if (!alreadyLinked) {
+          mentionerData.connections = [...(mentionerData.connections || []), { target: nodeId, label: "references" }];
+          mentionerData.updatedAt = Date.now();
+          fs.writeFileSync(mentionerJsonPath, JSON.stringify(mentionerData, null, 2), "utf-8");
+        }
+      }
+
+      rebuildGraphCache(req.query.workspace, notesDir);
+      bumpWorkspaceVersion(req.query.workspace);
     }
 
     return res.status(201).json({ filename });

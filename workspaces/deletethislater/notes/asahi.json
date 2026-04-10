@@ -1,0 +1,47 @@
+{
+  "id": "asahi",
+  "name": "Asahi",
+  "type": "character",
+  "excerpt": "Asahi is a former ace of Karasuno's volleyball team.",
+  "notes": "Asahi is hesitant to return to volleyball due to a past defeat.\nHe is insulted by Nishinoya for not returning to the team.\nAsahi is surprised by Hinata's determination to become an ace.\nHe is pulled into a practice match by Ukai and faces off against Hinata and Kageyama.\nAsahi's powerful spikes impress Hinata but also make him jealous.\nHe reassures Hinata of his importance as a decoy after the match.\nAsahi is approached by Hinata and Kageyama multiple times to rejoin the team.\nAsahi is challenged by Aone but is supported by Hinata.\nHe uses scary thoughts to calm himself before matches.\nAsahi is motivated to get revenge against Date Tech for a past defeat.\nHe benefits from Hinata's decoy skills to score points.\nAsahi holds Hinata up to the team after their victory.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "shoyo_hinata",
+      "label": "teammate and aspiring ace"
+    },
+    {
+      "target": "tobio_kageyama",
+      "label": "teammate"
+    },
+    {
+      "target": "karasuno_high",
+      "label": "student and volleyball player"
+    },
+    {
+      "target": "ryunosuke_tanaka",
+      "label": "teammate"
+    },
+    {
+      "target": "daichi_sawamura",
+      "label": "teammate"
+    },
+    {
+      "target": "sugawara",
+      "label": "teammate"
+    },
+    {
+      "target": "tsukishima",
+      "label": "teammate"
+    },
+    {
+      "target": "nishinoya",
+      "label": "teammate"
+    },
+    {
+      "target": "aone",
+      "label": "opponent"
+    }
+  ],
+  "sourceFile": "hinata_wiki/asahi.md"
+}

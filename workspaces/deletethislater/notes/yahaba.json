@@ -1,0 +1,18 @@
+{
+  "id": "yahaba",
+  "name": "Yahaba",
+  "type": "character",
+  "excerpt": "Yahaba is a character who listens to Hinata and Kindaichi's complaints about Kageyama.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "shoyo_hinata",
+      "label": "junior high acquaintance"
+    },
+    {
+      "target": "kindaichi",
+      "label": "companion"
+    }
+  ]
+}

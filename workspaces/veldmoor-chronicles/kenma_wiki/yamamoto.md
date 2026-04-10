@@ -1,0 +1,3 @@
+YAMAMOTO — character notes
+
+Yamamoto is a member of the Nekoma volleyball team and is known for his passionate and enthusiastic approach to the game. Initially, he and Kenma had a rocky relationship due to their differing attitudes towards volleyball, but they eventually developed a mutual respect. Yamamoto appreciates Kenma's analytical skills and has come to understand his quiet determination and competitive spirit.

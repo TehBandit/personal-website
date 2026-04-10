@@ -1,0 +1,22 @@
+{
+  "name": "notestest",
+  "slug": "notestest",
+  "nodeTypes": {
+    "topic": {
+      "color": "#60a5fa",
+      "label": "Topic"
+    },
+    "source": {
+      "color": "#34d399",
+      "label": "Source"
+    },
+    "person": {
+      "color": "#fb923c",
+      "label": "Person"
+    },
+    "concept": {
+      "color": "#c084fc",
+      "label": "Concept"
+    }
+  }
+}

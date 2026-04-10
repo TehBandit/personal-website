@@ -1,0 +1,43 @@
+{
+  "id": "sugawara",
+  "name": "Sugawara",
+  "type": "character",
+  "excerpt": "Sugawara is a third-year student who helps Hinata and Kageyama practice.",
+  "notes": "Sugawara interrupts Hinata and Kageyama's fight and helps them practice.\nSugawara helps Hinata with his receives during practice.\nSugawara offers to set to Hinata, but Hinata wants to beat Kageyama.\nSugawara encourages Hinata to view Kageyama as an ally.\nSugawara reminds Kageyama of his past in Kitagawa Daiichi.\nSugawara compliments Hinata's determination and encourages Kageyama to utilize Hinata's ability.\nSugawara introduces the first-years to Asahi.\nHe is part of the team that faces the Neighborhood Association Team in a practice match.\nSugawara helps calm down Tanaka and Yamamoto during the practice match against Nekoma.\nSugawara advises Asahi on calming techniques before matches.\nHe steps in for Kageyama during a match to help the team regain composure.\nSugawara encourages Hinata and Kageyama for the Date Tech game.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "shoyo_hinata",
+      "label": "mentor and helper"
+    },
+    {
+      "target": "tobio_kageyama",
+      "label": "mentor and helper"
+    },
+    {
+      "target": "karasuno_high",
+      "label": "student and player"
+    },
+    {
+      "target": "ryunosuke_tanaka",
+      "label": "teammate"
+    },
+    {
+      "target": "daichi_sawamura",
+      "label": "teammate"
+    },
+    {
+      "target": "tsukishima",
+      "label": "teammate"
+    },
+    {
+      "target": "nishinoya",
+      "label": "teammate"
+    },
+    {
+      "target": "asahi",
+      "label": "teammate"
+    }
+  ],
+  "sourceFile": "hinata_wiki/sugawara.md"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "small_giant",
+  "name": "Small Giant",
+  "type": "character",
+  "excerpt": "The Small Giant was a former player for Karasuno High who inspired Hinata.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "shoyo_hinata",
+      "label": "inspiration"
+    },
+    {
+      "target": "karasuno_high",
+      "label": "former player"
+    }
+  ]
+}

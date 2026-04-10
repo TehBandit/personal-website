@@ -1,0 +1,57 @@
+{
+  "id": "the_tide_compact",
+  "name": "The Tide Compact",
+  "type": "faction",
+  "excerpt": "The Tide Compact is a smuggling consortium formed to profit from contraband.",
+  "notes": "- The Tide Compact was formed twelve years ago on the salt flats north of Tiveck.\n- Three rival smuggling consortiums formed The Tide Compact.\n- Founding members: Rella Corse, Dovan Strake, and the Inkhand.\n- Rella Corse is a former Navigator of the Admiralty, dismissed for sealed reasons.\n- Dovan Strake is a fence operating out of a chandlery in Salt Warren.\n- The Inkhand's identity is unconfirmed.\n- The Compact's business involves contraband goods classified by the Admiralty.\n- Goods include preserved meats, salvaged navigational instruments, and contested documents.\n- Rella Corse manages logistics from a storehouse at the edge of the 14th Lowland.\n- Rella Corse uses salt-drying contracts as cover for operations.\n- Rella Corse is meticulous, rarely speaks above a murmur, and cuts loose those who draw attention.\n- At least three former associates disappeared from the harbor district.\n- Dovan Strake handles buyers and launders proceeds of document theft.\n- Dovan Strake is affable, loud, and well-liked, drinks at the Wrecked Compass.\n- The Inkhand's role is unclear, possibly connected to the Deepwater Guild.\n- The Compact does not compete directly with the Deepwater Guild.\n- Debate exists on whether the Compact has an arrangement with the Deepwater Guild or is too small to crush.",
+  "connections": [
+    {
+      "target": "tiveck",
+      "label": "formed near salt flats of"
+    },
+    {
+      "target": "salt_warren",
+      "label": "operates with connections to"
+    },
+    {
+      "target": "deepwater_guild",
+      "label": "has unclear relationship with"
+    },
+    {
+      "target": "14th_lowland",
+      "label": "logistics managed from"
+    },
+    {
+      "target": "rella_corse",
+      "label": "founding member"
+    },
+    {
+      "target": "dovan_strake",
+      "label": "founding member"
+    },
+    {
+      "target": "the_inkhand",
+      "label": "founding member"
+    }
+  ],
+  "aliases": [],
+  "sourceFile": "bulk_test/the_tide_compact.md",
+  "createdAt": 1775756551521,
+  "updatedAt": 1775756560874,
+  "context_summary": [
+    "- The Tide Compact is a smuggling consortium.",
+    "- It was formed twelve years ago on the salt flats north of Tiveck.",
+    "- Three rival smuggling consortiums formed The Tide Compact.",
+    "- Founding members include Rella Corse, Dovan Strake, and the Inkhand.",
+    "- Rella Corse is a former Navigator of the Admiralty.",
+    "- Dovan Strake operates out of a chandlery in Salt Warren.",
+    "- The Inkhand's identity is unconfirmed.",
+    "- The Compact deals in contraband goods classified by the Admiralty.",
+    "- Goods include preserved meats, salvaged navigational instruments, and contested documents.",
+    "- Rella Corse manages logistics from a storehouse at the edge of the 14th Lowland.",
+    "- Rella Corse uses salt-drying contracts as cover for operations.",
+    "- Dovan Strake handles buyers and launders proceeds from document theft.",
+    "- The Compact does not compete directly with the Deepwater Guild.",
+    "- There is debate on the Compact's relationship with the Deepwater Guild."
+  ]
+}

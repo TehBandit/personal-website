@@ -1,0 +1,25 @@
+{
+  "id": "project_scope_management",
+  "name": "Project Scope Management",
+  "type": "concept",
+  "excerpt": "Project Scope Management involves managing the scope of a project to prevent scope creep.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_8_9_2020",
+      "label": "featured in"
+    },
+    {
+      "target": "wasa_video",
+      "label": "illustrated by"
+    },
+    {
+      "target": "earned_value_management",
+      "label": "key component of"
+    }
+  ],
+  "notes": "- Project Scope Management includes managing scope creep, which is the tendency for the scope to increase over time.\n\n- Project Scope Management involves defining and controlling what is included and excluded in the project to prevent scope creep.\n- It ensures that the project includes all the work required, and only the work required, to complete the project successfully.",
+  "aliases": [],
+  "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1775792946470,
+  "updatedAt": 1775793379244
+}

@@ -1,0 +1,19 @@
+{
+  "id": "kenma_kozume",
+  "name": "Kenma Kozume",
+  "type": "character",
+  "excerpt": "Kenma Kozume is a setter for Nekoma High's volleyball team.",
+  "notes": "Kenma meets Hinata while Hinata is lost during a jog.\nHe is initially reluctant to talk but engages in a conversation about volleyball with Hinata.\nKenma is a setter and shares a similar situation with Hinata regarding height.\nHe is part of the Nekoma team that faces Karasuno in a practice match.\nKenma surprises Hinata by being on the Nekoma team during the practice match.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "shoyo_hinata",
+      "label": "rival and friend"
+    },
+    {
+      "target": "nekoma_high",
+      "label": "volleyball player"
+    }
+  ],
+  "sourceFile": "hinata_wiki/kenma_kozume.md"
+}

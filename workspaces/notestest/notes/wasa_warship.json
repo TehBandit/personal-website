@@ -1,0 +1,22 @@
+{
+  "id": "wasa_warship",
+  "name": "Wasa Warship",
+  "type": "concept",
+  "excerpt": "The Wasa was a warship that underwent significant changes before sinking.",
+  "connections": [
+    {
+      "target": "wasa_video",
+      "label": "discussed in"
+    },
+    {
+      "target": "bit_4484_notes_8_9_2020",
+      "label": "featured in"
+    }
+  ],
+  "notes": "The Wasa warship was altered to increase its speed and size, reaching 120 feet before being changed to 111 feet. It required double the cannons and much more space. The ship sunk after 15 minutes at sea.",
+  "aliases": [],
+  "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1775794259808,
+  "updatedAt": 1775794259808,
+  "context_summary": "- The Wasa was a warship.\n- It underwent significant changes before sinking.\n- The ship was altered to increase speed and size.\n- It reached a length of 120 feet before being changed to 111 feet.\n- It required double the cannons and much more space.\n- The ship sank after 15 minutes at sea."
+}

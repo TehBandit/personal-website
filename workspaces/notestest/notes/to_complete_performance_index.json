@@ -1,0 +1,21 @@
+{
+  "id": "to_complete_performance_index",
+  "name": "To-Complete Performance Index",
+  "type": "concept",
+  "excerpt": "To-Complete Performance Index is a measure used in project cost management.",
+  "connections": [
+    {
+      "target": "project_cost_management",
+      "label": "component of"
+    },
+    {
+      "target": "bit_4484_notes_8_9_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "- To-Complete Performance Index is a measure used in project cost management to determine the cost performance required to meet a specified management goal.",
+  "aliases": [],
+  "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1775793192325,
+  "updatedAt": 1775793192325
+}

@@ -1,0 +1,14 @@
+{
+  "id": "coach_nekomata",
+  "name": "Coach Nekomata",
+  "type": "character",
+  "excerpt": "Coach Nekomata is the coach of the Nekoma volleyball team.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "nekoma_s",
+      "label": "volleyball team coach"
+    }
+  ]
+}

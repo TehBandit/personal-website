@@ -1,0 +1,18 @@
+{
+  "id": "nekomata",
+  "name": "Nekomata",
+  "type": "character",
+  "excerpt": "Nekomata is mentioned as the reason Karasuno can join the Fukurōdani Academy Group practice matches.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "karasuno_high",
+      "label": "facilitated practice"
+    },
+    {
+      "target": "fukurodani_academy_group",
+      "label": "facilitated practice"
+    }
+  ]
+}

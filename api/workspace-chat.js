@@ -529,13 +529,20 @@ export default async function handler(req, res) {
     }
 
     // ── Pure metadata query intercept (no GPT needed) ─────────────────────
-    const metaAnswer = await resolveMetaQuery(userQuery, meta);
-    if (metaAnswer) {
-      sseEvent(res, { type: "token", content: metaAnswer });
-      sseEvent(res, { type: "citations", sources: [] });
-      sseEvent(res, { type: "done" });
-      res.end();
-      return;
+    // IMPORTANT: skip this fast-path when the user came from a graph/path action.
+    // Those questions often name several nodes ("Trace the connection from A to B
+    // through C and D"), which the metadata classifier can misread as a
+    // get_notes_mentioning query and incorrectly answer with "No notes mention…"
+    // before the pinned graph context is ever used.
+    if (!hasPinnedNodes && !graphPathHint) {
+      const metaAnswer = await resolveMetaQuery(userQuery, meta);
+      if (metaAnswer) {
+        sseEvent(res, { type: "token", content: metaAnswer });
+        sseEvent(res, { type: "citations", sources: [] });
+        sseEvent(res, { type: "done" });
+        res.end();
+        return;
+      }
     }
 
     // Retrieve relevant chunks

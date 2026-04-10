@@ -1,0 +1,19 @@
+{
+  "id": "nekoma",
+  "name": "Nekoma",
+  "type": "faction",
+  "excerpt": "Nekoma is a rival volleyball team that Karasuno practices with.",
+  "notes": "Nekoma is part of the Fukurōdani Academy Group and holds joint practice matches.\nHinata is excited to play against Nekoma again.\nNekoma's team includes players like Inuoka and Yaku.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "karasuno_high",
+      "label": "practice partner"
+    },
+    {
+      "target": "shoyo_hinata",
+      "label": "opponent"
+    }
+  ],
+  "sourceFile": "hinata_wiki/nekoma.md"
+}

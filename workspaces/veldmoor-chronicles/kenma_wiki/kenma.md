@@ -1,0 +1,3 @@
+KENMA — character notes
+
+Kenma is a character known for his quiet, composed, and analytical personality. He is a volleyball player with extraordinary game sense, technique, and strategic abilities, which compensate for his lack of power, speed, and stamina. Despite his reserved nature, he cares deeply for his friends and is motivated to improve his volleyball skills for their sake. Kenma is also a successful stock trader, pro-gamer, YouTuber, and CEO, yet remains modest in his lifestyle, spending lavishly only on video games and sponsoring Hinata during his time in Brazil. His relationship with Kuroo is significant, as Kuroo was his first and only friend from childhood, introducing him to volleyball and encouraging him to continue playing despite initial reluctance.

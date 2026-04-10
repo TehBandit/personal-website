@@ -1,0 +1,18 @@
+{
+  "id": "deepwater_guild",
+  "name": "Deepwater Guild",
+  "type": "faction",
+  "excerpt": "The Deepwater Guild has a formally cooperative but informally complex relationship with the Cartographic Division.",
+  "connections": [
+    {
+      "target": "cartographic_division",
+      "label": "formally cooperative relationship with"
+    }
+  ],
+  "notes": "- The Deepwater Guild has a formally cooperative relationship with the Cartographic Division.\n- The relationship is informally complex, with the Guild challenging the Division's survey data on several occasions.\n- Disputes usually arise when official charts would reduce the Guild's operational reach.\n- These disputes are usually resolved quietly.\n\n- There is a rumor of a private arrangement between Harwick Ossel and someone in the Deepwater Guild, involving early access to Admiralty survey data.\n- If true, this would breach the Compact of Survey Rights signed between the Admiralty and the Guild.\n\n- Rella Corse has been seen in the vicinity of the archive corridor at the Deepwater Guild's lower hall on at least two occasions, though she is not known to have entered.\n\n- The Inkhand had access to an internal record from the Deepwater Guild that predated its official circulation by several days.",
+  "aliases": [],
+  "sourceFile": "bulk_test/cartographic_division.md",
+  "createdAt": 1775756481818,
+  "updatedAt": 1775756538049,
+  "context_summary": "- Formally cooperative relationship with the Cartographic Division.\n- Informally complex relationship, challenging survey data.\n- Disputes arise when official charts reduce operational reach.\n- Disputes usually resolved quietly.\n- Rumor of private arrangement with Harwick Ossel for early access to survey data.\n- If true, would breach Compact of Survey Rights.\n- Rella Corse seen near the archive corridor at the lower hall.\n- Inkhand had access to internal record predating official circulation."
+}

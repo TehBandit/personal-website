@@ -1,0 +1,17 @@
+{
+  "id": "project_management_techniques",
+  "name": "Project Management Techniques",
+  "type": "topic",
+  "excerpt": "Project Management Techniques encompass various methodologies and tools used to plan, execute, and oversee projects effectively.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_8_9_2020",
+      "label": "central to"
+    }
+  ],
+  "notes": "- Project Management Techniques involve methodologies and tools for planning, executing, and overseeing projects.\n- These techniques are essential for ensuring projects are completed on time, within scope, and on budget.\n- They include processes for managing risks, quality, procurement, and integration.",
+  "aliases": [],
+  "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1775793200343,
+  "updatedAt": 1775793200343
+}

@@ -1,0 +1,18 @@
+{
+  "id": "yaku",
+  "name": "Yaku",
+  "type": "character",
+  "excerpt": "Yaku is a player from Nekoma who previously stopped Hinata's quick-strike.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "nekoma",
+      "label": "team member"
+    },
+    {
+      "target": "shoyo_hinata",
+      "label": "opponent"
+    }
+  ]
+}

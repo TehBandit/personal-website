@@ -1,0 +1,21 @@
+{
+  "id": "cost_variance",
+  "name": "Cost Variance",
+  "type": "concept",
+  "excerpt": "Cost Variance compares budgeted cost versus actual costs.",
+  "connections": [
+    {
+      "target": "earned_value_management",
+      "label": "component of"
+    },
+    {
+      "target": "bit_4484_notes_8_9_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "- Cost Variance (CV) compares the budgeted cost versus the actual costs.",
+  "aliases": [],
+  "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1775793192317,
+  "updatedAt": 1775793192317
+}

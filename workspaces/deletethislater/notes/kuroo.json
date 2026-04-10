@@ -1,0 +1,18 @@
+{
+  "id": "kuroo",
+  "name": "Kuroo",
+  "type": "character",
+  "excerpt": "Kuroo is a teammate of Bokuto and Akaashi.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "bokuto",
+      "label": "teammate"
+    },
+    {
+      "target": "akaashi",
+      "label": "teammate"
+    }
+  ]
+}

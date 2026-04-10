@@ -1,0 +1,23 @@
+{
+  "id": "hitoka_yachi",
+  "name": "Hitoka Yachi",
+  "type": "character",
+  "excerpt": "Hitoka Yachi is introduced as a potential new manager for Karasuno.",
+  "notes": "Yachi is introduced by Kiyoko as a potential new manager.\nShe helps Hinata and Kageyama with their studies.\nYachi is inspired by Hinata's determination and becomes the manager.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "karasuno_high",
+      "label": "manager"
+    },
+    {
+      "target": "shoyo_hinata",
+      "label": "helped with studies"
+    },
+    {
+      "target": "kiyoko_2",
+      "label": "predecessor"
+    }
+  ],
+  "sourceFile": "hinata_wiki/hitoka_yachi.md"
+}

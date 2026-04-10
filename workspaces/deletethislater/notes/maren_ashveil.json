@@ -1,0 +1,18 @@
+{
+  "id": "maren_ashveil",
+  "name": "Maren Ashveil",
+  "type": "character",
+  "excerpt": "Maren Ashveil is a name mentioned in connection with the Inkhand.",
+  "connections": [
+    {
+      "target": "the_inkhand",
+      "label": "mentioned in connection with"
+    }
+  ],
+  "notes": "- Maren Ashveil has been mentioned in connection with the Inkhand by a source of uncertain reliability.\n- The connection between Maren Ashveil and the Inkhand has not been corroborated.\n- It is presumed that Maren Ashveil would deny any connection if asked.",
+  "aliases": [],
+  "sourceFile": "bulk_test/the_inkhand.md",
+  "createdAt": 1775756538044,
+  "updatedAt": 1775756538044,
+  "context_summary": "- Mentioned in connection with the Inkhand.\n- Connection not corroborated.\n- Presumed to deny any connection if asked."
+}

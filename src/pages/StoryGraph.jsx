@@ -24,6 +24,39 @@ const EXTRACT_FLAVOR = [
   "consulting the lore...",
 ];
 
+// Ordered steps shown during extraction. Each step has a message and the
+// percentage at which it appears. Steps are shown sequentially with timed
+// advances while the real fetch is in-flight.
+const EXTRACT_STEPS = [
+  { pct: 2,  message: "Reading file…" },
+  { pct: 8,  message: "Loading workspace context…" },
+  { pct: 14, message: "Planning extraction…" },
+  { pct: 22, message: "Extracting entities and connections…" },
+  { pct: 36, message: "Extracting entities and connections…" },
+  { pct: 50, message: "Building detailed notes for primary subject…" },
+  { pct: 62, message: "Building detailed notes for primary subject…" },
+  { pct: 72, message: "Mapping relationships between entities…" },
+  { pct: 80, message: "Generating context summaries…" },
+  { pct: 88, message: "Rebuilding graph cache…" },
+  { pct: 94, message: "Finalising…" },
+];
+
+/**
+ * Start a simulated progress ticker while a real async operation is in flight.
+ * Returns a cancel function — call it when the operation finishes.
+ * setProgress is called with { message, pct } on each step advance.
+ */
+function startProgressTicker(setProgress, steps, msPerStep = 2800) {
+  let idx = 0;
+  setProgress(steps[0]);
+  const t = setInterval(() => {
+    idx = Math.min(idx + 1, steps.length - 1);
+    setProgress(steps[idx]);
+    if (idx === steps.length - 1) clearInterval(t);
+  }, msPerStep);
+  return () => clearInterval(t);
+}
+
 // Read all top-level file entries from a dropped directory via the File System API
 async function readDirEntries(dirEntry) {
   return new Promise((resolve) => {
@@ -85,6 +118,7 @@ export default function StoryGraph() {
   const [dragOver, setDragOver] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [extractFlavorIdx, setExtractFlavorIdx] = useState(0);
+  const [extractProgress, setExtractProgress] = useState(null); // { message, pct, chunk, totalChunks } | null
   const [extractResult, setExtractResult] = useState(null);
   const [extractError, setExtractError] = useState(null);
   const [uploadFiles, setUploadFiles] = useState([]);    // bulk: multiple files from a folder
@@ -262,7 +296,14 @@ export default function StoryGraph() {
     if (!fg || graphData.nodes.length === 0) return;
     // distanceMax of 300 lets islands repel each other enough to stay stable,
     // without pushing them so far apart they can't be seen together.
-    fg.d3Force("charge").strength((node) => -(nodeRadius(node) ** 1.8) * 2).distanceMax(200);
+    fg.d3Force("charge").strength((node) => -(nodeRadius(node) ** 1.8) * 3.5).distanceMax(400);
+    fg.d3Force("link").distance((link) => {
+      const src = link.source;
+      const tgt = link.target;
+      const srcR = nodeRadius(typeof src === "object" ? src : { id: src });
+      const tgtR = nodeRadius(typeof tgt === "object" ? tgt : { id: tgt });
+      return 80 + srcR + tgtR;
+    });
     fg.d3ReheatSimulation();
   }, [graphData, nodeRadius]);
 
@@ -286,6 +327,7 @@ export default function StoryGraph() {
     setExtractResult(null);
     setExtractError(null);
     setExtracting(false);
+    setExtractProgress(null);
   };
 
   const handleFileSelect = (file) => {
@@ -310,7 +352,9 @@ export default function StoryGraph() {
     setExtracting(true);
     setExtractError(null);
     setExtractResult(null);
+    setExtractProgress(null);
 
+    const cancelTicker = startProgressTicker(setExtractProgress, EXTRACT_STEPS);
     try {
       const body = await buildFileBody(uploadFile);
 
@@ -328,7 +372,9 @@ export default function StoryGraph() {
     } catch (err) {
       setExtractError(err.message);
     } finally {
+      cancelTicker();
       setExtracting(false);
+      setExtractProgress(null);
     }
   };
 
@@ -353,6 +399,7 @@ export default function StoryGraph() {
     setExtracting(true);
     setExtractError(null);
     setExtractResult(null);
+    setExtractProgress(null);
 
     const results = [];
     const errors = [];
@@ -360,6 +407,10 @@ export default function StoryGraph() {
     for (let i = 0; i < uploadFiles.length; i++) {
       const file = uploadFiles[i];
       setBulkProgress({ current: i + 1, total: uploadFiles.length, currentName: file.name });
+      const cancelTicker = startProgressTicker(
+        setExtractProgress,
+        EXTRACT_STEPS.map((s) => ({ ...s, message: `[${i + 1}/${uploadFiles.length}] ${s.message}` })),
+      );
       try {
         const body = await buildFileBody(file);
         const res = await fetch("/api/story-derive", {
@@ -372,11 +423,14 @@ export default function StoryGraph() {
         results.push({ file: file.name, ...data });
       } catch (err) {
         errors.push({ file: file.name, error: err.message });
+      } finally {
+        cancelTicker();
       }
     }
 
     setExtracting(false);
     setBulkProgress(null);
+    setExtractProgress(null);
     loadGraph();
     setExtractResult({ mode: "bulk", submode: "derive", results, errors, totalFiles: uploadFiles.length });
   };
@@ -386,6 +440,7 @@ export default function StoryGraph() {
     setExtracting(true);
     setExtractError(null);
     setExtractResult(null);
+    setExtractProgress(null);
 
     const results = [];
     const errors = [];
@@ -393,26 +448,41 @@ export default function StoryGraph() {
     for (let i = 0; i < uploadFiles.length; i++) {
       const file = uploadFiles[i];
       setBulkProgress({ current: i + 1, total: uploadFiles.length, currentName: file.name });
+      const cancelTicker = startProgressTicker(
+        setExtractProgress,
+        EXTRACT_STEPS.map((s) => ({ ...s, message: `[${i + 1}/${uploadFiles.length}] ${s.message}` })),
+      );
       try {
         const body = await buildFileBody(file);
         const bodyWithFilename = file.name.endsWith(".docx")
           ? { ...body, filename: file.name }
           : { ...body, filename: file.name.replace(/\.txt$/i, ".md") };
+        // Derive an implicit title from the filename (same logic as single-file upload).
+        // Without this, the AI may not create a node for the document's primary subject
+        // when the whole file is about one entity (e.g. the_tide_compact.md → "The Tide Compact").
+        const impliedTitle = file.name
+          .replace(/\.(md|txt|docx)$/i, "")
+          .replace(/[-_]+/g, " ")
+          .trim()
+          .replace(/\b\w/g, (c) => c.toUpperCase());
         const res = await fetch("/api/story-extract", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...bodyWithFilename, workspace, folderName: uploadFolderName.trim() || undefined }),
+          body: JSON.stringify({ ...bodyWithFilename, workspace, folderName: uploadFolderName.trim() || undefined, title: impliedTitle }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
         results.push({ file: file.name, ...data });
       } catch (err) {
         errors.push({ file: file.name, error: err.message });
+      } finally {
+        cancelTicker();
       }
     }
 
     setExtracting(false);
     setBulkProgress(null);
+    setExtractProgress(null);
     loadGraph();
     setExtractResult({ mode: "bulk", submode: "note", results, errors, totalFiles: uploadFiles.length });
   };
@@ -421,7 +491,9 @@ export default function StoryGraph() {
     setExtracting(true);
     setExtractError(null);
     setExtractResult(null);
+    setExtractProgress(null);
 
+    const cancelTicker = startProgressTicker(setExtractProgress, EXTRACT_STEPS);
     try {
       const body = {
         ...(await buildFileBody(uploadFile)),
@@ -438,12 +510,13 @@ export default function StoryGraph() {
       if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
 
       setExtractResult(data);
-      // Refresh the graph with newly extracted nodes
       loadGraph();
     } catch (err) {
       setExtractError(err.message);
     } finally {
+      cancelTicker();
       setExtracting(false);
+      setExtractProgress(null);
     }
   };
 
@@ -456,10 +529,10 @@ export default function StoryGraph() {
     if (!api?.openFileByName) return;
     const stemHyphen = node.id.replace(/_/g, "-");
     const stemUnder  = node.id;
-    const fileSet    = new Set(storyFiles.map((f) => f.filename));
-    const basenameToFull = new Map(storyFiles.map((f) => [f.filename.split("/").pop(), f.filename]));
+    const fileSet    = new Set(storyFiles.map((f) => f.filename.toLowerCase()));
+    const basenameToFull = new Map(storyFiles.map((f) => [f.filename.split("/").pop().toLowerCase(), f.filename]));
     const gNode = graphData.nodes.find((n) => n.id === node.id);
-    const addl = (gNode?.additionalSourceFiles || []).find((sf) => fileSet.has(sf));
+    const addl = (gNode?.additionalSourceFiles || []).find((sf) => fileSet.has((sf || "").toLowerCase()));
     const filename =
       addl ??
       basenameToFull.get(stemHyphen + ".md") ??
@@ -903,10 +976,10 @@ export default function StoryGraph() {
     // Slow path: fetch from API (cache not yet rebuilt)
     const stemHyphen = selectedNode.id.replace(/_/g, "-");
     const stemUnder  = selectedNode.id;
-    const fileSet    = new Set(storyFiles.map((f) => f.filename));
-    const basenameToFull = new Map(storyFiles.map((f) => [f.filename.split("/").pop(), f.filename]));
+    const fileSet    = new Set(storyFiles.map((f) => f.filename.toLowerCase()));
+    const basenameToFull = new Map(storyFiles.map((f) => [f.filename.split("/").pop().toLowerCase(), f.filename]));
     const gNode = graphData.nodes.find((n) => n.id === selectedNode.id);
-    const addl = (gNode?.additionalSourceFiles || []).find((sf) => fileSet.has(sf));
+    const addl = (gNode?.additionalSourceFiles || []).find((sf) => fileSet.has((sf || "").toLowerCase()));
     const filename =
       addl ??
       basenameToFull.get(stemHyphen + ".md") ??
@@ -2135,29 +2208,49 @@ export default function StoryGraph() {
                 </div>
               ) : extracting ? (
                 /* Extracting state */
-                <div className="flex flex-col items-center gap-4 py-6">
+                <div className="flex flex-col items-center gap-5 py-6 px-2">
+                  {/* Animated spinner */}
                   <div
-                    className="w-9 h-9 rounded-full border-2 animate-spin"
+                    className="w-9 h-9 rounded-full border-2 animate-spin flex-shrink-0"
                     style={{ borderColor: "#60a5fa", borderTopColor: "transparent" }}
                   />
-                  {bulkProgress ? (
-                    <>
-                      <p className="text-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
-                        Processing file {bulkProgress.current} of {bulkProgress.total}
-                      </p>
-                      <p className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.3)" }}>
-                        {bulkProgress.currentName}
-                      </p>
-                    </>
-                  ) : (
-                    <p
-                      key={extractFlavorIdx}
-                      className="text-sm"
-                      style={{ color: "rgba(255,255,255,0.45)", animation: "fadeIn 0.4s ease" }}
-                    >
-                      {EXTRACT_FLAVOR[extractFlavorIdx]}
+
+                  {bulkProgress && (
+                    <p className="text-xs font-mono text-center" style={{ color: "rgba(255,255,255,0.3)" }}>
+                      File {bulkProgress.current} of {bulkProgress.total} — {bulkProgress.currentName}
                     </p>
                   )}
+
+                  {/* Step message */}
+                  <p className="text-sm text-center" style={{ color: "rgba(255,255,255,0.6)" }}>
+                    {extractProgress?.message ?? EXTRACT_FLAVOR[extractFlavorIdx]}
+                  </p>
+
+                  {/* Progress bar */}
+                  {extractProgress && (
+                    <div className="w-full flex flex-col gap-1.5">
+                      <div className="w-full rounded-full overflow-hidden" style={{ height: 6, backgroundColor: "rgba(255,255,255,0.08)" }}>
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${extractProgress.pct}%`,
+                            backgroundColor: extractProgress.pct === 100 ? "#34d399" : "#60a5fa",
+                          }}
+                        />
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
+                          {extractProgress.totalChunks > 1
+                            ? `Section ${extractProgress.chunk ?? "…"} of ${extractProgress.totalChunks}`
+                            : ""}
+                        </span>
+                        <span className="text-xs tabular-nums" style={{ color: "rgba(255,255,255,0.25)" }}>
+                          {extractProgress.pct}%
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <style>{`@keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }`}</style>
                 </div>
               ) : (

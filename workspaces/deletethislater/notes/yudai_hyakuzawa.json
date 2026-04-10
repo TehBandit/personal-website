@@ -1,0 +1,19 @@
+{
+  "id": "yudai_hyakuzawa",
+  "name": "Yūdai Hyakuzawa",
+  "type": "character",
+  "excerpt": "Hyakuzawa is a 2m tall player from Kakugawa.",
+  "notes": "Hyakuzawa is noted for his height, towering over Hinata.\nHe blocks Hinata's spike during the match against Karasuno.\nHyakuzawa's height presents a challenge for Karasuno, leading them to use a soft block strategy.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "shoyo_hinata",
+      "label": "opponent"
+    },
+    {
+      "target": "karasuno_high",
+      "label": "opponent team"
+    }
+  ],
+  "sourceFile": "hinata_wiki/yudai_hyakuzawa.md"
+}

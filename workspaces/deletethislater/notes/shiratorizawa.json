@@ -1,0 +1,23 @@
+{
+  "id": "shiratorizawa",
+  "name": "Shiratorizawa",
+  "type": "faction",
+  "excerpt": "Shiratorizawa is a strong volleyball team that won against Aoba Johsai.",
+  "notes": "Shiratorizawa is mentioned as the overall winner against Aoba Johsai.\nHinata and Kageyama are shocked by Shiratorizawa's victory.\nUshijima is a prominent player from Shiratorizawa.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "aoba_johsai_3",
+      "label": "defeated them"
+    },
+    {
+      "target": "shoyo_hinata",
+      "label": "opponent"
+    },
+    {
+      "target": "ushijima_2",
+      "label": "team member"
+    }
+  ],
+  "sourceFile": "hinata_wiki/shiratorizawa.md"
+}

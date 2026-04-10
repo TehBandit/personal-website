@@ -1,0 +1,21 @@
+{
+  "id": "actual_costs",
+  "name": "Actual Costs",
+  "type": "concept",
+  "excerpt": "Actual Costs are the total costs that were actually incurred.",
+  "connections": [
+    {
+      "target": "earned_value_management",
+      "label": "component of"
+    },
+    {
+      "target": "bit_4484_notes_8_9_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "- Actual Costs (AC) represent the total costs that were actually incurred.",
+  "aliases": [],
+  "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1775793192313,
+  "updatedAt": 1775793192313
+}

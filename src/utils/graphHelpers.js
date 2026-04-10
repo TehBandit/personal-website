@@ -16,17 +16,20 @@
  * @returns {Set<string>} set of node IDs that have an owned file
  */
 export function computeOwnFileIds(nodes, files) {
-  const basenames = new Set(files.map((f) => f.filename.split("/").pop()));
-  const fileSet   = new Set(files.map((f) => f.filename));
+  // Use lowercase keys throughout so mixed-case filenames (e.g. BIT_4484_Notes.md)
+  // match lowercase node IDs (e.g. bit_4484_notes).
+  const basenames = new Set(files.map((f) => f.filename.split("/").pop().toLowerCase()));
+  const fileSet   = new Set(files.map((f) => f.filename.toLowerCase()));
   const ids       = new Set();
 
   for (const node of nodes) {
     // 1. Merged nodes: one or more constituent files still exist in the workspace.
-    if ((node.additionalSourceFiles || []).some((sf) => fileSet.has(sf))) {
+    if ((node.additionalSourceFiles || []).some((sf) => fileSet.has((sf || "").toLowerCase()))) {
       ids.add(node.id);
       continue;
     }
     // 2. Stem basename match in both hyphen and underscore forms.
+    // node.id is always lowercase so no extra .toLowerCase() needed on the stems.
     const stemHyphen = node.id.replace(/_/g, "-");
     const stemUnder  = node.id;
     if (

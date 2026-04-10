@@ -1,0 +1,3 @@
+KUROO — character notes
+
+Kuroo is a significant figure in Kenma's life, being his first and only friend from childhood. He introduced Kenma to volleyball and has been a constant source of encouragement and support. Kuroo is depicted as a confident and strategic player, often defending Kenma against criticism and highlighting his strengths. Their friendship is characterized by mutual respect and a shared history of playing video games and volleyball together.

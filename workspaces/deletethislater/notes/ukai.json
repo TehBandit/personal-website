@@ -1,0 +1,51 @@
+{
+  "id": "ukai",
+  "name": "Ukai",
+  "type": "character",
+  "excerpt": "Ukai is the coach of Karasuno's volleyball team.",
+  "notes": "Ukai is admired by Kageyama, who joined Karasuno because of him.\nHe sets up a practice match against the Neighborhood Association Team.\nUkai pulls Asahi into the practice match to face off against Hinata and Kageyama.\nHe advises Kageyama and Hinata during the practice match against Nekoma.\nUkai encourages the team to eat well and recover after matches.\nHe makes strategic decisions, such as switching players during games.\nUkai holds a meeting in the gym and informs Karasuno about their loss to Aoba Johsai and Shiratorizawa's victory.\nHe is present during discussions about Karasuno's plans and training.\nUkai initially agrees with Kageyama's viewpoint on Hinata's quick strike.\nHe changes his mind after seeing Hinata's determination and supports his idea.\nUkai arranges for a practice match between Hinata and Kageyama's teams.\nHe takes Hinata to the original Coach Ikkei Ukai for further training.\nUkai is affected by Ikkei's words about the spiker's role in a quick strike.\nHe continues to support Hinata and Kageyama's development.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "shoyo_hinata",
+      "label": "coach"
+    },
+    {
+      "target": "tobio_kageyama",
+      "label": "coach"
+    },
+    {
+      "target": "karasuno_high",
+      "label": "volleyball coach"
+    },
+    {
+      "target": "ryunosuke_tanaka",
+      "label": "coach"
+    },
+    {
+      "target": "daichi_sawamura",
+      "label": "coach"
+    },
+    {
+      "target": "sugawara",
+      "label": "coach"
+    },
+    {
+      "target": "tsukishima",
+      "label": "coach"
+    },
+    {
+      "target": "nishinoya",
+      "label": "coach"
+    },
+    {
+      "target": "asahi",
+      "label": "coach"
+    },
+    {
+      "target": "ikkei_ukai",
+      "label": "relative and mentor"
+    }
+  ],
+  "sourceFile": "hinata_wiki/ukai.md"
+}

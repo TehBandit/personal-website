@@ -1,0 +1,37 @@
+{
+  "id": "the_inkhand",
+  "name": "The Inkhand",
+  "type": "character",
+  "excerpt": "The Inkhand is a mysterious broker of the Tide Compact.",
+  "notes": "- The Inkhand is the third founding member of the Tide Compact.\n- The Inkhand's identity is unknown.\n- The Inkhand communicates through written notes in reddish ink.\n- The Inkhand's notes are unsigned except for a hand mark in the same ink.\n- The handwriting is precise and unhurried, suggesting formal scribal training.\n- The Inkhand has access to Admiralty survey data and Deepwater Guild records.\n- Speculation exists that the Inkhand is an archivist or scribe.\n- Rella Corse describes the Inkhand arrangement as functional.\n- Dovan Strake avoids discussing the Inkhand.\n- Maren Ashveil is mentioned in connection with the Inkhand by an unreliable source.\n- The Inkhand has not been identified by anyone who confirmed the identification.\n- The Inkhand might be more than one person or a fictional entity.\n- The Inkhand might be someone known in the harbor district without recognition.\n\n- The Inkhand is a founding member of the Tide Compact.\n- The role within the Compact is unclear, with some suggesting a connection to someone inside the Deepwater Guild.\n- Speculated to be a scribe or archivist with access to restricted records.\n- Some believe the Inkhand might be a fictional entity created to suggest the Compact has more reach.",
+  "connections": [
+    {
+      "target": "deepwater_guild",
+      "label": "accessed internal record"
+    },
+    {
+      "target": "rella_corse",
+      "label": "functional arrangement with"
+    },
+    {
+      "target": "dovan_strake",
+      "label": "subject of inquiry"
+    }
+  ],
+  "aliases": [],
+  "sourceFile": "bulk_test/the_inkhand.md",
+  "createdAt": 1775756534103,
+  "updatedAt": 1775756560869,
+  "context_summary": [
+    "- The Inkhand is a founding member of the Tide Compact.",
+    "- The Inkhand's identity is unknown.",
+    "- The Inkhand communicates through written notes in reddish ink.",
+    "- The notes are unsigned except for a hand mark.",
+    "- The handwriting suggests formal scribal training.",
+    "- The Inkhand has access to Admiralty survey data.",
+    "- Speculation exists that the Inkhand is an archivist or scribe.",
+    "- Rella Corse describes the Inkhand arrangement as functional.",
+    "- Dovan Strake avoids discussing the Inkhand.",
+    "- The Inkhand might be more than one person or a fictional entity."
+  ]
+}

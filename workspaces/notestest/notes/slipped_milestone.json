@@ -1,0 +1,21 @@
+{
+  "id": "slipped_milestone",
+  "name": "Slipped Milestone",
+  "type": "concept",
+  "excerpt": "A Slipped Milestone is a milestone reached later than expected.",
+  "connections": [
+    {
+      "target": "project_schedule_management",
+      "label": "related to"
+    },
+    {
+      "target": "bit_4484_notes_8_9_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "- A Slipped Milestone occurs when a milestone is reached later than expected.",
+  "aliases": [],
+  "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1775793192321,
+  "updatedAt": 1775793192321
+}

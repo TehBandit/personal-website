@@ -71,7 +71,7 @@ function NodeMinimap({ nodeId, graphData, files, onOpen, nodeTransparent = false
 
   // Build a filename lookup so clicks can navigate
   const fileBasenameMap = useMemo(
-    () => new Map(files.map((f) => [f.filename.split("/").pop(), f.filename])),
+    () => new Map(files.map((f) => [f.filename.split("/").pop().toLowerCase(), f.filename])),
     [files]
   );
 
@@ -95,8 +95,9 @@ function NodeMinimap({ nodeId, graphData, files, onOpen, nodeTransparent = false
       const last = lastMinimapClickRef.current;
       if (last.id === node.id && now - last.time < 350) {
         lastMinimapClickRef.current = { id: null, time: 0 };
-        // Prefer the node's declared sourceFile; fall back to stem-basename matching
-        if (node.sourceFile) { onOpen(node.sourceFile); return; }
+        // Use stem-basename matching — do NOT use node.sourceFile because that
+        // is a provenance field (which bulk file it was extracted from) and may
+        // point to a different entity's file.
         const stemHyphen = node.id.replace(/_/g, "-");
         const stemUnder = node.id;
         const fullPath =
@@ -273,6 +274,23 @@ function buildEntityLinksExtension(dataRef) {
 // ── Inline autocomplete dropdown extension ───────────────────────────────────
 const autocompleteKey = new PluginKey("autocomplete");
 const MIN_AUTOCOMPLETE_PREFIX = 2; // chars typed before suggestions appear
+const INDENT_TEXT = "\u00A0\u00A0\u00A0\u00A0";
+
+function insertIndentText(editor) {
+  if (!editor?.view) return false;
+  const { state, view } = editor;
+  view.dispatch(state.tr.insertText(INDENT_TEXT, state.selection.from, state.selection.to));
+  return true;
+}
+
+function getOutdentRange(state) {
+  const { from, $from } = state.selection;
+  const lineStart = from - $from.parentOffset;
+  const lineTextBeforeCursor = state.doc.textBetween(lineStart, from, "\n", "\0");
+  const leadingIndent = lineTextBeforeCursor.match(/^(?:\u00A0{1,4}| {1,4}|\t)/);
+  if (!leadingIndent) return null;
+  return { from: lineStart, to: lineStart + leadingIndent[0].length };
+}
 
 /**
  * Find all completions for the text immediately before the cursor.
@@ -328,8 +346,10 @@ function buildAutocompleteExtension(dataRef) {
         return true;
       };
 
+      const insertIndent = (editor) => insertIndentText(editor);
+
       return {
-        Tab: ({ editor }) => accept(editor),
+        Tab: ({ editor }) => accept(editor) || insertIndent(editor),
         // Dismiss on Enter (without consuming — let StarterKit insert a newline)
         Enter: () => {
           const data = dataRef.current;
@@ -824,6 +844,33 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
         class: "notes-editor prose prose-invert focus:outline-none max-w-none",
         spellcheck: "true",
       },
+      handleKeyDown(view, event) {
+        if (event.key !== "Tab") return false;
+        event.preventDefault();
+
+        const data = entityDataRef.current;
+        if (!event.shiftKey && data?.acItems?.length) {
+          const item = data.acItems[data.acSelectedIndex ?? 0];
+          if (item) {
+            const { state, dispatch } = view;
+            dispatch(state.tr.insertText(item.completion, state.selection.from, state.selection.to));
+          }
+          data.acItems = null;
+          data.acSelectedIndex = 0;
+          data.setAcDropdown?.(null);
+          return true;
+        }
+
+        const { state, dispatch } = view;
+        if (event.shiftKey) {
+          const range = getOutdentRange(state);
+          if (range) dispatch(state.tr.delete(range.from, range.to));
+          return true;
+        }
+
+        dispatch(state.tr.insertText(INDENT_TEXT, state.selection.from, state.selection.to));
+        return true;
+      },
     },
     onUpdate: () => {
       // Suppress saves that fire during programmatic content loads.
@@ -837,6 +884,20 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
       saveTimerRef.current = setTimeout(() => saveFileRef.current?.(), 1500);
     },
   });
+
+  const indentSelection = useCallback(() => {
+    if (!editor) return;
+    if (editor.isActive("listItem") && editor.chain().focus().sinkListItem("listItem").run()) return;
+    editor.commands.focus();
+    insertIndentText(editor);
+  }, [editor]);
+
+  const outdentSelection = useCallback(() => {
+    if (!editor) return;
+    if (editor.isActive("listItem") && editor.chain().focus().liftListItem("listItem").run()) return;
+    const range = getOutdentRange(editor.state);
+    if (range) editor.chain().focus().deleteRange(range).run();
+  }, [editor]);
 
   // ── Load file list ───────────────────────────────────────────────────────────
   const loadFiles = useCallback(() => {
@@ -1166,8 +1227,8 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
   const mentionableEntities = useMemo(() => {
     if (!graphData.nodes.length || !files.length) return [];
     // Build basename → full relative path map (e.g. "maren-ashveil.md" → "notes-raw/maren-ashveil.md")
-    const fileBasenameMap = new Map(files.map((f) => [f.filename.split("/").pop(), f.filename]));
-    const fileSet = new Set(files.map((f) => f.filename));
+    const fileBasenameMap = new Map(files.map((f) => [f.filename.split("/").pop().toLowerCase(), f.filename]));
+    const fileSet = new Set(files.map((f) => f.filename.toLowerCase()));
     // Derive the node ID for the currently open file so we can exclude all supplemental copies
     // of the same node (not just the exact filename). Prefer openNode.id (handles merged copies
     // whose filename doesn't match the canonical node ID).
@@ -1196,21 +1257,22 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
       if (node.id === openFileNodeId) continue; // skip self AND all supplemental files for the same node
       // Skip grey nodes — they have no dedicated file so they shouldn't appear in References
       if (!ownFileIds.has(node.id)) continue;
-      // Also skip nodes whose sourceFile is the currently open file (handles cases where the
-      // node ID stem doesn't match the filename, e.g. chief_surveyor_vane → cartographic_division.md)
-      if (node.sourceFile && openFile && node.sourceFile === openFile.filename) continue;
-      // Resolve the primary file path: prefer node.sourceFile, then fall back to stem-based lookup.
+      // Resolve the primary file path via stem-based lookup only.
+      // Do NOT use node.sourceFile — that is provenance (which bulk file the node was
+      // extracted from) and may point to a completely different entity's file.
       const stem = node.id.replace(/_/g, "-");
-      const bySourceFile = node.sourceFile ? files.find((f) => f.filename === node.sourceFile) : null;
-      const byStem = fileBasenameMap.get(stem + ".md") ?? fileBasenameMap.get(stem + ".txt");
-      const primaryPath = bySourceFile?.filename ?? byStem;
+      const primaryPath =
+        fileBasenameMap.get(stem + ".md") ??
+        fileBasenameMap.get(stem + ".txt") ??
+        fileBasenameMap.get(node.id + ".md") ??
+        fileBasenameMap.get(node.id + ".txt");
       if (!primaryPath) continue;
 
       // Collect ALL files that belong to this node: primary + additionalSourceFiles that exist.
       // Used to route aliases to the most contextually appropriate file.
       const allNodeFiles = [primaryPath];
       for (const sf of (node.additionalSourceFiles || [])) {
-        if (sf !== primaryPath && fileSet.has(sf)) allNodeFiles.push(sf);
+        if (sf !== primaryPath && fileSet.has((sf || "").toLowerCase())) allNodeFiles.push(sf);
       }
 
       const cfg = NODE_TYPE_CONFIG[node.type] || nodeTypeFallback;
@@ -1237,8 +1299,13 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
     return result.sort((a, b) => b.name.length - a.name.length);
   }, [graphData.nodes, files, openFile, openNode, disallowedAliases, ownFileIds]);
 
-  // Keep decoration ref in sync — no transaction dispatch needed; ProseMirror
-  // reruns decorations() on every state update so the ref is always current.
+  // Keep decoration ref in sync and force the decorator to rerun.
+  // IMPORTANT: we must dispatch a ProseMirror transaction AFTER updating the
+  // ref, because the decorator reads dataRef.current.currentFilename
+  // synchronously during every transaction. TipTap loads new file content via
+  // a transaction that fires BEFORE useEffect runs, so without the dispatch
+  // below the decorator sees the previous file's name and wrongly
+  // suppresses / shows self-links.
   useEffect(() => {
     entityDataRef.current.entities = mentionableEntities;
     entityDataRef.current.onOpen = openFileByName;
@@ -1267,7 +1334,14 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
     const candidates = [...mentionableEntities];
     entityDataRef.current.candidates = candidates;
     entityDataRef.current.setAcDropdown = setAcDropdown;
-  }, [mentionableEntities, openFileByName, openFile, graphData.nodes, setAcDropdown]);
+
+    // Dispatch an empty transaction so ProseMirror reruns decorations() now
+    // that the ref values are fresh. Without this the decorator can run with
+    // a stale currentFilename (see comment above).
+    if (editor?.view) {
+      editor.view.dispatch(editor.view.state.tr);
+    }
+  }, [mentionableEntities, openFileByName, openFile, graphData.nodes, setAcDropdown, editor]);
 
   // ── Bibliography: nodes mentioned in the open file's prose ──────────────────
   const bibliography = useMemo(() => {
@@ -1314,7 +1388,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
   // tea_stained_polaroids/akaashi.md) both get mapped, rather than one overwriting the other.
   const filenameToNodeId = useMemo(() => {
     const map = new Map();
-    const fileSet = new Set(files.map((f) => f.filename));
+    const fileSet = new Set(files.map((f) => f.filename.toLowerCase()));
 
     // Pass 1: additionalSourceFiles for merged nodes (genuine ownership — the user
     // explicitly merged these files into one node). We deliberately exclude node.sourceFile
@@ -1322,15 +1396,17 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
     // same sourceFile) not an ownership field. Stem-based ownership is handled by Pass 2.
     for (const node of graphData.nodes) {
       for (const sf of (node.additionalSourceFiles || [])) {
-        if (fileSet.has(sf)) map.set(sf, node.id);
+        if (fileSet.has((sf || "").toLowerCase())) map.set(sf, node.id);
       }
     }
 
     // Pass 2: stem matching for any files not yet mapped — iterate files so every file
     // gets a chance regardless of whether another file shares the same basename.
+    // Lowercase the stem so mixed-case filenames (e.g. BIT_4484_Notes.md) match
+    // lowercase node IDs (e.g. bit_4484_notes).
     for (const { filename } of files) {
       if (map.has(filename)) continue;
-      const stem = filename.split("/").pop().replace(/\.(md|txt)$/i, "");
+      const stem = filename.split("/").pop().replace(/\.(md|txt)$/i, "").toLowerCase();
       const stemUnder = stem.replace(/-/g, "_");
       const node = graphData.nodes.find((n) => n.id === stemUnder || n.id === stem);
       if (node) map.set(filename, node.id);
@@ -1744,6 +1820,12 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
           </ToolbarBtn>
           <ToolbarBtn title="Numbered list" disabled={!canEdit} active={editor?.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
             <ListOrdered size={14} />
+          </ToolbarBtn>
+          <ToolbarBtn title="Outdent (Shift+Tab)" disabled={!canEdit} onClick={outdentSelection}>
+            <span className="text-[12px] font-semibold leading-none">⇤</span>
+          </ToolbarBtn>
+          <ToolbarBtn title="Indent (Tab)" disabled={!canEdit} onClick={indentSelection}>
+            <span className="text-[12px] font-semibold leading-none">⇥</span>
           </ToolbarBtn>
           <ToolbarBtn title="Blockquote" disabled={!canEdit} active={editor?.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
             <Quote size={14} />

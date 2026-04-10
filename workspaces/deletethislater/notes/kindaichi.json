@@ -1,0 +1,19 @@
+{
+  "id": "kindaichi",
+  "name": "Kindaichi",
+  "type": "character",
+  "excerpt": "Kindaichi is a former junior high acquaintance of Hinata and Kageyama.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "shoyo_hinata",
+      "label": "junior high acquaintance"
+    },
+    {
+      "target": "tobio_kageyama",
+      "label": "junior high acquaintance"
+    }
+  ],
+  "sourceFile": ""
+}

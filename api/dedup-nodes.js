@@ -3,7 +3,7 @@
  * ──────────────
  * Fuzzy deduplication of extracted story nodes against existing graph nodes.
  *
- * Strategy (in order, first match wins):
+ * Strategy (in order, best match wins):
  *  1. Exact ID match (already handled upstream, but safety net)
  *  2. Exact normalised name match   ("Elara Voss" == "elara voss")
  *  3. One name is a strict substring of the other's words
@@ -11,7 +11,8 @@
  *  4. Token-sort ratio >= threshold  (handles reordered names)
  *  5. Initials / abbreviation match  ("E. Voss" == "Elara Voss")
  *
- * Returns the canonical existing node if a match is found, else null.
+ * If multiple existing nodes match, prefer the richer / more canonical one
+ * (e.g. a coloured node with a source file over a sparse grey duplicate).
  */
 
 function normalize(str) {
@@ -59,44 +60,78 @@ export function findDuplicate(candidateName, candidateId, existingNodes, thresho
   const sortedCandidate = tokenSort(candidateName);
   const wordsCandidate = new Set(normCandidate.split(" "));
 
+  const rankExisting = (existing) => {
+    let score = 0;
+    if (existing.sourceFile) score += 100;
+    if (Array.isArray(existing.additionalSourceFiles)) score += Math.min(existing.additionalSourceFiles.length * 8, 24);
+    if (Array.isArray(existing.connections)) score += Math.min(existing.connections.length, 20);
+    if (typeof existing.notes === "string") score += Math.min(Math.floor(existing.notes.length / 200), 20);
+    if (Array.isArray(existing.aliases)) score += Math.min(existing.aliases.length, 10);
+    if (!/_\d+$/.test(existing.id || "")) score += 5;
+    return score;
+  };
+
+  let bestMatch = null;
+  let bestScore = -1;
+  const consider = (existing) => {
+    const score = rankExisting(existing);
+    if (score > bestScore) {
+      bestMatch = existing;
+      bestScore = score;
+    }
+  };
+
   for (const existing of existingNodes) {
     // 1. Exact id match
     if (existing.id === candidateId) return existing;
 
-    const normExisting = normalize(existing.name);
-    const sortedExisting = tokenSort(existing.name);
-    const wordsExisting = new Set(normExisting.split(" "));
+    // Compare against the canonical name AND any explicit aliases.
+    const candidateNames = [existing.name, ...(existing.aliases || [])].filter(Boolean);
+    for (const existingName of candidateNames) {
+      const normExisting = normalize(existingName);
+      if (!normExisting) continue;
+      const sortedExisting = tokenSort(existingName);
+      const wordsExisting = new Set(normExisting.split(" "));
 
-    // 2. Exact normalised name
-    if (normCandidate === normExisting) return existing;
+      // 2. Exact normalised name
+      if (normCandidate === normExisting) {
+        consider(existing);
+        continue;
+      }
 
-    // 3. Subset match — every word of the shorter name appears in the longer
-    //    "Elara" vs "Elara Voss": words(Elara) ⊆ words(Elara Voss)
-    const smaller = wordsCandidate.size <= wordsExisting.size ? wordsCandidate : wordsExisting;
-    const larger  = wordsCandidate.size <= wordsExisting.size ? wordsExisting  : wordsCandidate;
-    if (smaller.size >= 1 && [...smaller].every((w) => larger.has(w))) return existing;
+      // 3. Subset match — every word of the shorter name appears in the longer
+      const smaller = wordsCandidate.size <= wordsExisting.size ? wordsCandidate : wordsExisting;
+      const larger  = wordsCandidate.size <= wordsExisting.size ? wordsExisting  : wordsCandidate;
+      if (smaller.size >= 1 && [...smaller].every((w) => larger.has(w))) {
+        consider(existing);
+        continue;
+      }
 
-    // 4. Token-sort dice — catches reordered multi-word names
-    if (diceCoeff(sortedCandidate, sortedExisting) >= threshold) return existing;
+      // 4. Token-sort dice — catches reordered multi-word names
+      if (diceCoeff(sortedCandidate, sortedExisting) >= threshold) {
+        consider(existing);
+        continue;
+      }
 
-    // 5. Initials / abbreviation  "E. Voss" → first letters match "Elara Voss"
-    const initials = normExisting
-      .split(" ")
-      .map((w) => w[0])
-      .join("");
-    const candidateInitials = normCandidate
-      .split(" ")
-      .map((w) => w[0])
-      .join("");
-    if (
-      normCandidate.replace(/\./g, "") === initials ||
-      candidateInitials === normExisting.replace(/\./g, "")
-    ) {
-      return existing;
+      // 5. Initials / abbreviation  "E. Voss" → first letters match "Elara Voss"
+      const initials = normExisting
+        .split(" ")
+        .map((w) => w[0])
+        .join("");
+      const candidateInitials = normCandidate
+        .split(" ")
+        .map((w) => w[0])
+        .join("");
+      if (
+        normCandidate.replace(/\./g, "") === initials ||
+        candidateInitials === normExisting.replace(/\./g, "")
+      ) {
+        consider(existing);
+      }
     }
   }
 
-  return null;
+  return bestMatch;
 }
 
 /**

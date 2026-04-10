@@ -1,0 +1,18 @@
+{
+  "id": "challenger_failure",
+  "name": "Challenger Failure",
+  "type": "concept",
+  "excerpt": "The Challenger failure was due to an O-Ring issue and communication breakdown.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_8_9_2020",
+      "label": "mentioned in"
+    }
+  ],
+  "notes": "The Challenger disaster was caused by a failure with the O-Ring. There was a communication breakdown where people at lower levels could not communicate effectively with top levels.",
+  "aliases": [],
+  "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1775794259810,
+  "updatedAt": 1775794259810,
+  "context_summary": "- The Challenger failure was due to an O-Ring issue.\n- There was a communication breakdown.\n- Lower-level personnel could not communicate effectively with top levels."
+}

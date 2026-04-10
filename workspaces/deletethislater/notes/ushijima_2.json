@@ -1,0 +1,27 @@
+{
+  "id": "ushijima_2",
+  "name": "Ushijima",
+  "type": "character",
+  "excerpt": "Ushijima is a prominent player from Shiratorizawa.",
+  "notes": "Ushijima is mentioned as a strong player from Shiratorizawa.\nHe encounters Hinata and Kageyama near Shiratorizawa and allows them to watch a practice.\nUshijima is noted for his strength and presence on the court.\nHe comments on Oikawa's abilities and the strength of his own team.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "shiratorizawa",
+      "label": "team member"
+    },
+    {
+      "target": "shoyo_hinata",
+      "label": "opponent"
+    },
+    {
+      "target": "tobio_kageyama",
+      "label": "opponent"
+    },
+    {
+      "target": "oikawa",
+      "label": "commented on"
+    }
+  ],
+  "sourceFile": "hinata_wiki/ushijima_2.md"
+}

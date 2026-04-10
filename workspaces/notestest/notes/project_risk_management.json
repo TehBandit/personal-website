@@ -1,0 +1,25 @@
+{
+  "id": "project_risk_management",
+  "name": "Project Risk Management",
+  "type": "concept",
+  "excerpt": "Project Risk Management involves planning and responding to risk events.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_8_9_2020",
+      "label": "featured in"
+    },
+    {
+      "target": "project_procurement_management",
+      "label": "related through change orders"
+    },
+    {
+      "target": "workarounds",
+      "label": "includes workarounds"
+    }
+  ],
+  "notes": "- Project Risk Management includes workarounds, which are unplanned responses to risk events.\n\n- Project Risk Management involves identifying, analyzing, and responding to project risks.\n- It includes maximizing the probability and consequences of positive events and minimizing the probability and consequences of adverse events to project objectives.",
+  "aliases": [],
+  "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1775792946478,
+  "updatedAt": 1775794259817
+}

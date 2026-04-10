@@ -1,0 +1,23 @@
+{
+  "id": "yamaguchi",
+  "name": "Yamaguchi",
+  "type": "character",
+  "excerpt": "Yamaguchi is a character who appears with Tsukishima.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "tsukishima",
+      "label": "companion"
+    },
+    {
+      "target": "shoyo_hinata",
+      "label": "rival"
+    },
+    {
+      "target": "karasuno_high",
+      "label": "student and player"
+    }
+  ],
+  "sourceFile": ""
+}

@@ -1,0 +1,21 @@
+{
+  "id": "project_schedule_management",
+  "name": "Project Schedule Management",
+  "type": "concept",
+  "excerpt": "Project Schedule Management involves tracking and managing the project schedule.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_8_9_2020",
+      "label": "featured in"
+    },
+    {
+      "target": "slipped_milestone",
+      "label": "manages slipped milestones"
+    }
+  ],
+  "notes": "- Project Schedule Management includes knowing the status of the schedule and influencing factors that can cause schedule issues.\n\n- Project Schedule Management involves managing slipped milestones, which are milestones reached later than expected.\n\n- Project Schedule Management involves the processes required to manage the timely completion of the project.\n- It includes activities such as defining activities, sequencing activities, estimating activity durations, and developing and controlling the schedule.\n\n- Project Schedule Management is closely related to Project Time Management, focusing on the scheduling aspect of time management.\n\n- Project Schedule Management includes processes required to manage the timely completion of the project.\n- It involves defining and sequencing activities, estimating activity durations, developing the schedule, and controlling the schedule.",
+  "aliases": [],
+  "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1775792946477,
+  "updatedAt": 1775794259817
+}

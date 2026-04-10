@@ -1,0 +1,17 @@
+{
+  "id": "project_integration_management",
+  "name": "Project Integration Management",
+  "type": "concept",
+  "excerpt": "Project Integration Management involves coordinating all elements of a project to ensure successful completion.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_8_9_2020",
+      "label": "featured in"
+    }
+  ],
+  "notes": "- Project Integration Management is a key aspect of project management that focuses on ensuring that all elements of a project are properly coordinated.\n- It involves making trade-offs among competing objectives and alternatives to meet or exceed stakeholder needs and expectations.\n- This concept is central to the overall success of a project as it ensures that all processes and activities are aligned towards the project goals.\n\n- Project Integration Management ensures that various project elements are effectively coordinated to achieve project objectives.\n- It involves making trade-offs among competing objectives and alternatives to meet or exceed stakeholder needs and expectations.",
+  "aliases": [],
+  "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1775792952976,
+  "updatedAt": 1775793200346
+}

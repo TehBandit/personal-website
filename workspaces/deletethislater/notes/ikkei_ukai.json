@@ -1,0 +1,19 @@
+{
+  "id": "ikkei_ukai",
+  "name": "Ikkei Ukai",
+  "type": "character",
+  "excerpt": "Ikkei Ukai is the original coach who mentors Hinata.",
+  "notes": "Ikkei teaches Hinata about the importance of the spiker's role in a quick strike.\nHe sets up different tempos for Hinata to practice blocking.\nIkkei explains that the quick strike is led by the spiker.\nHe encourages Hinata to improve and not fall behind Kageyama.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "shoyo_hinata",
+      "label": "mentor for quick strike"
+    },
+    {
+      "target": "ukai",
+      "label": "relative and mentor"
+    }
+  ],
+  "sourceFile": "hinata_wiki/ikkei_ukai.md"
+}

@@ -1,0 +1,46 @@
+{
+  "id": "monitoring_and_controlling",
+  "name": "Monitoring and Controlling",
+  "type": "topic",
+  "excerpt": "Monitoring and Controlling involves tracking, reviewing, and regulating project progress and performance to meet the performance objectives defined in the project management plan.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_8_9_2020",
+      "label": "featured in"
+    },
+    {
+      "target": "expert_judgement",
+      "label": "uses as main tool"
+    },
+    {
+      "target": "earned_value_management",
+      "label": "uses for performance measurement"
+    },
+    {
+      "target": "project_scope_management",
+      "label": "includes scope management"
+    },
+    {
+      "target": "project_schedule_management",
+      "label": "includes schedule management"
+    },
+    {
+      "target": "project_risk_management",
+      "label": "includes risk management"
+    },
+    {
+      "target": "project_procurement_management",
+      "label": "includes procurement management"
+    },
+    {
+      "target": "project_cost_management",
+      "label": "includes cost management"
+    }
+  ],
+  "notes": "- Monitoring and Controlling is a chapter in project management literature.\n- It focuses on tracking project progress and making necessary adjustments to ensure project objectives are met.\n- The chapter is essential for maintaining project alignment with goals and timelines.\n\n- Expert Judgement is a main tool and technique for monitoring and controlling.\n\n- Monitoring and Controlling involves regularly measuring and monitoring project performance to identify variances from the project management plan.\n- It includes taking corrective actions to address any issues that arise during the project lifecycle.\n\n- Monitoring and Controlling is identified as Chapter 8 in project management literature.\n\nSponsors dislike surprises, so it is important to be clear and honest with them.",
+  "aliases": [],
+  "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1775792493027,
+  "updatedAt": 1775794259816,
+  "context_summary": "- Monitoring and Controlling tracks project progress and performance.\n- It ensures alignment with performance objectives defined in the project management plan.\n- It is essential for maintaining project alignment with goals and timelines.\n- Expert Judgement is a main tool for monitoring and controlling.\n- It involves regularly measuring project performance.\n- Corrective actions are taken to address issues during the project lifecycle.\n- It is identified as Chapter 8 in project management literature.\n- Sponsors dislike surprises, so clarity and honesty are important."
+}

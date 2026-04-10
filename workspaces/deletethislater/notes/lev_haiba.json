@@ -1,0 +1,19 @@
+{
+  "id": "lev_haiba",
+  "name": "Lev Haiba",
+  "type": "character",
+  "excerpt": "Lev Haiba is a half-Russian, half-Japanese player from Nekoma.",
+  "notes": "Lev is a new player on Nekoma's team with a whip-like spike.\nHe is noted for his height and confidence as Nekoma's ace.\nLev challenges Hinata during practice matches.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "nekoma",
+      "label": "team member"
+    },
+    {
+      "target": "shoyo_hinata",
+      "label": "opponent"
+    }
+  ],
+  "sourceFile": "hinata_wiki/lev_haiba.md"
+}

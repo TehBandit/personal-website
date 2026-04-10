@@ -1,0 +1,14 @@
+{
+  "id": "ohgiminami",
+  "name": "Ohgiminami",
+  "type": "faction",
+  "excerpt": "Ohgiminami is a volleyball team that Karasuno defeats.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "karasuno_high",
+      "label": "defeated by"
+    }
+  ]
+}

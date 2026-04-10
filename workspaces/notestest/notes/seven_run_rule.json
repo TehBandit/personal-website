@@ -1,0 +1,21 @@
+{
+  "id": "seven_run_rule",
+  "name": "Seven Run Rule",
+  "type": "concept",
+  "excerpt": "The Seven Run Rule examines if there is a problem if there are 7 data points in a row above or below the mean.",
+  "connections": [
+    {
+      "target": "project_quality_management",
+      "label": "technique in"
+    },
+    {
+      "target": "bit_4484_notes_8_9_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "- The Seven Run Rule is used to examine if there is a problem when there are 7 data points in a row above or below the mean.",
+  "aliases": [],
+  "sourceFile": "uploads/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1775793192323,
+  "updatedAt": 1775793192323
+}

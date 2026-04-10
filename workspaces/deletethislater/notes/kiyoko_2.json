@@ -1,0 +1,23 @@
+{
+  "id": "kiyoko_2",
+  "name": "Kiyoko",
+  "type": "character",
+  "excerpt": "Kiyoko is the manager of Karasuno's volleyball team.",
+  "notes": "Kiyoko is looking for a replacement manager as the third-years will be leaving.\nShe interacts with Hinata about recruiting new members.\nKiyoko introduces Hitoka Yachi as a potential new manager.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "karasuno_high",
+      "label": "manager"
+    },
+    {
+      "target": "shoyo_hinata",
+      "label": "team member"
+    },
+    {
+      "target": "hitoka_yachi",
+      "label": "potential replacement"
+    }
+  ],
+  "sourceFile": "hinata_wiki/kiyoko_2.md"
+}

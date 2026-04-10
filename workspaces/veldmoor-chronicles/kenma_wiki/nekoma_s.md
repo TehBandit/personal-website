@@ -1,0 +1,3 @@
+NEKOMA'S — location notes
+
+Nekoma's is the volleyball team known for its strategic play and strong team dynamics. The team is characterized by its stability and ability to adapt to different opponents, largely due to Kenma's analytical skills and the support of players like Kuroo, Yamamoto, and Lev. Nekoma's rivalry with Karasuno High is a central theme, with both teams pushing each other to improve and compete at higher levels.

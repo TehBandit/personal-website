@@ -1,0 +1,14 @@
+{
+  "id": "fukur_dani_academy",
+  "name": "Fukurōdani Academy",
+  "type": "faction",
+  "excerpt": "Fukurōdani Academy is a volleyball team that competes against Nekoma.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "nekoma_s",
+      "label": "volleyball opponent"
+    }
+  ]
+}
