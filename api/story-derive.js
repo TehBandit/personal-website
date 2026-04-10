@@ -75,16 +75,26 @@ export default async function handler(req, res) {
       // Different content — will overwrite, caller confirmed
     }
 
-    // ── Load existing graph nodes for context ────────────────────────────────
-    const existingNodes = [];
-    if (fs.existsSync(notesDir)) {
+    // ── Load existing graph nodes from cache (single read) with N+1 fallback ─
+    let existingNodes = [];
+    const cachePath = path.join(wsDir, "graph-cache.json");
+    if (fs.existsSync(cachePath)) {
+      try {
+        const cache = JSON.parse(fs.readFileSync(cachePath, "utf-8"));
+        existingNodes = (cache.nodes || []).filter((n) => n.id && n.name).map((n) => ({
+          id: n.id, name: n.name, type: n.type || "character",
+          aliases: n.aliases || [], excerpt: n.excerpt || "",
+          disambiguation: n.disambiguation || "",
+        }));
+      } catch { /* fall through to N+1 scan */ }
+    }
+    if (existingNodes.length === 0 && fs.existsSync(notesDir)) {
       for (const file of fs.readdirSync(notesDir).filter((f) => f.endsWith(".json"))) {
         try {
           const data = JSON.parse(fs.readFileSync(path.join(notesDir, file), "utf-8"));
           if (data.id && data.name) existingNodes.push({
             id: data.id, name: data.name, type: data.type || "character",
-            aliases: data.aliases || [],
-            excerpt: data.excerpt || "",
+            aliases: data.aliases || [], excerpt: data.excerpt || "",
             disambiguation: data.disambiguation || "",
           });
         } catch { /* skip malformed */ }

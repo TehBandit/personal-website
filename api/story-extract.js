@@ -179,28 +179,37 @@ export default async function handler(req, res) {
       ? Object.values(workspaceNodeTypes).map((t) => t.label || t).join(", ")
       : "characters, locations, factions, artifacts, events";
 
-    const existingNodes = [];
-
-    if (fs.existsSync(notesDir)) {
-      const files = fs.readdirSync(notesDir).filter((f) => f.endsWith(".json"));
-      for (const file of files) {
+    // Load existing nodes from graph-cache.json (single read) with N+1 fallback
+    let existingNodes = [];
+    const cachePath = path.join(wsDir, "graph-cache.json");
+    if (fs.existsSync(cachePath)) {
+      try {
+        const cache = JSON.parse(fs.readFileSync(cachePath, "utf-8"));
+        existingNodes = (cache.nodes || []).filter((n) => n.id && n.name).map((n) => ({
+          id: n.id,
+          name: n.name,
+          type: n.type || defaultType,
+          excerpt: n.excerpt || "",
+          notes: n.notes || "",
+          aliases: n.aliases || [],
+          context_summary: n.context_summary || "",
+          disambiguation: n.disambiguation || "",
+        }));
+      } catch { /* fall through to N+1 scan */ }
+    }
+    if (existingNodes.length === 0 && fs.existsSync(notesDir)) {
+      for (const file of fs.readdirSync(notesDir).filter((f) => f.endsWith(".json"))) {
         try {
           const data = JSON.parse(fs.readFileSync(path.join(notesDir, file), "utf-8"));
           if (data.id && data.name) {
             existingNodes.push({
-              id: data.id,
-              name: data.name,
-              type: data.type || defaultType,
-              excerpt: data.excerpt || "",
-              notes: data.notes || "",
-              aliases: data.aliases || [],
-              context_summary: data.context_summary || "",
+              id: data.id, name: data.name, type: data.type || defaultType,
+              excerpt: data.excerpt || "", notes: data.notes || "",
+              aliases: data.aliases || [], context_summary: data.context_summary || "",
               disambiguation: data.disambiguation || "",
             });
           }
-        } catch {
-          // skip malformed files
-        }
+        } catch { /* skip malformed */ }
       }
     }
     const existingIdSet = new Set(existingNodes.map((n) => n.id));

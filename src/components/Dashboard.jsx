@@ -296,7 +296,7 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
         label: nodeTypeConfig[type]?.label ?? (type.charAt(0).toUpperCase() + type.slice(1)),
         color: nodeTypeConfig[type]?.color ?? "#6b7280",
       }));
-  }, [nodes]);
+  }, [nodes, nodeTypeConfig]);
 
   // Day-of-week cadence (Mon–Sun)
   const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

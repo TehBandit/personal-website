@@ -191,21 +191,38 @@ export async function getEmbeddingCache(workspace) {
     try {
       const cached = JSON.parse(fs.readFileSync(paths.cacheFile, "utf-8"));
       if (cached.version === CACHE_VERSION && Array.isArray(cached.chunks) && cached.chunks.length > 0) {
-        // Check staleness: any note newer than cache?
-        const cacheMtime = fs.statSync(paths.cacheFile).mtimeMs;
+        // Per-node staleness check using the mtime map stored in the cache.
+        // Only re-embed nodes that actually changed rather than rebuilding everything.
         const noteFiles = fs.readdirSync(paths.notesDir).filter((f) => f.endsWith(".json"));
-        const anyStale = noteFiles.some((f) => {
-          const mtime = fs.statSync(path.join(paths.notesDir, f)).mtimeMs;
-          return mtime > cacheMtime;
-        });
-        if (!anyStale) return cached;
+        const currentMtimes = {};
+        for (const f of noteFiles) {
+          currentMtimes[f] = fs.statSync(path.join(paths.notesDir, f)).mtimeMs;
+        }
+
+        const cachedMtimes = cached.nodeMtimes || {};
+
+        // Determine which nodes changed, were added, or were removed
+        const changedNodeIds = new Set();
+        for (const [file, mtime] of Object.entries(currentMtimes)) {
+          if (!cachedMtimes[file] || cachedMtimes[file] < mtime) {
+            changedNodeIds.add(file.replace(/\.json$/, ""));
+          }
+        }
+        const removedFiles = Object.keys(cachedMtimes).filter((f) => !(f in currentMtimes));
+        const removedNodeIds = new Set(removedFiles.map((f) => f.replace(/\.json$/, "")));
+
+        // If nothing changed, return the cache as-is
+        if (changedNodeIds.size === 0 && removedNodeIds.size === 0) return cached;
+
+        // Incremental update: keep chunks for unchanged nodes, rebuild only the rest
+        return incrementalUpdate(paths, notes, cached, changedNodeIds, removedNodeIds, currentMtimes);
       }
     } catch {
-      // fall through to rebuild
+      // fall through to full rebuild
     }
   }
 
-  // Build cache
+  // Build cache from scratch
   return buildCache(paths, notes);
 }
 
@@ -222,7 +239,51 @@ async function buildCache(paths, notes) {
 
   const chunks = allChunks.map((c, i) => ({ ...c, embedding: embeddings[i] }));
 
-  const cache = { version: CACHE_VERSION, builtAt: new Date().toISOString(), chunks };
+  // Store per-file mtimes so incremental updates can detect which nodes changed
+  const noteFiles = fs.readdirSync(paths.notesDir).filter((f) => f.endsWith(".json"));
+  const nodeMtimes = {};
+  for (const f of noteFiles) {
+    try { nodeMtimes[f] = fs.statSync(path.join(paths.notesDir, f)).mtimeMs; } catch { /* skip */ }
+  }
+
+  const cache = { version: CACHE_VERSION, builtAt: new Date().toISOString(), nodeMtimes, chunks };
+  fs.writeFileSync(paths.cacheFile, JSON.stringify(cache), "utf-8");
+  return cache;
+}
+
+/**
+ * Incremental update: keep cached chunks for unchanged nodes, re-embed only
+ * chunks for changed/new nodes, and drop chunks for removed nodes.
+ */
+async function incrementalUpdate(paths, notes, cached, changedNodeIds, removedNodeIds, currentMtimes) {
+  // Keep chunks whose node is unchanged
+  const keptChunks = cached.chunks.filter(
+    (c) => !changedNodeIds.has(c.nodeId) && !removedNodeIds.has(c.nodeId)
+  );
+
+  // Build new chunks for changed/added nodes
+  const newChunks = [];
+  for (const node of notes) {
+    if (changedNodeIds.has(node.id)) {
+      newChunks.push(...buildChunksForNode(node, paths.rawDir));
+    }
+  }
+
+  // Embed only the new chunks
+  let embeddedNewChunks = [];
+  if (newChunks.length > 0) {
+    const texts = newChunks.map((c) => c.text);
+    const embeddings = await embedBatch(texts);
+    embeddedNewChunks = newChunks.map((c, i) => ({ ...c, embedding: embeddings[i] }));
+  }
+
+  const allChunks = [...keptChunks, ...embeddedNewChunks];
+  const cache = {
+    version: CACHE_VERSION,
+    builtAt: new Date().toISOString(),
+    nodeMtimes: currentMtimes,
+    chunks: allChunks,
+  };
   fs.writeFileSync(paths.cacheFile, JSON.stringify(cache), "utf-8");
   return cache;
 }

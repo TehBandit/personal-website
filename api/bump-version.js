@@ -31,6 +31,7 @@ export function bumpWorkspaceVersion(workspace) {
 export function rebuildGraphCache(workspace, notesDir) {
   try {
     const wsDir = path.join(WORKSPACES_DIR, workspace);
+    if (!notesDir) notesDir = path.join(wsDir, "notes");
     const files = fs.readdirSync(notesDir).filter((f) => f.endsWith(".json"));
     const nodes = [];
     const links = [];
@@ -128,36 +129,43 @@ export function rebuildGraphCache(workspace, notesDir) {
     }
 
     // Fourth pass: build graph cache from surviving nodes
+    //
+    // Pre-build a basename → full-path map from a single recursive scan of the
+    // workspace directory (excluding notes/). This replaces the previous approach
+    // of running a recursive findRawFile() walk PER NODE — O(N×D) → O(D + N).
+    const rawFileMap = new Map(); // lowercase basename → full path
+    const walkDir = (dir) => {
+      let entries;
+      try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+      for (const entry of entries) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory() && path.resolve(full) !== path.resolve(notesDir)) {
+          walkDir(full);
+        } else if (entry.name.endsWith(".md") || entry.name.endsWith(".txt")) {
+          const key = entry.name.toLowerCase();
+          if (!rawFileMap.has(key)) rawFileMap.set(key, full);
+        }
+      }
+    };
+    walkDir(wsDir);
+
+    const FILE_PREVIEW_LIMIT = 600;
+
     for (const { data } of allData) {
       if (data.__purged) continue;
-      const { id, name, type, excerpt, notes, aliases, tags, disambiguation, sourceFile, additionalSourceFiles, createdAt, updatedAt, connections = [] } = data;
+      const { id, name, type, excerpt, notes, aliases, tags, disambiguation, context_summary, sourceFile, additionalSourceFiles, createdAt, updatedAt, connections = [] } = data;
 
       // For nodes that own a dedicated raw file, embed a truncated preview of
       // that file's content (heading stripped) so the graph panel can show it
       // without a network round-trip.
-      const FILE_PREVIEW_LIMIT = 600;
       let filePreview = null;
       const stemHyphen = id.replace(/_/g, "-");
-      const candidateNames = [
-        stemHyphen + ".md", stemHyphen + ".txt",
-        id + ".md",         id + ".txt",
-      ];
-      // Walk all subdirs of wsDir to find the first matching file
-      const findRawFile = (dir) => {
-        let entries;
-        try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return null; }
-        for (const entry of entries) {
-          const full = path.join(dir, entry.name);
-          if (entry.isDirectory() && path.resolve(full) !== path.resolve(notesDir)) {
-            const found = findRawFile(full);
-            if (found) return found;
-          } else if (candidateNames.includes(entry.name)) {
-            return full;
-          }
-        }
-        return null;
-      };
-      const rawFilePath = findRawFile(wsDir);
+      const rawFilePath =
+        rawFileMap.get(stemHyphen + ".md") ??
+        rawFileMap.get(stemHyphen + ".txt") ??
+        rawFileMap.get(id + ".md") ??
+        rawFileMap.get(id + ".txt") ??
+        null;
       if (rawFilePath) {
         try {
           const rawContent = fs.readFileSync(rawFilePath, "utf-8");
@@ -179,6 +187,7 @@ export function rebuildGraphCache(workspace, notesDir) {
         sourceFile: sourceFile || "",
         ...(additionalSourceFiles?.length ? { additionalSourceFiles } : {}),
         ...(disambiguation ? { disambiguation } : {}),
+        ...(context_summary ? { context_summary } : {}),
         ...(filePreview !== null ? { filePreview } : {}),
         ...(createdAt ? { createdAt } : {}),
         ...(updatedAt ? { updatedAt } : {}),

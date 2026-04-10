@@ -32,14 +32,14 @@ const NOTES_DIR = path.join(NOTES_RAW_DIR, "notes"); // output dir to ignore
 /**
  * Recursively collect all .txt relative paths under `dir`, skipping excluded dirs.
  */
-function getAllTxtRelPaths(dir, base = dir, exclude = new Set()) {
+function getAllRawRelPaths(dir, base = dir, exclude = new Set()) {
   const results = [];
   try {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
       if (exclude.has(full)) continue;
-      if (entry.isDirectory()) results.push(...getAllTxtRelPaths(full, base, exclude));
-      else if (entry.name.endsWith(".txt")) results.push(path.relative(base, full).replace(/\\/g, "/"));
+      if (entry.isDirectory()) results.push(...getAllRawRelPaths(full, base, exclude));
+      else if (entry.name.endsWith(".txt") || entry.name.endsWith(".md")) results.push(path.relative(base, full).replace(/\\/g, "/"));
     }
   } catch { /* skip unreadable dirs */ }
   return results;
@@ -97,7 +97,7 @@ function runUpdate(filename) {
 
 function scheduleUpdate(filepath) {
   const relPath = path.relative(NOTES_RAW_DIR, filepath).replace(/\\/g, "/");
-  if (!relPath.endsWith(".txt")) return;
+  if (!relPath.endsWith(".txt") && !relPath.endsWith(".md")) return;
 
   if (timers.has(relPath)) clearTimeout(timers.get(relPath));
   timers.set(
@@ -164,7 +164,7 @@ function runDelete(filename) {
 
 function handleUnlink(filepath) {
   const relPath = path.relative(NOTES_RAW_DIR, filepath).replace(/\\/g, "/");
-  if (!relPath.endsWith(".txt")) return;
+  if (!relPath.endsWith(".txt") && !relPath.endsWith(".md")) return;
   // Cancel any pending update for this file
   if (timers.has(relPath)) { clearTimeout(timers.get(relPath)); timers.delete(relPath); }
   runDelete(relPath);
@@ -177,12 +177,12 @@ watcher
 
 console.log(`[watch] Workspace: ${WORKSPACE}`);
 console.log(`[watch] Watching notes-raw/ for changes...`);
-console.log(`[watch] Save any .txt file to auto-update the graph.\n`);
+console.log(`[watch] Save any .txt or .md file to auto-update the graph.\n`);
 
 // Pre-populate plain-text cache so the first save after startup doesn't
 // trigger a re-extract for files that haven't actually changed.
 try {
-  for (const relPath of getAllTxtRelPaths(NOTES_RAW_DIR, NOTES_RAW_DIR, new Set([NOTES_DIR]))) {
+  for (const relPath of getAllRawRelPaths(NOTES_RAW_DIR, NOTES_RAW_DIR, new Set([NOTES_DIR]))) {
     try {
       const content = readFileSync(path.join(NOTES_RAW_DIR, relPath), "utf8");
       plainTextCache.set(relPath, stripMarkdown(content));

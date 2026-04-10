@@ -306,16 +306,19 @@ export default function StoryGraph() {
     [graphData.nodes, storyFiles]
   );
 
-  // Degree map: node id → number of connections
-  const degreeMap = useMemo(() => {
-    const map = {};
+  // Adjacency map: node id → Set of neighbor ids (also derives degree)
+  const { adjacencyMap, degreeMap } = useMemo(() => {
+    const adj = {};
+    const deg = {};
     graphData.links.forEach((l) => {
       const s = typeof l.source === "object" ? l.source.id : l.source;
       const t = typeof l.target === "object" ? l.target.id : l.target;
-      map[s] = (map[s] || 0) + 1;
-      map[t] = (map[t] || 0) + 1;
+      deg[s] = (deg[s] || 0) + 1;
+      deg[t] = (deg[t] || 0) + 1;
+      (adj[s] ??= new Set()).add(t);
+      (adj[t] ??= new Set()).add(s);
     });
-    return map;
+    return { adjacencyMap: adj, degreeMap: deg };
   }, [graphData.links]);
 
   // Radius: min 4 at degree 0, grows with sqrt(degree), more pronounced scaling
@@ -752,15 +755,11 @@ export default function StoryGraph() {
 
   const hoveredNeighborIds = useMemo(() => {
     if (!hoveredNode) return null;
-    const ids = new Set([hoveredNode.id]);
-    for (const link of graphData.links) {
-      const sourceId = typeof link.source === "object" ? link.source.id : link.source;
-      const targetId = typeof link.target === "object" ? link.target.id : link.target;
-      if (sourceId === hoveredNode.id) ids.add(targetId);
-      if (targetId === hoveredNode.id) ids.add(sourceId);
-    }
+    const neighbors = adjacencyMap[hoveredNode.id];
+    const ids = new Set(neighbors);
+    ids.add(hoveredNode.id);
     return ids;
-  }, [hoveredNode, graphData.links]);
+  }, [hoveredNode, adjacencyMap]);
 
   const handleNodeHover = useCallback((node) => {
     setHoveredNode(node || null);
@@ -771,15 +770,11 @@ export default function StoryGraph() {
 
   const focusNeighborIds = useMemo(() => {
     if (!focusNode) return null;
-    const ids = new Set([focusNode.id]);
-    for (const link of graphData.links) {
-      const s = typeof link.source === "object" ? link.source.id : link.source;
-      const t = typeof link.target === "object" ? link.target.id : link.target;
-      if (s === focusNode.id) ids.add(t);
-      if (t === focusNode.id) ids.add(s);
-    }
+    const neighbors = adjacencyMap[focusNode.id];
+    const ids = new Set(neighbors);
+    ids.add(focusNode.id);
     return ids;
-  }, [focusNode, graphData.links]);
+  }, [focusNode, adjacencyMap]);
 
   // Zoom to focused node when entering focus mode
   useEffect(() => {
@@ -825,7 +820,6 @@ export default function StoryGraph() {
       if (activePath) {
         ctx.globalAlpha = onPath ? 1 : 0.08;
       } else if (!inFocusSet) {
-        ctx.globalAlpha = 0.05; // outside focus — strongly dim
         ctx.globalAlpha = 0.05; // outside focus — strongly dim
       } else if (!!hoveredNode && !isInHoveredNeighborhood) {
         ctx.globalAlpha = 0.2;  // inside focus but outside hover — mildly dim

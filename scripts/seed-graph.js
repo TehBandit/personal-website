@@ -36,7 +36,7 @@ function log(msg) {
 }
 
 /**
- * Recursively collect all .txt files under `dir`, returning paths
+ * Recursively collect all .txt and .md files under `dir`, returning paths
  * relative to `base` with forward slashes (e.g. "notes-raw/char.txt").
  * `exclude` is a Set of absolute directory paths to skip entirely.
  */
@@ -47,7 +47,7 @@ function getAllTxtFiles(dir, base = dir, exclude = new Set()) {
     if (exclude.has(fullPath)) continue;
     if (entry.isDirectory()) {
       results.push(...getAllTxtFiles(fullPath, base, exclude));
-    } else if (entry.name.endsWith(".txt")) {
+    } else if (entry.name.endsWith(".txt") || entry.name.endsWith(".md")) {
       results.push(path.relative(base, fullPath).replace(/\\/g, "/"));
     }
   }
@@ -123,7 +123,7 @@ function stripConnectionsFromSource(filename) {
 function getRefreshIdsForFile(filename) {
   const ids = new Set();
   if (!fs.existsSync(NOTES_DIR)) return ids;
-  const stem = path.basename(filename, ".txt").replace(/-/g, "_").toLowerCase();
+  const stem = path.basename(filename).replace(/\.(md|txt)$/i, "").replace(/-/g, "_").toLowerCase();
   for (const f of fs.readdirSync(NOTES_DIR).filter((f) => f.endsWith(".json"))) {
     const data = loadNodeFile(path.basename(f, ".json"));
     if (!data) continue;
@@ -210,7 +210,7 @@ Rules:
 
   // Derive a human-readable subject name from the basename (e.g. "notes-test/maren-ashveil.txt" → "Maren Ashveil")
   const filenameSubject = path.basename(filename)
-    .replace(/\.txt$/i, "")
+    .replace(/\.(md|txt)$/i, "")
     .split("-")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
@@ -267,7 +267,7 @@ function saveNodes(extracted, sourceFile = null, refreshNodeIds = new Set()) {
     // Merge AI aliases + user-defined aliases; inject user aliases only into
     // the primary node of this file (id matches the filename stem)
     const fileStem = sourceFile
-      ? path.basename(sourceFile, ".txt").replace(/-/g, "_").toLowerCase()
+      ? path.basename(sourceFile).replace(/\.(md|txt)$/i, "").replace(/-/g, "_").toLowerCase()
       : null;
     const aliases = mergeAliases(
       node.aliases || [],
@@ -311,7 +311,7 @@ function saveNodes(extracted, sourceFile = null, refreshNodeIds = new Set()) {
 
       // Merge aliases: keep existing ones from other sources, merge in fresh AI + user aliases
       const isFilePrimary = canonicalId === (sourceFile
-        ? path.basename(sourceFile, ".txt").replace(/-/g, "_").toLowerCase()
+        ? path.basename(sourceFile).replace(/\.(md|txt)$/i, "").replace(/-/g, "_").toLowerCase()
         : null);
       const freshAliases = mergeAliases(
         rawNode.aliases || [],
@@ -377,7 +377,7 @@ function saveNodes(extracted, sourceFile = null, refreshNodeIds = new Set()) {
  * Derived-only nodes that end up with zero connections are also removed.
  */
 function deleteSourceFile(filename) {
-  const stem = path.basename(filename, ".txt").replace(/-/g, "_").toLowerCase();
+  const stem = path.basename(filename).replace(/\.(md|txt)$/i, "").replace(/-/g, "_").toLowerCase();
 
   // 1. Remove the primary node JSON (if it exists)
   const primaryPath = path.join(NOTES_DIR, `${stem}.json`);
@@ -395,9 +395,11 @@ function deleteSourceFile(filename) {
       const data = loadNodeFile(path.basename(f, ".json"));
       if (!data) continue;
       // Only clean up nodes that were derived from this file (no own raw file)
-      const rawStem = data.id.replace(/_/g, "-") + ".txt";
+      const rawBase = data.id.replace(/_/g, "-");
       const hasOwnSource = fs.existsSync(NOTES_RAW_DIR)
-        && getAllTxtFiles(NOTES_RAW_DIR, NOTES_RAW_DIR, new Set([NOTES_DIR])).some((f) => path.basename(f) === rawStem);
+        && getAllTxtFiles(NOTES_RAW_DIR, NOTES_RAW_DIR, new Set([NOTES_DIR])).some(
+          (f) => path.basename(f) === rawBase + ".txt" || path.basename(f) === rawBase + ".md"
+        );
       if (hasOwnSource) continue; // has its own source file anywhere in the workspace, leave it
       if ((data.connections || []).length === 0) {
         fs.unlinkSync(path.join(NOTES_DIR, f));
@@ -507,12 +509,12 @@ async function main() {
       process.exit(1);
     }
   } else {
-    // Recursively collect all .txt files from workspace root, skipping notes/ output dir
+    // Recursively collect all .txt and .md files from workspace root, skipping notes/ output dir
     txtFiles = getAllTxtFiles(NOTES_RAW_DIR, NOTES_RAW_DIR, new Set([NOTES_DIR]));
   }
 
   if (txtFiles.length === 0) {
-    log("No .txt files found in notes-raw/");
+    log("No source files (.txt or .md) found in workspace");
     process.exit(0);
   }
   log(`Processing ${txtFiles.length} file(s): ${txtFiles.join(", ")}\n`);
