@@ -20,34 +20,51 @@ async function fetchHomeData() {
   const wsJson = await wsRes.json();
   const workspaces = wsJson.workspaces || [];
 
-  const fileLists = await Promise.all(
-    workspaces.map((ws) =>
-      fetch(`/api/notes-raw-list?workspace=${encodeURIComponent(ws.slug)}`)
-        .then((r) => r.json())
-        .then((d) =>
-          (d.files || []).map((f) => ({
-            wsSlug: ws.slug,
-            wsName: ws.name,
-            filename: f.filename,
-            mtime:    f.mtime,
-          }))
-        )
-        .catch(() => [])
-    )
+  // For each workspace fetch the file list (mtimes) and graph cache (previews) in
+  // parallel — two requests per workspace instead of N+1 file-content fetches.
+  const wsData = await Promise.all(
+    workspaces.map(async (ws) => {
+      const [files, graphJson] = await Promise.all([
+        fetch(`/api/notes-raw-list?workspace=${encodeURIComponent(ws.slug)}`)
+          .then((r) => r.json())
+          .then((d) => d.files || [])
+          .catch(() => []),
+        fetch(`/api/story-notes?workspace=${encodeURIComponent(ws.slug)}`)
+          .then((r) => r.ok ? r.json() : { nodes: [] })
+          .catch(() => ({ nodes: [] })),
+      ]);
+
+      // Build filename → filePreview map from the graph cache.
+      // Only nodes that own a dedicated raw file carry filePreview; others are skipped.
+      const previewMap = new Map();
+      for (const node of (graphJson.nodes || [])) {
+        if (node.filePreview === undefined) continue;
+        if (node.sourceFile && !previewMap.has(node.sourceFile))
+          previewMap.set(node.sourceFile, node.filePreview);
+        for (const sf of (node.additionalSourceFiles || []))
+          if (!previewMap.has(sf)) previewMap.set(sf, node.filePreview);
+      }
+
+      return { ws, files, previewMap };
+    })
   );
 
-  const top = fileLists.flat().sort((a, b) => b.mtime - a.mtime).slice(0, 12);
-
-  const docs = await Promise.all(
-    top.map((doc) =>
-      fetch(
-        `/api/notes-raw-file?filename=${encodeURIComponent(doc.filename)}&workspace=${encodeURIComponent(doc.wsSlug)}`
-      )
-        .then((r) => r.ok ? r.json() : null)
-        .then((d) => ({ ...doc, preview: d?.content ? extractPreview(d.content) : "" }))
-        .catch(() => ({ ...doc, preview: "" }))
+  // Flatten, sort by mtime, take top 12
+  const top = wsData
+    .flatMap(({ ws, files, previewMap }) =>
+      files.map((f) => ({ wsSlug: ws.slug, wsName: ws.name, ...f, previewMap }))
     )
-  );
+    .sort((a, b) => b.mtime - a.mtime)
+    .slice(0, 12);
+
+  // Resolve previews from cache — no per-doc network requests
+  const docs = top.map(({ wsSlug, wsName, filename, mtime, previewMap }) => {
+    const raw = previewMap.get(filename);
+    const preview = raw !== undefined
+      ? (raw.length > PREVIEW_LIMIT ? raw.slice(0, PREVIEW_LIMIT).trimEnd() + "…" : raw)
+      : "";
+    return { wsSlug, wsName, filename, mtime, preview };
+  });
 
   return { workspaces, docs };
 }
@@ -75,12 +92,6 @@ function basename(p) {
 function pathLabel(wsName, filename) {
   const dir = filename.includes("/") ? filename.split("/").slice(0, -1).join("/") : null;
   return dir ? `${wsName}/${dir}` : wsName;
-}
-
-/** Strip leading heading line + blank lines, truncate */
-function extractPreview(content) {
-  const body = content.replace(/^[^\n]*\n\n?/, "").trimStart();
-  return body.length > PREVIEW_LIMIT ? body.slice(0, PREVIEW_LIMIT).trimEnd() + "…" : body.trim();
 }
 
 export default function StoryGraphHome() {

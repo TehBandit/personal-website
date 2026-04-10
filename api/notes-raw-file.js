@@ -248,9 +248,31 @@ export default function handler(req, res) {
             })),
           ];
 
-          // Apply to every raw file in the workspace (excluding notes/ output dir)
+          // Scope replacements to only files known to mention the old name.
+          // The client passes `affectedFiles` (from its backlinks cache);
+          // fall back to a full scan when the list is not provided.
           const resolvedWsDir = path.resolve(dir);
-          for (const rawFile of collectRawFiles(dir, notesDir)) {
+          const resolvedNotesDir = path.resolve(notesDir);
+          const { affectedFiles } = req.body;
+          let filesToScan;
+          if (Array.isArray(affectedFiles)) {
+            const scopedPaths = new Set();
+            // Include the entity's own file (backlinks excludes self)
+            if (fs.existsSync(filePath)) scopedPaths.add(path.resolve(filePath));
+            for (const rel of affectedFiles) {
+              const segs = (typeof rel === "string" ? rel : "").split(/[\/\\]/);
+              if (segs.some((s) => s === ".." || s === "." || s === "")) continue;
+              if (!/\.(md|txt)$/i.test(rel)) continue;
+              const abs = path.resolve(path.join(dir, ...segs));
+              if (!abs.startsWith(resolvedWsDir + path.sep) && abs !== resolvedWsDir) continue;
+              if (abs.startsWith(resolvedNotesDir + path.sep)) continue;
+              if (fs.existsSync(abs)) scopedPaths.add(abs);
+            }
+            filesToScan = [...scopedPaths];
+          } else {
+            filesToScan = collectRawFiles(dir, notesDir);
+          }
+          for (const rawFile of filesToScan) {
             let content = fs.readFileSync(rawFile, "utf-8");
             let updated = content;
             for (const { regex, replacement } of patterns) {

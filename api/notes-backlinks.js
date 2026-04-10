@@ -1,24 +1,8 @@
 import fs from "fs";
 import path from "path";
+import { walkRelPaths } from "./_walk.js";
 
 const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
-
-function scanTxtFiles(dir, baseDir, excludeDir) {
-  const results = [];
-  let entries;
-  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return results; }
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (path.resolve(fullPath) === path.resolve(excludeDir)) continue;
-    const relPath = path.relative(baseDir, fullPath).replace(/\\/g, "/");
-    if (entry.isDirectory()) {
-      results.push(...scanTxtFiles(fullPath, baseDir, excludeDir));
-    } else if (entry.name.endsWith(".md") || entry.name.endsWith(".txt")) {
-      results.push(relPath);
-    }
-  }
-  return results;
-}
 
 export default function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
@@ -63,9 +47,9 @@ export default function handler(req, res) {
     return new RegExp(`\\b${escaped}\\b`, "i");
   });
 
-  // Scan all raw .txt files in the workspace (excluding notes/ output dir and any file
+  // Scan all raw files (.md/.txt) in the workspace (excluding notes/ output dir and any file
   // whose stem resolves to the same node ID — covers self and all supplemental copies)
-  const allFiles = scanTxtFiles(wsDir, wsDir, notesDir).filter((f) => {
+  const allFiles = walkRelPaths(wsDir, wsDir, new Set([path.resolve(notesDir)])).filter((f) => {
     const fileStem = f.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
     return fileStem !== nodeId;
   });

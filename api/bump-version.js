@@ -158,6 +158,12 @@ export function rebuildGraphCache(workspace, notesDir) {
         rawFileMap.get(id + ".md") ??
         rawFileMap.get(id + ".txt") ??
         null;
+      // Derive sourceFile from the discovered raw file path when unset — this
+      // ensures nodes whose source lives at the workspace root (not notes-raw/)
+      // still produce a previewMap key that matches notes-raw-list filenames.
+      const resolvedSourceFile = sourceFile || (rawFilePath
+        ? path.relative(wsDir, rawFilePath).replace(/\\/g, "/")
+        : "");
       if (rawFilePath) {
         try {
           const rawContent = fs.readFileSync(rawFilePath, "utf-8");
@@ -176,7 +182,7 @@ export function rebuildGraphCache(workspace, notesDir) {
         notes: notes || "",
         aliases: aliases || [],
         tags: tags || [],
-        sourceFile: sourceFile || "",
+        sourceFile: resolvedSourceFile,
         ...(additionalSourceFiles?.length ? { additionalSourceFiles } : {}),
         ...(disambiguation ? { disambiguation } : {}),
         ...(context_summary ? { context_summary } : {}),

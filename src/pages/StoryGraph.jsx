@@ -9,7 +9,7 @@ import WorkspacePicker from "../components/WorkspacePicker.jsx";
 import Dashboard from "../components/Dashboard.jsx";
 import { NODE_TYPE_CONFIG as STATIC_NODE_TYPE_CONFIG } from "../constants/nodeTypes.js";
 import { darkenHex } from "../utils/color.js";
-import { computeOwnFileIds } from "../utils/graphHelpers.js";
+import { computeOwnFileIds, buildAdjacencyMap, graphBFS, buildBasenameMap, resolveNodeFilename } from "../utils/graphHelpers.js";
 import { NodeTypeContext } from "../contexts/NodeTypeContext.jsx";
 
 const GRAPH_BG = "#0f0f1a";
@@ -308,18 +308,19 @@ export default function StoryGraph() {
 
   // Adjacency map: node id → Set of neighbor ids (also derives degree)
   const { adjacencyMap, degreeMap } = useMemo(() => {
-    const adj = {};
+    const adj = buildAdjacencyMap(graphData.links);
     const deg = {};
     graphData.links.forEach((l) => {
       const s = typeof l.source === "object" ? l.source.id : l.source;
       const t = typeof l.target === "object" ? l.target.id : l.target;
       deg[s] = (deg[s] || 0) + 1;
       deg[t] = (deg[t] || 0) + 1;
-      (adj[s] ??= new Set()).add(t);
-      (adj[t] ??= new Set()).add(s);
     });
     return { adjacencyMap: adj, degreeMap: deg };
   }, [graphData.links]);
+
+  // basename → full relative path map, rebuilt only when storyFiles changes
+  const fileBasenameMap = useMemo(() => buildBasenameMap(storyFiles), [storyFiles]);
 
   // Radius: min 4 at degree 0, grows with sqrt(degree), more pronounced scaling
   const nodeRadius = useCallback(
@@ -564,22 +565,13 @@ export default function StoryGraph() {
     if (!ownFileIds.has(node.id)) return;
     const api = filesEditorApi.current;
     if (!api?.openFileByName) return;
-    const stemHyphen = node.id.replace(/_/g, "-");
-    const stemUnder  = node.id;
-    const fileSet    = new Set(storyFiles.map((f) => f.filename.toLowerCase()));
-    const basenameToFull = new Map(storyFiles.map((f) => [f.filename.split("/").pop().toLowerCase(), f.filename]));
-    const gNode = graphData.nodes.find((n) => n.id === node.id);
-    const addl = (gNode?.additionalSourceFiles || []).find((sf) => fileSet.has((sf || "").toLowerCase()));
-    const filename =
-      addl ??
-      basenameToFull.get(stemHyphen + ".md") ??
-      basenameToFull.get(stemHyphen + ".txt") ??
-      basenameToFull.get(stemUnder  + ".md") ??
-      basenameToFull.get(stemUnder  + ".txt");
+    const fileSet = new Set(storyFiles.map((f) => f.filename.toLowerCase()));
+    const addl = (node.additionalSourceFiles || []).find((sf) => fileSet.has((sf || "").toLowerCase()));
+    const filename = addl ?? resolveNodeFilename(node.id, fileBasenameMap);
     if (!filename) return;
     setActiveTab("files");
     setTimeout(() => api.openFileByName(filename), 80);
-  }, [ownFileIds, graphData.nodes, storyFiles]);
+  }, [ownFileIds, storyFiles, fileBasenameMap]);
 
   const openNodeById = useCallback((nodeId) => {
     const node = graphData.nodes.find((n) => n.id === nodeId);
@@ -605,32 +597,9 @@ export default function StoryGraph() {
   // BFS shortest path between two node IDs, returns ordered node array or null
   const findShortestPath = useCallback((fromId, toId) => {
     if (fromId === toId) return null;
-    const adj = new Map();
-    for (const link of graphData.links) {
-      const s = typeof link.source === "object" ? link.source.id : link.source;
-      const t = typeof link.target === "object" ? link.target.id : link.target;
-      if (!adj.has(s)) adj.set(s, []);
-      if (!adj.has(t)) adj.set(t, []);
-      adj.get(s).push(t);
-      adj.get(t).push(s);
-    }
-    const prev = new Map();
-    const visited = new Set([fromId]);
-    const queue = [fromId];
-    while (queue.length) {
-      const cur = queue.shift();
-      if (cur === toId) break;
-      for (const nb of (adj.get(cur) || [])) {
-        if (!visited.has(nb)) { visited.add(nb); prev.set(nb, cur); queue.push(nb); }
-      }
-    }
-    if (!prev.has(toId)) return null; // no path
-    const path = [];
-    let cur = toId;
-    while (cur !== undefined) { path.unshift(cur); cur = prev.get(cur); }
     const nodeMap = new Map(graphData.nodes.map((n) => [n.id, n]));
-    return path.map((id) => nodeMap.get(id)).filter(Boolean);
-  }, [graphData]);
+    return graphBFS(fromId, toId, adjacencyMap, nodeMap);
+  }, [graphData.nodes, adjacencyMap]);
 
   const commitPath = useCallback((fromId, toId) => {
     const ordered = findShortestPath(fromId, toId);
@@ -755,8 +724,7 @@ export default function StoryGraph() {
 
   const hoveredNeighborIds = useMemo(() => {
     if (!hoveredNode) return null;
-    const neighbors = adjacencyMap[hoveredNode.id];
-    const ids = new Set(neighbors);
+    const ids = new Set(adjacencyMap.get(hoveredNode.id));
     ids.add(hoveredNode.id);
     return ids;
   }, [hoveredNode, adjacencyMap]);
@@ -770,8 +738,7 @@ export default function StoryGraph() {
 
   const focusNeighborIds = useMemo(() => {
     if (!focusNode) return null;
-    const neighbors = adjacencyMap[focusNode.id];
-    const ids = new Set(neighbors);
+    const ids = new Set(adjacencyMap.get(focusNode.id));
     ids.add(focusNode.id);
     return ids;
   }, [focusNode, adjacencyMap]);
@@ -1003,18 +970,9 @@ export default function StoryGraph() {
       return;
     }
     // Slow path: fetch from API (cache not yet rebuilt)
-    const stemHyphen = selectedNode.id.replace(/_/g, "-");
-    const stemUnder  = selectedNode.id;
-    const fileSet    = new Set(storyFiles.map((f) => f.filename.toLowerCase()));
-    const basenameToFull = new Map(storyFiles.map((f) => [f.filename.split("/").pop().toLowerCase(), f.filename]));
-    const gNode = graphData.nodes.find((n) => n.id === selectedNode.id);
-    const addl = (gNode?.additionalSourceFiles || []).find((sf) => fileSet.has((sf || "").toLowerCase()));
-    const filename =
-      addl ??
-      basenameToFull.get(stemHyphen + ".md") ??
-      basenameToFull.get(stemHyphen + ".txt") ??
-      basenameToFull.get(stemUnder  + ".md") ??
-      basenameToFull.get(stemUnder  + ".txt");
+    const fileSet = new Set(storyFiles.map((f) => f.filename.toLowerCase()));
+    const addl = (selectedNode.additionalSourceFiles || []).find((sf) => fileSet.has((sf || "").toLowerCase()));
+    const filename = addl ?? resolveNodeFilename(selectedNode.id, fileBasenameMap);
     if (!filename) { setSelectedNodeFileContent(null); return; }
     const nodeId = selectedNode.id;
     fetch(`/api/notes-raw-file?filename=${encodeURIComponent(filename)}&workspace=${encodeURIComponent(workspace)}`)
@@ -1027,7 +985,7 @@ export default function StoryGraph() {
         setSelectedNodeFileContent({ id: nodeId, content: preview });
       })
       .catch(() => setSelectedNodeFileContent(null));
-  }, [selectedNode, workspace, ownFileIds, storyFiles, graphData.nodes]);
+  }, [selectedNode, workspace, ownFileIds, storyFiles, fileBasenameMap]);
 
   const selectedNodeConnections = useMemo(() => {
     if (!selectedNode) return [];

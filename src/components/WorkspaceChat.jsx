@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Send, RefreshCw, BookOpen, ChevronDown, ChevronUp, Loader, AlertCircle, X, Trash2, PanelLeftOpen, PanelLeftClose, Network, SquarePen, Copy, Check, Pencil } from "lucide-react";
 import { useNodeTypeConfig } from "../contexts/NodeTypeContext.jsx";
+import { buildAdjacencyMap, graphBFS } from "../utils/graphHelpers.js";
 
 const BG = "#0a0a14";
 const SIDEBAR_BG = "#0c0c18";
@@ -50,32 +51,10 @@ function getNodeNeighbors(nodeId, graphData) {
   return { nodes, labels };
 }
 
-function graphBFS(fromId, toId, graphData) {
-  const adj = new Map();
-  for (const link of graphData.links) {
-    const s = typeof link.source === "object" ? link.source.id : link.source;
-    const t = typeof link.target === "object" ? link.target.id : link.target;
-    if (!adj.has(s)) adj.set(s, []);
-    if (!adj.has(t)) adj.set(t, []);
-    adj.get(s).push(t);
-    adj.get(t).push(s);
-  }
-  const prev = new Map();
-  const visited = new Set([fromId]);
-  const queue = [fromId];
-  while (queue.length) {
-    const cur = queue.shift();
-    if (cur === toId) break;
-    for (const nb of (adj.get(cur) || [])) {
-      if (!visited.has(nb)) { visited.add(nb); prev.set(nb, cur); queue.push(nb); }
-    }
-  }
-  if (!prev.has(toId)) return null;
-  const path = [];
-  let cur = toId;
-  while (cur !== undefined) { path.unshift(cur); cur = prev.get(cur); }
+function computeShortestPath(fromId, toId, graphData) {
+  const adj = buildAdjacencyMap(graphData.links);
   const nodeMap = new Map(graphData.nodes.map((n) => [n.id, n]));
-  return path.map((id) => nodeMap.get(id)).filter(Boolean);
+  return graphBFS(fromId, toId, adj, nodeMap);
 }
 
 /**
@@ -105,7 +84,7 @@ function analyzeGraphQuery(text, graphData) {
     pathKeywords.some((k) => lower.includes(k))
   ) {
     const secondary = mentioned[1];
-    const pathNodes = graphBFS(primary.id, secondary.id, graphData);
+    const pathNodes = computeShortestPath(primary.id, secondary.id, graphData);
     if (!pathNodes) {
       return {
         type: "no-path",
@@ -791,17 +770,11 @@ function EmptyState({ onSend, graphData }) {
   // Find the most-connected character to suggest a graph query
   let graphStarter = null;
   if (graphData?.nodes?.length) {
-    const degMap = new Map();
-    for (const link of graphData.links || []) {
-      const s = typeof link.source === "object" ? link.source.id : link.source;
-      const t = typeof link.target === "object" ? link.target.id : link.target;
-      degMap.set(s, (degMap.get(s) || 0) + 1);
-      degMap.set(t, (degMap.get(t) || 0) + 1);
-    }
+    const adj = buildAdjacencyMap(graphData.links || []);
     let best = null, bestDeg = 0;
     for (const node of graphData.nodes) {
       if (node.type === "character") {
-        const deg = degMap.get(node.id) || 0;
+        const deg = adj.get(node.id)?.size || 0;
         if (deg > bestDeg) { bestDeg = deg; best = node; }
       }
     }

@@ -757,7 +757,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
       fetch(patchUrl, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed, propagate: true }),
+        body: JSON.stringify({ name: trimmed, propagate: true, affectedFiles: backlinks.map((b) => b.filename) }),
       })
         .then((r) => r.json())
         .then((d) => {

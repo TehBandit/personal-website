@@ -37,7 +37,7 @@ function log(msg) {
 }
 
 /** Collect relative paths of .md/.txt files, skipping excluded dirs. */
-function getAllTxtFiles(dir, base = dir, exclude = new Set()) {
+function getAllSourceFiles(dir, base = dir, exclude = new Set()) {
   return walkRelPaths(dir, base, exclude);
 }
 
@@ -386,7 +386,7 @@ function deleteSourceFile(filename) {
       // Only clean up nodes that were derived from this file (no own raw file)
       const rawBase = data.id.replace(/_/g, "-");
       const hasOwnSource = fs.existsSync(NOTES_RAW_DIR)
-        && getAllTxtFiles(NOTES_RAW_DIR, NOTES_RAW_DIR, new Set([NOTES_DIR])).some(
+        && getAllSourceFiles(NOTES_RAW_DIR, NOTES_RAW_DIR, new Set([NOTES_DIR])).some(
           (f) => path.basename(f) === rawBase + ".txt" || path.basename(f) === rawBase + ".md"
         );
       if (hasOwnSource) continue; // has its own source file anywhere in the workspace, leave it
@@ -459,7 +459,7 @@ async function main() {
   if (isDelete) {
     const fileArgs = process.argv.slice(2).filter((a) => !a.startsWith("--"));
     if (fileArgs.length === 0) {
-      log("ERROR: --delete requires a filename, e.g.  --delete sunken-ledger.txt");
+      log("ERROR: --delete requires a filename, e.g.  --delete sunken-ledger.md");
       process.exit(1);
     }
     for (const f of fileArgs) deleteSourceFile(f);
@@ -494,38 +494,38 @@ async function main() {
 
   if (!fs.existsSync(NOTES_DIR)) fs.mkdirSync(NOTES_DIR, { recursive: true });
 
-  // 2. Collect txt files — use argv list if provided, otherwise all txt files
+  // 2. Collect source files — use argv list if provided, otherwise scan for all .md/.txt
   if (!fs.existsSync(NOTES_RAW_DIR)) {
     log("ERROR: workspace directory not found.");
     process.exit(1);
   }
 
-  let txtFiles;
+  let sourceFiles;
   if (fileArgs.length > 0) {
-    // Preserve relative paths (e.g. "notes-test/char.txt"); only strip drive/leading separators
-    txtFiles = fileArgs.map((f) => f.replace(/\\/g, "/").replace(/^\/+/, ""));
-    const missing = txtFiles.filter((f) => !fs.existsSync(path.join(NOTES_RAW_DIR, f)));
+    // Preserve relative paths (e.g. "notes-test/char.md"); only strip drive/leading separators
+    sourceFiles = fileArgs.map((f) => f.replace(/\\/g, "/").replace(/^\/+/, ""));
+    const missing = sourceFiles.filter((f) => !fs.existsSync(path.join(NOTES_RAW_DIR, f)));
     if (missing.length > 0) {
       log(`ERROR: file(s) not found in workspace: ${missing.join(", ")}`);
       process.exit(1);
     }
   } else {
     // Recursively collect all .txt and .md files from workspace root, skipping notes/ output dir
-    txtFiles = getAllTxtFiles(NOTES_RAW_DIR, NOTES_RAW_DIR, new Set([NOTES_DIR]));
+    sourceFiles = getAllSourceFiles(NOTES_RAW_DIR, NOTES_RAW_DIR, new Set([NOTES_DIR]));
   }
 
-  if (txtFiles.length === 0) {
+  if (sourceFiles.length === 0) {
     log("No source files (.txt or .md) found in workspace");
     process.exit(0);
   }
-  log(`Processing ${txtFiles.length} file(s): ${txtFiles.join(", ")}\n`);
+  log(`Processing ${sourceFiles.length} file(s): ${sourceFiles.join(", ")}\n`);
 
   const openai = new OpenAI({ apiKey });
 
   // 3. Process each file sequentially — context builds with each pass
-  for (let i = 0; i < txtFiles.length; i++) {
-    const filename = txtFiles[i];
-    log(`[${i + 1}/${txtFiles.length}] Processing: ${filename}`);
+  for (let i = 0; i < sourceFiles.length; i++) {
+    const filename = sourceFiles[i];
+    log(`[${i + 1}/${sourceFiles.length}] Processing: ${filename}`);
 
     const rawText = fs.readFileSync(path.join(NOTES_RAW_DIR, filename), "utf-8").trim();
     const userAliases = parseUserAliases(rawText);
@@ -552,7 +552,7 @@ async function main() {
     }
 
     // Brief pause between files to stay within API rate limits
-    if (i < txtFiles.length - 1) {
+    if (i < sourceFiles.length - 1) {
       await new Promise((r) => setTimeout(r, 5000));
     }
   }
