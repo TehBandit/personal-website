@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import ForceGraph2D from "react-force-graph-2d";
 import Header from "../components/Header.jsx";
 import FilesEditor from "../components/FilesEditor.jsx";
-import { X, Network, Upload, FileText, CheckCircle, AlertCircle, RotateCcw, ChevronDown, Search, Crosshair, SlidersHorizontal, Folder, FilePlus, MessageSquare, GitFork, Send, BarChart2 } from "lucide-react";
+import { X, Network, Upload, FileText, CheckCircle, AlertCircle, RotateCcw, ChevronDown, ChevronLeft, ChevronRight, Search, Crosshair, SlidersHorizontal, Folder, FilePlus, MessageSquare, GitFork, Send, BarChart2 } from "lucide-react";
 import WorkspaceChat from "../components/WorkspaceChat.jsx";
 import WorkspacePicker from "../components/WorkspacePicker.jsx";
 import Dashboard from "../components/Dashboard.jsx";
@@ -92,6 +93,7 @@ async function buildFileBody(file) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function StoryGraph() {
+  const [searchParams] = useSearchParams();
   const [selectedNode, setSelectedNode] = useState(null);
   const [selectedNodeFileContent, setSelectedNodeFileContent] = useState(null); // raw file text | null
   const [hoveredNode, setHoveredNode] = useState(null);
@@ -153,6 +155,8 @@ export default function StoryGraph() {
   // ── Resizable sidebars ─────────────────────────────────────────────────────
   const [leftSidebarWidth, setLeftSidebarWidth]   = useState(240); // 240 = w-60
   const [rightPanelWidth,  setRightPanelWidth]    = useState(320); // 320 = w-80
+  const [rightPanelTab,    setRightPanelTab]       = useState("details"); // "details" | "chat"
+  const [rightPanelOpen,   setRightPanelOpen]      = useState(false); // closed until user opens or clicks a node
 
   const makeResizeHandler = useCallback((setter, direction = "right") => (e) => {
     e.preventDefault();
@@ -200,15 +204,21 @@ export default function StoryGraph() {
 
   // Load workspace list on mount
   useEffect(() => {
+    const paramWs = searchParams.get("workspace");
     fetch("/api/workspaces")
       .then((r) => r.json())
       .then((d) => {
         const list = d.workspaces || [];
         setWorkspaces(list);
-        if (list.length > 0) setWorkspace(list[0].slug);
-        else setLoading(false); // no workspaces — stop spinning
+        if (list.length > 0) {
+          const preferred = paramWs && list.find((w) => w.slug === paramWs);
+          setWorkspace(preferred ? preferred.slug : list[0].slug);
+        } else {
+          setLoading(false); // no workspaces — stop spinning
+        }
       })
       .catch(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCreateWorkspace = async (name, preset, closeCallback) => {
@@ -663,6 +673,7 @@ export default function StoryGraph() {
     }
 
     setSelectedNode(node);
+    setRightPanelOpen(true);
     fgRef.current?.centerAt(node.x, node.y, 600);
     fgRef.current?.zoom(2.2, 600);
 
@@ -1087,16 +1098,19 @@ export default function StoryGraph() {
 
   return (
     <NodeTypeContext.Provider value={NODE_TYPE_CONFIG}>
-    <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: "#0f0f1a" }}>
-      <Header />
-
-      {/* Page title bar */}
+    <div className="dark-scroll h-screen flex flex-col overflow-hidden" style={{ backgroundColor: "#0f0f1a" }}>
       <div
         className="flex items-center gap-3 px-6 py-3 border-b"
         style={{ borderColor: "rgba(255,255,255,0.08)" }}
       >
-        <Network size={20} className="text-blue-400" />
-        <h1 className="text-lg font-semibold text-white tracking-tight">Story Graph</h1>
+        <Link
+          to="/storygraph"
+          className="flex items-center gap-2 transition-opacity hover:opacity-75"
+          title="Back to Story Graph home"
+        >
+          <Network size={20} className="text-blue-400" />
+          <h1 className="text-lg font-semibold text-white tracking-tight">Story Graph</h1>
+        </Link>
 
         <WorkspacePicker
           workspaces={workspaces}
@@ -1115,7 +1129,7 @@ export default function StoryGraph() {
 
         {/* Tab switcher */}
         <div className="flex items-center gap-0.5 ml-4 p-0.5 rounded-lg" style={{ backgroundColor: "rgba(255,255,255,0.05)" }}>
-          {[{ id: "graph", icon: <Network size={12} />, label: "Graph" }, { id: "files", icon: <FileText size={12} />, label: "Files" }, { id: "chat", icon: <MessageSquare size={12} />, label: "Chat" }, { id: "dashboard", icon: <BarChart2 size={12} />, label: "Dashboard" }].map(({ id, icon, label }) => (
+          {[{ id: "graph", icon: <Network size={12} />, label: "Graph" }, { id: "files", icon: <FileText size={12} />, label: "Files" }, { id: "dashboard", icon: <BarChart2 size={12} />, label: "Dashboard" }].map(({ id, icon, label }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
@@ -1157,24 +1171,20 @@ export default function StoryGraph() {
             nodeTransparent={nodeTransparent}
             nodeBorder={nodeBorder}
             disallowedAliases={disallowedAliases}
-            onReady={(api) => { filesEditorApi.current = api; }}
+            onReady={(api) => {
+                filesEditorApi.current = api;
+                // If navigated here with ?file=, open it now that the editor is ready
+                const paramFile = searchParams.get("file");
+                if (paramFile) {
+                  setActiveTab("files");
+                  setTimeout(() => api.openFileByName(decodeURIComponent(paramFile)), 80);
+                }
+              }}
             onFilesChange={setStoryFiles}
           />
         </div>
 
-        {/* ── Chat tab ── */}
-        {/* ── Chat tab (kept mounted to preserve session state) ── */}
-        <div className="flex flex-1 overflow-hidden min-h-0" style={{ display: activeTab === "chat" ? "flex" : "none" }}>
-          <WorkspaceChat
-            workspace={workspace}
-            onOpenNode={openNodeById}
-            graphData={graphData}
-            chatFocusNode={selectedNode}
-            onShowPath={showPathOnGraph}
-            pendingQuestion={pendingChatQuestion}
-            onPendingConsumed={() => setPendingChatQuestion(null)}
-          />
-        </div>
+
 
         {/* ── Dashboard tab ── */}
         {activeTab === "dashboard" && (
@@ -1437,8 +1447,8 @@ export default function StoryGraph() {
             d3VelocityDecay={0.3}
           />
 
-          {/* Settings button + popover — top-right of graph canvas */}
-          <div className="absolute top-3 right-3 z-10">
+          {/* Settings button + panel-toggle button — top-right of graph canvas */}
+          <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
             <button
               onClick={() => setSettingsOpen((v) => !v)}
               className="flex items-center justify-center w-8 h-8 rounded-xl transition-colors"
@@ -1451,6 +1461,20 @@ export default function StoryGraph() {
               }}
             >
               <SlidersHorizontal size={14} />
+            </button>
+
+            <button
+              onClick={() => setRightPanelOpen((v) => !v)}
+              className="flex items-center justify-center w-8 h-8 rounded-xl transition-colors"
+              title={rightPanelOpen ? "Hide panel" : "Show panel"}
+              style={{
+                backgroundColor: rightPanelOpen ? "rgba(96,165,250,0.18)" : "rgba(15,15,26,0.85)",
+                border: `1px solid ${rightPanelOpen ? "rgba(96,165,250,0.4)" : "rgba(255,255,255,0.1)"}`,
+                backdropFilter: "blur(8px)",
+                color: rightPanelOpen ? "#93c5fd" : "rgba(255,255,255,0.5)",
+              }}
+            >
+              {rightPanelOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
             </button>
 
             {settingsOpen && (
@@ -1630,7 +1654,7 @@ export default function StoryGraph() {
                     pinnedNodeIds: activePath.ordered.map((n) => n.id),
                     pathHint: names.join(" → "),
                   });
-                  setActiveTab("chat");
+                  setRightPanelTab("chat");
                 }}
                 className="ml-0.5 flex-shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg transition-colors"
                 style={{ color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.1)" }}
@@ -1655,20 +1679,43 @@ export default function StoryGraph() {
           )}
         </div>
 
-        {/* ── Right detail panel ── */}
-        {selectedNode && (
+        {/* ── Right panel: Details + Chat tabs ── */}
+        {rightPanelOpen && (
+        <div
+          className="flex-shrink-0 flex flex-col border-l relative"
+          style={{ width: rightPanelWidth, backgroundColor: "#13131f", borderColor: "rgba(255,255,255,0.07)" }}
+        >
+          {/* Resize handle */}
           <div
-            className="flex-shrink-0 flex flex-col overflow-y-auto border-l relative"
-            style={{ width: rightPanelWidth, backgroundColor: "#13131f", borderColor: "rgba(255,255,255,0.07)" }}
-          >
-            {/* Resize handle */}
-            <div
-              onMouseDown={makeResizeHandler(setRightPanelWidth, "left")}
-              className="absolute top-0 left-0 w-1 h-full z-10 cursor-col-resize"
-              style={{ background: "transparent" }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.12)")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-            />
+            onMouseDown={makeResizeHandler(setRightPanelWidth, "left")}
+            className="absolute top-0 left-0 w-1 h-full z-10 cursor-col-resize"
+            style={{ background: "transparent" }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.12)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          />
+
+          {/* Panel tab bar */}
+          <div className="flex items-center flex-shrink-0 px-2 pt-1 gap-0.5 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+            {[{ id: "details", label: "Details" }, { id: "chat", label: "Chat" }].map(({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => setRightPanelTab(id)}
+                className="px-3 py-2 text-xs font-medium transition-colors"
+                style={{
+                  color: rightPanelTab === id ? "#93c5fd" : "rgba(255,255,255,0.35)",
+                  borderBottom: rightPanelTab === id ? "2px solid #60a5fa" : "2px solid transparent",
+                  backgroundColor: "transparent",
+                  marginBottom: "-1px",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Details tab */}
+          <div className="flex-1 overflow-y-auto min-h-0" style={{ display: rightPanelTab === "details" ? "block" : "none" }}>
+            {selectedNode ? (<>
             {/* Header */}
             <div className="px-5 pt-4 pb-4 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
               {/* Top row: type badge + icon buttons */}
@@ -1905,7 +1952,7 @@ export default function StoryGraph() {
                     if (e.key === "Enter" && askInput.trim()) {
                       setPendingChatQuestion({ key: Date.now(), text: askInput.trim() });
                       setAskInput("");
-                      setActiveTab("chat");
+                      setRightPanelTab("chat");
                     }
                   }}
                   placeholder={`Ask about ${selectedNode.name}…`}
@@ -1917,7 +1964,7 @@ export default function StoryGraph() {
                     if (askInput.trim()) {
                       setPendingChatQuestion({ key: Date.now(), text: askInput.trim() });
                       setAskInput("");
-                      setActiveTab("chat");
+                      setRightPanelTab("chat");
                     }
                   }}
                   className="flex items-center justify-center px-2.5 rounded-lg flex-shrink-0"
@@ -1930,7 +1977,7 @@ export default function StoryGraph() {
                 {[`Who is ${selectedNode.name}?`, `What connects to ${selectedNode.name}?`].map((s) => (
                   <button
                     key={s}
-                    onClick={() => { setPendingChatQuestion({ key: Date.now(), text: s }); setActiveTab("chat"); }}
+                    onClick={() => { setPendingChatQuestion({ key: Date.now(), text: s }); setRightPanelTab("chat"); }}
                     className="text-[10px] px-2 py-1 rounded-md transition-colors"
                     style={{ backgroundColor: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.07)" }}
                     onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
@@ -1941,8 +1988,30 @@ export default function StoryGraph() {
                 ))}
               </div>
             </div>
+            </>) : (
+              <div className="flex-1 flex items-center justify-center p-8">
+                <p className="text-xs text-center" style={{ color: "rgba(255,255,255,0.2)" }}>
+                  Click any node to explore its details
+                </p>
+              </div>
+            )}
+          </div>{/* end details tab */}
+
+          {/* Chat tab — kept mounted so session state is preserved */}
+          <div className="flex flex-col flex-1 overflow-hidden min-h-0" style={{ display: rightPanelTab === "chat" ? "flex" : "none" }}>
+            <WorkspaceChat
+              compact
+              workspace={workspace}
+              onOpenNode={openNodeById}
+              graphData={graphData}
+              chatFocusNode={selectedNode}
+              onShowPath={showPathOnGraph}
+              pendingQuestion={pendingChatQuestion}
+              onPendingConsumed={() => setPendingChatQuestion(null)}
+            />
           </div>
-        )}
+        </div>
+        )} {/* end rightPanelOpen */}
         </div> {/* end graph tab */}
       </div>
 

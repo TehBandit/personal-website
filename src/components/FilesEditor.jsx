@@ -11,7 +11,7 @@ import { Markdown } from "tiptap-markdown";
 import { Underline as UnderlineExt } from "@tiptap/extension-underline";
 import {
   FileText, Plus, Save, Trash2, X, Tag, ChevronRight,
-  Folder, FolderOpen, FolderPlus, FilePlus,
+  Folder, FolderOpen, FolderPlus, FilePlus, MoreHorizontal,
   Bold, Italic, Underline, List, ListOrdered,
   Heading1, Heading2, Heading3,
   Quote, Code, Minus, Undo, Redo,
@@ -513,6 +513,8 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
   const [tree, setTree] = useState([]);
   const [openFolders, setOpenFolders] = useState(() => new Set());
   const [inlineNew, setInlineNew] = useState(null); // { parentPath, type: "file"|"folder", value }
+  const [inlineRename, setInlineRename] = useState(null); // { path, value } | null
+  const [fileMenuOpen, setFileMenuOpen] = useState(null); // path of file whose menu is open
   const [dragItem, setDragItem] = useState(null);       // { path: string }
   const [dropIndicator, setDropIndicator] = useState(null); // null | { type:"folder"|"line"|"root", path?, position? }
   const [openFile, setOpenFile] = useState(null);   // { filename, content }
@@ -526,6 +528,14 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
   const saveTimerRef = useRef(null);
   const workspaceRef = useRef(workspace);
   useEffect(() => { workspaceRef.current = workspace; }, [workspace]);
+
+  // Close file context menu on outside click
+  useEffect(() => {
+    if (!fileMenuOpen) return;
+    const handler = () => setFileMenuOpen(null);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [fileMenuOpen]);
   const entityDataRef = useRef({ entities: [], onOpen: null, onHover: null, onHoverEnd: null, currentFilename: null });
   const lastSavedContentRef = useRef(""); // tracks last-written markdown to skip no-op saves
   const openFileRef = useRef(null);        // always current openFile — safe to read inside onUpdate
@@ -1252,6 +1262,29 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
       });
   }, [files, tree, openFile, workspace]);
 
+  // ── Rename file ─────────────────────────────────────────────────────────────
+  const renameFile = useCallback(async (oldPath, newName) => {
+    if (!newName.trim()) return;
+    const dir = oldPath.includes("/") ? oldPath.split("/").slice(0, -1).join("/") : "";
+    const ext = oldPath.match(/\.(md|txt)$/i)?.[0] ?? ".md";
+    const newBasename = newName.trim().endsWith(".md") || newName.trim().endsWith(".txt")
+      ? newName.trim()
+      : newName.trim() + ext;
+    const newPath = dir ? `${dir}/${newBasename}` : newBasename;
+    if (newPath === oldPath) return;
+    const res = await fetch(
+      `/api/notes-raw-move?workspace=${encodeURIComponent(workspaceRef.current ?? "")}`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from: oldPath, to: newPath }) }
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      window.alert(err.error ?? "Rename failed");
+      return;
+    }
+    if (openFile?.filename === oldPath) setOpenFile((f) => f ? { ...f, filename: newPath } : f);
+    loadFiles();
+  }, [openFile, loadFiles]);
+
   // ── Delete file ──────────────────────────────────────────────────────────────
   const deleteFile = useCallback((filename, e) => {
     e.stopPropagation();
@@ -1670,18 +1703,71 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
               onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (dragItem) moveFile(dragItem.path, parentPath); setDragItem(null); setDropIndicator(null); }}
             >
               <FileText size={13} style={{ color: isActive ? "#60a5fa" : "rgba(255,255,255,0.3)", flexShrink: 0 }} />
-              <span className="text-sm truncate flex-1" style={{ color: isActive ? "#e2e8f0" : "rgba(255,255,255,0.6)" }}>{node.name}</span>
-              {duplicateBasenames.has(node.name) && (
+              {inlineRename?.path === node.path ? (
+                <input
+                  autoFocus
+                  type="text"
+                  value={inlineRename.value}
+                  onChange={(e) => setInlineRename((r) => r ? { ...r, value: e.target.value } : r)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { e.stopPropagation(); renameFile(node.path, inlineRename.value); setInlineRename(null); }
+                    if (e.key === "Escape") setInlineRename(null);
+                  }}
+                  onBlur={() => setInlineRename(null)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex-1 px-1 py-0 rounded text-sm outline-none bg-transparent"
+                  style={{ border: "1px solid rgba(255,255,255,0.18)", color: "rgba(255,255,255,0.85)", caretColor: "#60a5fa" }}
+                  spellCheck={false}
+                />
+              ) : (
+                <span className="text-sm truncate flex-1" style={{ color: isActive ? "#e2e8f0" : "rgba(255,255,255,0.6)" }}>{node.name}</span>
+              )}
+              {duplicateBasenames.has(node.name) && !inlineRename && (
                 <Copy size={10} title="Appears in multiple folders" style={{ color: "#fbbf24", flexShrink: 0, opacity: 0.75, marginRight: 2 }} />
               )}
-              <button
-                onClick={(e) => deleteFile(node.path, e)}
-                className="opacity-0 group-hover:opacity-100 p-0.5 rounded flex-shrink-0"
-                style={{ color: "rgba(248,113,113,0.7)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "#f87171")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(248,113,113,0.7)")}
-                title="Delete file"
-              ><Trash2 size={11} /></button>
+              <span className="flex gap-0 opacity-0 group-hover:opacity-100 flex-shrink-0 relative">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setFileMenuOpen((p) => p === node.path ? null : node.path); }}
+                  className="p-0.5 rounded"
+                  style={{ color: "rgba(255,255,255,0.4)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
+                  title="More options"
+                ><MoreHorizontal size={11} /></button>
+                {fileMenuOpen === node.path && (
+                  <div
+                    className="absolute z-50 py-1 rounded-lg shadow-xl"
+                    style={{
+                      top: "100%", right: 0, minWidth: 120,
+                      backgroundColor: "#1e1e2e",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      className="w-full text-left px-3 py-1.5 text-xs transition-colors"
+                      style={{ color: "rgba(255,255,255,0.75)" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.07)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFileMenuOpen(null);
+                        setInlineRename({ path: node.path, value: node.name });
+                      }}
+                    >
+                      Rename
+                    </button>
+                  </div>
+                )}
+                <button
+                  onClick={(e) => deleteFile(node.path, e)}
+                  className="p-0.5 rounded flex-shrink-0"
+                  style={{ color: "rgba(248,113,113,0.7)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#f87171")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(248,113,113,0.7)")}
+                  title="Delete file"
+                ><Trash2 size={11} /></button>
+              </span>
             </div>
             {isLineAfter && (
               <div style={{ height: 2, margin: `1px 4px 1px ${indent + 20}px`, borderRadius: 1, backgroundColor: "#60a5fa" }} />

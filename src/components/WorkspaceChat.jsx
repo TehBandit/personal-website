@@ -673,7 +673,7 @@ function MessageBubble({ message, onOpenNode, graphData, onRegenerate, onEditSub
                   color: TEXT,
                   border: `1px solid rgba(96,165,250,0.18)`,
                   borderBottomRightRadius: "6px",
-                  padding: "12px 16px",
+                  padding: "5px 10px",
                 }
               : {
                   backgroundColor: BUBBLE_BG,
@@ -682,13 +682,14 @@ function MessageBubble({ message, onOpenNode, graphData, onRegenerate, onEditSub
                   borderBottomLeftRadius: "6px",
                   lineHeight: "1.65",
                   overflow: "hidden",
+                  padding: "5px 10px",
                 }
             }
           >
             {/* Assistant top action bar */}
             {!isUser && !isThinking && !isStreaming && (
               <div
-                className="flex items-center gap-1 px-3 pt-2 pb-1 transition-opacity"
+                className="flex items-center gap-1 transition-opacity"
                 style={{ opacity: hovered ? 1 : 0, pointerEvents: hovered ? "auto" : "none" }}
               >
                 <button
@@ -717,7 +718,7 @@ function MessageBubble({ message, onOpenNode, graphData, onRegenerate, onEditSub
             )}
 
             {/* Message body */}
-            <div className={!isUser && !isThinking && !isStreaming ? "px-4 pb-3" : "px-4 py-3"}>
+            <div>
               {isThinking ? (
                 <span className="flex items-center gap-1.5" style={{ color: MUTED }}>
                   <span className="flex gap-0.5">
@@ -1029,14 +1030,15 @@ function SessionSidebar({ sessions, activeId, onSelect, onNew, onDelete }) {
 // Main WorkspaceChat component
 // ---------------------------------------------------------------------------
 
-export default function WorkspaceChat({ workspace, onOpenNode, graphData = null, chatFocusNode = null, onShowPath = null, pendingQuestion = null, onPendingConsumed = null }) {
+export default function WorkspaceChat({ workspace, onOpenNode, graphData = null, chatFocusNode = null, onShowPath = null, pendingQuestion = null, onPendingConsumed = null, compact = false }) {
   // Session state
   const [sessions, setSessions] = useState(() => loadSessions(workspace));
   const [activeId, setActiveId] = useState(() => {
     const s = loadSessions(workspace);
     return s.length > 0 ? s[0].id : null;
   });
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // In compact (panel) mode, hide history by default so the chat area has full height.
+  const [sidebarOpen, setSidebarOpen] = useState(!compact);
 
   // Tracks which workspace the current `sessions` state belongs to.
   // Used to prevent the persist effect from writing stale sessions to the wrong
