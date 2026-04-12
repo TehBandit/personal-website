@@ -93,7 +93,7 @@ async function buildFileBody(file) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function StoryGraph() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedNode, setSelectedNode] = useState(null);
   const [selectedNodeFileContent, setSelectedNodeFileContent] = useState(null); // raw file text | null
   const [hoveredNode, setHoveredNode] = useState(null);
@@ -198,9 +198,24 @@ export default function StoryGraph() {
     });
 
   const graphContainerRef = useRef(null);
+  const [graphDims, setGraphDims] = useState({ width: 0, height: 0 });
   const fgRef = useRef(null);
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
+
+  // Track graph container size so ForceGraph2D always gets correct dimensions.
+  // Re-run when `loading` flips to false — the graph container ref is null while
+  // the loading screen is shown (early return), so we need to attach after it mounts.
+  useEffect(() => {
+    const el = graphContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setGraphDims((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [loading]);
 
   // Load workspace list on mount
   useEffect(() => {
@@ -1125,11 +1140,17 @@ export default function StoryGraph() {
             disallowedAliases={disallowedAliases}
             onReady={(api) => {
                 filesEditorApi.current = api;
-                // If navigated here with ?file=, open it now that the editor is ready
+                // If navigated here with ?file=, open it once then strip the param
+                // so it doesn't re-fire on tab/workspace switches.
                 const paramFile = searchParams.get("file");
                 if (paramFile) {
                   setActiveTab("files");
                   setTimeout(() => api.openFileByName(decodeURIComponent(paramFile)), 80);
+                  setSearchParams((prev) => {
+                    const next = new URLSearchParams(prev);
+                    next.delete("file");
+                    return next;
+                  }, { replace: true });
                 }
               }}
             onFilesChange={setStoryFiles}
@@ -1383,6 +1404,8 @@ export default function StoryGraph() {
           <ForceGraph2D
             ref={fgRef}
             graphData={graphData}
+            width={graphDims.width || undefined}
+            height={graphDims.height || undefined}
             backgroundColor={GRAPH_BG}
             nodeCanvasObject={nodeCanvasObject}
             nodePointerAreaPaint={nodePointerAreaPaint}
