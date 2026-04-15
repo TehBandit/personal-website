@@ -1,0 +1,30 @@
+{
+  "id": "strategic_planning",
+  "name": "Strategic Planning",
+  "type": "concept",
+  "excerpt": "Strategic planning involves senior executives defining the vision or business plan and aligning projects with the overall strategy.",
+  "connections": [
+    {
+      "target": "portfolio_management",
+      "label": "related to"
+    },
+    {
+      "target": "business_area_analysis",
+      "label": "applies vision to departments"
+    },
+    {
+      "target": "bit_4484_notes_7_12_2020",
+      "label": "featured in"
+    }
+  ],
+  "notes": "Strategic planning is often done by senior executives to define the vision or business plan of an organization. It is a critical step in aligning projects with the overall strategy.\n\nStrategic planning is often done by senior executives who define the vision or business plan for the organization.\n\nStrategic Planning is often conducted by senior executives to define the vision or business plan of an organization.\n\nStrategic planning is often done by senior executives and involves defining the vision or business plan of an organization. It is crucial for aligning projects with the overall strategy.\n\nStrategic planning is often conducted by senior executives to define the vision or business plan of an organization. It is crucial to ensure that projects align with the greater vision.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_12_2020.md",
+  "createdAt": 1776059492317,
+  "updatedAt": 1776197680174,
+  "context_summary": [
+    "- Strategic planning is conducted by senior executives.",
+    "- It defines the vision or business plan of an organization.",
+    "- It aligns projects with the overall strategy."
+  ]
+}

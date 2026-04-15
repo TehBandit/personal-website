@@ -1,0 +1,22 @@
+{
+  "id": "dependencies",
+  "name": "Dependencies",
+  "type": "concept",
+  "excerpt": "Dependencies are logical relationships between project activities.",
+  "connections": [
+    {
+      "target": "project_schedule_management",
+      "label": "used in"
+    },
+    {
+      "target": "bit_4484_notes_7_26_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Dependencies define the order of activities in a project. They can be mandatory, discretionary, external, or internal, and are categorized by type: Finish-to-Start, Start-to-Start, Finish-to-Finish, and Start-to-Finish.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_26_2020.md",
+  "createdAt": 1776059528032,
+  "updatedAt": 1776059528032,
+  "context_summary": "- Define logical relationships between project activities.\n- Determine the order of activities.\n- Can be mandatory, discretionary, external, or internal.\n- Categorized by type: Finish-to-Start, Start-to-Start, Finish-to-Finish, Start-to-Finish."
+}

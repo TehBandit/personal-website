@@ -1,0 +1,29 @@
+{
+  "id": "project_procurement_management",
+  "name": "Project Procurement Management",
+  "type": "concept",
+  "excerpt": "Project Procurement Management involves acquiring goods and services from external sources.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_8_2_2020",
+      "label": "appears in"
+    },
+    {
+      "target": "bit_4484_notes_8_3_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Project Procurement Management involves acquiring goods and services from external sources. It includes Make-or-Buy Analysis, various contract types (Fixed Price, Competitive, Cost Reimbursable, Time and Material, Unit Price), and procurement documents like RFP, RFQ, and SOW. The Supplier Evaluation Matrix is used to evaluate suppliers based on weighted categories.\n\nSource Selection involves different approaches to selecting suppliers, such as approaching one supplier, a few suppliers, or advertising to many sellers. A shortlist of 3-5 top sellers is prepared for final offers.\n\nConstructive Change Orders are oral or written requests made by someone with authority.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_8_2_2020.md",
+  "createdAt": 1776059571082,
+  "updatedAt": 1776059622106,
+  "context_summary": [
+    "- Involves acquiring goods and services from external sources.",
+    "- Includes Make-or-Buy Analysis and various contract types.",
+    "- Uses procurement documents like RFP and RFQ.",
+    "- Employs the Supplier Evaluation Matrix for supplier evaluation.",
+    "- Source Selection can involve different approaches.",
+    "- Prepares a shortlist of 3-5 top sellers for final offers."
+  ]
+}

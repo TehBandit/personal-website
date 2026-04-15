@@ -1,0 +1,22 @@
+{
+  "id": "project_quality_management",
+  "name": "Project Quality Management",
+  "type": "concept",
+  "excerpt": "Project Quality Management ensures that a project meets the required quality standards.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_8_2_2020",
+      "label": "appears in"
+    },
+    {
+      "target": "bit_4484_notes_8_3_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Project Quality Management involves ensuring that a project meets the required quality standards. It includes conformance to requirements, fitness for use, and customer satisfaction. Many projects fail because they only consider written requirements and ignore other stakeholder needs and expectations. The Quality Management Plan identifies quality standards and how to meet them.\n\nQuality Assurance encompasses all activities relevant to satisfying quality standards, including benchmarking and quality audits. Cause and effect diagrams, such as fishbone or Ishikawa diagrams, are used to find root causes of problems.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_8_2_2020.md",
+  "createdAt": 1776059571079,
+  "updatedAt": 1776059597152,
+  "context_summary": "- Ensures projects meet quality standards.\n- Includes conformance to requirements and customer satisfaction.\n- Quality Management Plan identifies standards and methods to meet them."
+}

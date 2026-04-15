@@ -1,0 +1,18 @@
+{
+  "id": "project_resource_management",
+  "name": "Project Resource Management",
+  "type": "concept",
+  "excerpt": "Project Resource Management involves organizing and managing the project team.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_8_2_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Project Resource Management involves organizing and managing the project team. It includes the Project Organizational Chart, which tracks who does what, and the Responsibility Assignment Matrix, which maps tasks to people responsible for performing them. The RACI Chart defines roles such as Responsible, Accountable, Consulted, and Informed. The Staffing Management Plan describes how people are added and removed from a project, and the Team Charter promotes teamwork and clarifies communication.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_8_2_2020.md",
+  "createdAt": 1776059571080,
+  "updatedAt": 1776059571080,
+  "context_summary": "- Organizes and manages the project team.\n- Includes Project Organizational Chart.\n- Uses Responsibility Assignment Matrix.\n- Defines roles with RACI Chart.\n- Staffing Management Plan describes team changes.\n- Team Charter promotes teamwork and communication."
+}

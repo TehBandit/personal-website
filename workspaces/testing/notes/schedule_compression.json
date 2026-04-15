@@ -1,0 +1,22 @@
+{
+  "id": "schedule_compression",
+  "name": "Schedule Compression",
+  "type": "concept",
+  "excerpt": "Schedule Compression involves techniques to shorten the project schedule.",
+  "connections": [
+    {
+      "target": "project_schedule_management",
+      "label": "used in"
+    },
+    {
+      "target": "bit_4484_notes_7_26_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Schedule Compression includes techniques like crashing, which involves making cost and schedule trade-offs, and fast tracking, which involves doing activities in parallel that would normally be done in sequence. These techniques are used to meet project deadlines but can increase risk.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_26_2020.md",
+  "createdAt": 1776059528033,
+  "updatedAt": 1776059528033,
+  "context_summary": "- Involves techniques to shorten the project schedule.\n- Includes crashing and fast tracking.\n- Can increase risk while meeting project deadlines."
+}

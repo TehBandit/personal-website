@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, Check, Plus } from "lucide-react";
+import { ChevronDown, Check, Plus, Trash2 } from "lucide-react";
 import { TYPE_PRESETS } from "../constants/nodeTypes.js";
 
 /**
@@ -11,12 +11,14 @@ import { TYPE_PRESETS } from "../constants/nodeTypes.js";
  *   workspaceName    string          display name of active workspace
  *   onWorkspaceChange(slug)
  *   onCreateWorkspace(name, preset, closeCallback)
+ *   onDeleteWorkspace(slug, closeCallback)
  */
-export default function WorkspacePicker({ workspaces = [], workspace, workspaceName, onWorkspaceChange, onCreateWorkspace }) {
+export default function WorkspacePicker({ workspaces = [], workspace, workspaceName, onWorkspaceChange, onCreateWorkspace, onDeleteWorkspace }) {
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState(null); // null | "preset" | "name"
+  const [step, setStep] = useState(null); // null | "preset" | "name" | "confirmDelete"
   const [preset, setPreset] = useState(null);
   const [name, setName] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null); // { slug, name } | null
   const ref = useRef(null);
 
   // Close on outside click
@@ -34,12 +36,18 @@ export default function WorkspacePicker({ workspaces = [], workspace, workspaceN
     setStep(null);
     setPreset(null);
     setName("");
+    setDeleteTarget(null);
   }
 
   function handleCreate(e) {
     e.preventDefault();
     if (!name.trim()) return;
     onCreateWorkspace?.(name.trim(), preset, close);
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget) return;
+    onDeleteWorkspace?.(deleteTarget.slug, close);
   }
 
   const activeLabel = workspaceName || workspaces.find((w) => w.slug === workspace)?.name || workspace || "Workspace";
@@ -86,22 +94,38 @@ export default function WorkspacePicker({ workspaces = [], workspace, workspaceN
             {workspaces.map((ws) => {
               const isActive = ws.slug === workspace;
               return (
-                <button
+                <div
                   key={ws.slug}
-                  onClick={() => { onWorkspaceChange?.(ws.slug); close(); }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm"
+                  className="flex items-center group"
                   style={{
                     backgroundColor: isActive ? "rgba(96,165,250,0.1)" : "transparent",
-                    color: isActive ? "#93c5fd" : "rgba(255,255,255,0.65)",
                   }}
                   onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
-                  onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = "transparent"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = isActive ? "rgba(96,165,250,0.1)" : "transparent"; }}
                 >
-                  <span className="w-4 flex-shrink-0 flex items-center justify-center">
-                    {isActive && <Check size={12} style={{ color: "#60a5fa" }} />}
-                  </span>
-                  <span className="truncate">{ws.name}</span>
-                </button>
+                  <button
+                    onClick={() => { onWorkspaceChange?.(ws.slug); close(); }}
+                    className="flex-1 flex items-center gap-2.5 px-3 py-2 text-left text-sm min-w-0"
+                    style={{
+                      color: isActive ? "#93c5fd" : "rgba(255,255,255,0.65)",
+                    }}
+                  >
+                    <span className="w-4 flex-shrink-0 flex items-center justify-center">
+                      {isActive && <Check size={12} style={{ color: "#60a5fa" }} />}
+                    </span>
+                    <span className="truncate">{ws.name}</span>
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(ws); setStep("confirmDelete"); }}
+                    className="flex-shrink-0 mr-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ color: "rgba(255,255,255,0.25)" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = "#f87171"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.25)"; }}
+                    title={`Delete ${ws.name}`}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -187,6 +211,29 @@ export default function WorkspacePicker({ workspaces = [], workspace, workspaceN
                   >Cancel</button>
                 </div>
               </form>
+            ) : step === "confirmDelete" && deleteTarget ? (
+              <div className="px-3 pt-3 pb-2">
+                <p className="text-xs font-semibold mb-1" style={{ color: "#f87171" }}>
+                  Delete workspace?
+                </p>
+                <p className="text-xs mb-3" style={{ color: "rgba(255,255,255,0.45)" }}>
+                  <span className="font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>{deleteTarget.name}</span> and all its files, notes, and cached data will be permanently removed. This cannot be undone.
+                </p>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={confirmDelete}
+                    className="text-xs px-2.5 py-1 rounded-md font-medium"
+                    style={{ backgroundColor: "rgba(248,113,113,0.2)", color: "#f87171" }}
+                  >Delete</button>
+                  <button
+                    type="button"
+                    onClick={() => { setStep(null); setDeleteTarget(null); }}
+                    className="text-xs px-2.5 py-1 rounded-md"
+                    style={{ color: "rgba(255,255,255,0.35)" }}
+                  >Cancel</button>
+                </div>
+              </div>
             ) : (
               /* Default: "New workspace" button — clearly separated from the list above */
               <button

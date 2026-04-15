@@ -1,3 +1,0 @@
-RYŪNOSUKE TANAKA — character notes
-
-    Ryūnosuke Tanaka is a member of Karasuno's volleyball team. He recognizes Hinata as 'that number 1 shorty' and compliments him. Tanaka helps Hinata and Kageyama practice early in the morning. Tanaka questions Kageyama about his reasons for joining Karasuno. He defends Asahi when Nishinoya insults him, showing loyalty to his teammates. Tanaka is involved in the practice match against the Neighborhood Association Team. He is startled by Hinata's claim of seeing a child in the training camp building. Tanaka is part of the team that faces Nekoma in the practice match. Tanaka is involved in the soft block strategy against Hyakuzawa. Hinata hides behind Tanaka during the match against Kakugawa.

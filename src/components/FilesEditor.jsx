@@ -4,11 +4,17 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import { sinkListItem, liftListItem } from "@tiptap/pm/schema-list";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import { Markdown } from "tiptap-markdown";
 import { Underline as UnderlineExt } from "@tiptap/extension-underline";
+import Image from "@tiptap/extension-image";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableCell } from "@tiptap/extension-table-cell";
 import {
   FileText, Plus, Save, Trash2, X, Tag, ChevronRight,
   Folder, FolderOpen, FolderPlus, FilePlus, MoreHorizontal,
@@ -17,11 +23,12 @@ import {
   Quote, Code, Minus, Undo, Redo,
   CheckCircle, AlertCircle, Loader, ArrowLeftRight,
   ChevronsDownUp, ChevronsUpDown, Copy, GitMerge, Scissors, Clipboard, Search, Upload,
+  Download, Pencil, ChevronDown, Sparkles, WandSparkles,
 } from "lucide-react";
 import { TYPE_PRESETS } from "../constants/nodeTypes.js";
 import { useNodeTypeConfig } from "../contexts/NodeTypeContext.jsx";
 import { darkenHex } from "../utils/color.js";
-import { computeOwnFileIds } from "../utils/graphHelpers.js";
+import { computeOwnFileIds, normalizeToId } from "../utils/graphHelpers.js";
 const MINIMAP_BG = "#0f0f1a";
 
 /**
@@ -347,10 +354,13 @@ function buildAutocompleteExtension(dataRef) {
         return true;
       };
 
-      const insertIndent = (editor) => insertIndentText(editor);
+      const insertIndent = (editor) =>
+        editor.commands.sinkListItem("listItem") || insertIndentText(editor);
 
       return {
         Tab: ({ editor }) => accept(editor) || insertIndent(editor),
+        "Shift-Tab": ({ editor }) =>
+          editor.commands.liftListItem("listItem") || false,
         // Dismiss on Enter (without consuming — let StarterKit insert a newline)
         Enter: () => {
           const data = dataRef.current;
@@ -425,11 +435,23 @@ function buildAutocompleteExtension(dataRef) {
                 data.acItems = items;
                 const { from } = view.state.selection;
                 const coords = view.coordsAtPos(from);
-                data.setAcDropdown?.({
-                  x: coords.left,
-                  y: coords.bottom,
-                  items,
-                  selectedIndex: data.acSelectedIndex ?? 0,
+                const x = Math.round(coords.left);
+                const y = Math.round(coords.bottom);
+                const selectedIndex = data.acSelectedIndex ?? 0;
+                // Use a functional updater so React can bail out (same reference)
+                // when nothing meaningful changed — prevents spurious re-renders
+                // triggered by decoration-only dispatches and cursor-position
+                // recalculations that produce semantically identical state.
+                data.setAcDropdown?.((prev) => {
+                  if (
+                    prev &&
+                    prev.x === x &&
+                    prev.y === y &&
+                    prev.selectedIndex === selectedIndex &&
+                    prev.items.length === items.length &&
+                    prev.items[0]?.name === items[0]?.name
+                  ) return prev; // same dropdown — React skips re-render
+                  return { x, y, items, selectedIndex };
                 });
               },
               destroy() {
@@ -501,7 +523,11 @@ function treeInsertNode(nodes, node, folderPath) {
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function FilesEditor({ graphData = { nodes: [], links: [] }, workspace = null, workspaceName = null, workspaces = [], onWorkspaceChange = null, onCreateWorkspace = null, nodeTransparent = false, nodeBorder = false, disallowedAliases = new Set(), onReady = null, onFilesChange = null }) {
+const EMPTY_GRAPH = { nodes: [], links: [] };
+const EMPTY_SET = new Set();
+const EMPTY_ARR = [];
+
+export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null, workspaceName = null, workspaces = EMPTY_ARR, onWorkspaceChange = null, onCreateWorkspace = null, onDeleteWorkspace = null, nodeTransparent = false, nodeBorder = false, disallowedAliases = EMPTY_SET, onReady = null, onFilesChange = null, onWorkspaceNodeTypesChanged = null }) {
   // eslint-disable-next-line no-shadow
   const NODE_TYPE_CONFIG = useNodeTypeConfig();
   const nodeTypeFallback = Object.values(NODE_TYPE_CONFIG)[0];
@@ -519,6 +545,27 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
   const [dropIndicator, setDropIndicator] = useState(null); // null | { type:"folder"|"line"|"root", path?, position? }
   const [openFile, setOpenFile] = useState(null);   // { filename, content }
   const [folderDeleteModal, setFolderDeleteModal] = useState(null); // { folderPath, filePaths[] } | null
+
+  // ── File menu (toolbar) ───────────────────────────────────────────────────────
+  const [fileMenuToolbarOpen, setFileMenuToolbarOpen] = useState(false);
+  const [fileMenuRename, setFileMenuRename] = useState(null); // { value } | null
+  const fileMenuToolbarRef = useRef(null);
+  const fileMenuRenameInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!fileMenuToolbarOpen) return;
+    const handler = (e) => {
+      if (fileMenuToolbarRef.current && !fileMenuToolbarRef.current.contains(e.target)) {
+        setFileMenuToolbarOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [fileMenuToolbarOpen]);
+
+  useEffect(() => {
+    if (fileMenuRename) fileMenuRenameInputRef.current?.select();
+  }, [fileMenuRename]);
 
   const [loadingFile, setLoadingFile] = useState(false);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
@@ -578,6 +625,12 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
   const [editorContextMenu, setEditorContextMenu] = useState(null); // { x, y, selectedText } | null
   const [acDropdown, setAcDropdown] = useState(null);              // { x, y, items, selectedIndex } | null
 
+  // ── AI writing assistant ─────────────────────────────────────────────────────
+  // aiAssist: null | { action, streaming, result, error, selectionFrom, selectionTo }
+  const [aiAssist, setAiAssist] = useState(null);
+  const [aiCustomInput, setAiCustomInput] = useState("");
+  const aiCustomInputRef = useRef(null);
+
   // ── Aliases state ────────────────────────────────────────────────────────────
   const [aliases, setAliases] = useState([]);
   const [aliasInput, setAliasInput] = useState("");
@@ -586,6 +639,25 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
   // ── Tags state ───────────────────────────────────────────────────────────────
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState("");
+
+  // ── Node type dropdown ───────────────────────────────────────────────────────
+  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
+  const [newTypeInput, setNewTypeInput] = useState("");
+  const typeDropdownRef = useRef(null);
+  const newTypeInputRef = useRef(null);
+
+  // Close type dropdown on outside click
+  useEffect(() => {
+    if (!typeDropdownOpen) return;
+    const handler = (e) => {
+      if (typeDropdownRef.current && !typeDropdownRef.current.contains(e.target)) {
+        setTypeDropdownOpen(false);
+        setNewTypeInput("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [typeDropdownOpen]);
 
   // ── Backlinks ─────────────────────────────────────────────────────────────────
   const [backlinks, setBacklinks] = useState([]); // [{ filename }]
@@ -629,19 +701,22 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
     if (!openFile) return null;
     const filename = openFile.filename;
     const basename = filename.split("/").pop();
-    const stemId = basename.replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+    const rawStem = basename.replace(/\.(md|txt)$/i, "");
+    // Normalize the same way the server does: lowercase + non-alphanumeric → _
+    const stemId = normalizeToId(rawStem);
+    // Also try the legacy simple form (hyphen→underscore only) as a fallback
+    const stemIdLegacy = rawStem.replace(/-/g, "_");
     // 1. Stem ID match (standard notes-raw files and focused-note uploads)
-    const byId = graphData.nodes.find((n) => n.id === stemId);
+    const byId = graphData.nodes.find((n) => n.id === stemId || n.id === stemIdLegacy);
     if (byId) return byId;
     // 2. Primary sourceFile basename match — only when the node id matches the file stem
-    //    (derive-uploaded files whose display name differs from their node id).
     const bySourceFile = graphData.nodes.find(
-      (n) => n.sourceFile && n.sourceFile.split("/").pop() === basename && n.id === stemId
+      (n) => n.sourceFile && n.sourceFile.split("/").pop() === basename && (n.id === stemId || n.id === stemIdLegacy)
     );
     if (bySourceFile) return bySourceFile;
     // 3. Full path match against primarySourceFile — same id-must-match guard
     const byFullPath = graphData.nodes.find(
-      (n) => n.sourceFile === filename && n.id === stemId
+      (n) => n.sourceFile === filename && (n.id === stemId || n.id === stemIdLegacy)
     );
     if (byFullPath) return byFullPath;
     // 4. Full path match against additionalSourceFiles (merged copies with different names)
@@ -739,10 +814,11 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
   // Load aliases + title from graphData nodes (already fetched, no extra request needed)
   const [nodeTitle, setNodeTitle] = useState("");
   useEffect(() => {
-    if (!openNode) { setAliases([]); setNodeTitle(""); setTags([]); return; }
+    if (!openNode) { setAliases([]); setNodeTitle(""); setTags([]); setNodeTypeOverride(null); return; }
     setAliases(openNode.aliases || []);
     setTags(openNode.tags || []);
     setNodeTitle(openNode.name ?? "");
+    setNodeTypeOverride(null); // clear override — graphData now has the authoritative type
   }, [openNode]);
 
   const saveNodeTitle = useCallback((title) => {
@@ -855,6 +931,44 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
     saveTags(next);
   }, [tags, saveTags]);
 
+  // ── Node type ────────────────────────────────────────────────────────────────
+  // Palette for auto-assigning a color to a brand-new type key.
+  const TYPE_COLOR_PALETTE = ["#60a5fa","#34d399","#fb923c","#c084fc","#f472b6","#facc15","#38bdf8","#a78bfa","#4ade80","#f87171"];
+  // Optimistic override — set immediately on selection, cleared when graphData refreshes
+  const [nodeTypeOverride, setNodeTypeOverride] = useState(null);
+
+  const saveNodeType = useCallback((typeKey) => {
+    if (!openFile) return;
+    setNodeTypeOverride(typeKey);
+    fetch(
+      `/api/notes-raw-file?filename=${encodeURIComponent(openFile.filename)}&workspace=${encodeURIComponent(workspaceRef.current ?? "")}`,
+      { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: typeKey }) }
+    ).catch(() => {});
+  }, [openFile]);
+
+  const addWorkspaceType = useCallback((rawKey) => {
+    const key = rawKey.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_|_$/g, "");
+    if (!key) return;
+    const usedColors = new Set(Object.values(NODE_TYPE_CONFIG).map((c) => c.color));
+    const color = TYPE_COLOR_PALETTE.find((c) => !usedColors.has(c)) ?? "#94a3b8";
+    const label = rawKey.trim().charAt(0).toUpperCase() + rawKey.trim().slice(1);
+    fetch(`/api/workspaces?slug=${encodeURIComponent(workspace ?? "")}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ addType: { key, color, label } }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.nodeTypes) {
+          onWorkspaceNodeTypesChanged?.(d.nodeTypes);
+          saveNodeType(key);
+        }
+      })
+      .catch(() => {});
+    setTypeDropdownOpen(false);
+    setNewTypeInput("");
+  }, [NODE_TYPE_CONFIG, TYPE_COLOR_PALETTE, workspace, onWorkspaceNodeTypesChanged, saveNodeType]);
+
   // Keep refs in sync with their state/callback counterparts every render
   openFileRef.current = openFile;
 
@@ -880,13 +994,18 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ codeBlock: { languageClassPrefix: "" } }),
+      StarterKit.configure({ codeBlock: { languageClassPrefix: "" }, underline: false }),
       Markdown.configure({ html: true, tightLists: true }),
       UnderlineWithMd,
       Placeholder.configure({ placeholder: "Start writing your story notes…" }),
       CharacterCount,
       entityLinksExtension,
       autocompleteExtension,
+      Image.configure({ inline: true, allowBase64: true }),
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableHeader,
+      TableCell,
     ],
     content: "",
     editorProps: {
@@ -912,21 +1031,27 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
         }
 
         const { state, dispatch } = view;
+        const listItemType = state.schema.nodes.listItem;
         if (event.shiftKey) {
+          if (listItemType && liftListItem(listItemType)(state, dispatch)) return true;
           const range = getOutdentRange(state);
           if (range) dispatch(state.tr.delete(range.from, range.to));
           return true;
         }
 
+        if (listItemType && sinkListItem(listItemType)(state, dispatch)) return true;
         dispatch(state.tr.insertText(INDENT_TEXT, state.selection.from, state.selection.to));
         return true;
       },
     },
-    onUpdate: () => {
+    onUpdate: ({ transaction }) => {
       // Suppress saves that fire during programmatic content loads.
       // tiptap-markdown's appendTransaction can normalise the doc even when
       // setContent is called with emitUpdate=false, causing a real onUpdate.
       if (suppressSaveRef.current) return;
+      // Skip decoration-only (meta) transactions — docChanged=false means no
+      // actual content change, so no dirty mark or save timer needed.
+      if (!transaction.docChanged) return;
       setIsDirty(true);
       // Auto-save after 1.5s of inactivity — use ref so we always call the
       // current saveFile even if openFile has changed since editor was created
@@ -1040,6 +1165,9 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
         binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
       const base64 = btoa(binary);
 
+      const stem = file.name.replace(/\.docx$/i, "");
+      const slug = stem.toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[\s_]+/g, "-");
+
       const res = await fetch("/api/docx-to-md", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1051,8 +1179,6 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
       }
       const { markdown } = await res.json();
 
-      const stem = file.name.replace(/\.docx$/i, "");
-      const slug = stem.toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[\s_]+/g, "-");
       const filename = slug + ".md";
 
       const currentFolder = openFileRef.current?.filename.includes("/")
@@ -1163,7 +1289,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
       ? openFile.filename.split("/").slice(0, -1).join("/")
       : "";
     const filePath = currentFolder ? `${currentFolder}/${filename}` : filename;
-    const content = `# ${title}\n\n`;
+    const content = "";
     fetch(
       `/api/notes-raw-file?filename=${encodeURIComponent(filePath)}&workspace=${encodeURIComponent(workspaceRef.current ?? "")}`,
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, name: title }) }
@@ -1172,6 +1298,9 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
       .then(() => {
         if (currentFolder) setOpenFolders((prev) => new Set([...prev, currentFolder]));
         loadFiles();
+        // Save the current file immediately so syncConnectionsForFile picks up
+        // the reference to the newly created note and creates the graph connection.
+        saveFileRef.current?.();
         openFileByName(filePath);
       })
       .catch(console.error);
@@ -1182,12 +1311,13 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
     const trimmed = (name ?? "").trim();
     if (!trimmed) return;
     const filename = /\.(md|txt)$/i.test(trimmed) ? trimmed : trimmed + ".md";
+    const nodeName = filename.replace(/\.(md|txt)$/i, "");
     const filePath = parentPath ? `${parentPath}/${filename}` : filename;
     setInlineNew(null);
     fetch(`/api/notes-raw-file?filename=${encodeURIComponent(filePath)}&workspace=${encodeURIComponent(workspace ?? "")}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: "" }),
+      body: JSON.stringify({ content: "", name: nodeName }),
     })
       .then((r) => {
         if (!r.ok) throw new Error("Create failed");
@@ -1300,6 +1430,73 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
       })
       .catch(console.error);
   }, [loadFiles, openFile, editor]);
+
+  // ── Download file ─────────────────────────────────────────────────────────────
+  const downloadFile = useCallback(() => {
+    if (!openFile) return;
+    const content = editor ? editor.storage.markdown.getMarkdown() : openFile.content;
+    const basename = openFile.filename.split("/").pop();
+    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = basename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [openFile, editor]);
+
+  // ── AI writing assistant ──────────────────────────────────────────────────────
+  const runAiAssist = useCallback(async (action, selectedText, customInstruction = "") => {
+    if (!selectedText || !editor) return;
+    const { from, to } = editor.state.selection;
+    const docContext = editor.storage.markdown.getMarkdown();
+    setAiAssist({ action, streaming: true, result: "", error: null, selectionFrom: from, selectionTo: to });
+    try {
+      const res = await fetch("/api/editor-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          text: selectedText,
+          context: docContext,
+          workspace: workspaceRef.current ?? "",
+          custom: customInstruction,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setAiAssist((prev) => prev ? { ...prev, streaming: false, error: err.error ?? "Request failed" } : null);
+        return;
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let accumulated = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const msg = JSON.parse(line.slice(6));
+            if (msg.type === "token") {
+              accumulated += msg.content;
+              setAiAssist((prev) => prev ? { ...prev, result: accumulated } : null);
+            } else if (msg.type === "done") {
+              setAiAssist((prev) => prev ? { ...prev, streaming: false } : null);
+            } else if (msg.type === "error") {
+              setAiAssist((prev) => prev ? { ...prev, streaming: false, error: msg.message } : null);
+            }
+          } catch { /* malformed SSE line */ }
+        }
+      }
+    } catch (err) {
+      setAiAssist((prev) => prev ? { ...prev, streaming: false, error: err.message ?? "Network error" } : null);
+    }
+  }, [editor]);
 
   // ── Delete folder ────────────────────────────────────────────────────────────
   const deleteFolder = useCallback((folderPath, e) => {
@@ -1531,13 +1728,14 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
 
     // Pass 2: stem matching for any files not yet mapped — iterate files so every file
     // gets a chance regardless of whether another file shares the same basename.
-    // Lowercase the stem so mixed-case filenames (e.g. BIT_4484_Notes.md) match
-    // lowercase node IDs (e.g. bit_4484_notes).
+    // Use normalizeToId so filenames with spaces, mixed-case, or special chars (e.g.
+    // "MNode Value.md", "BIT_4484_Notes.md") match their canonical node IDs.
     for (const { filename } of files) {
       if (map.has(filename)) continue;
-      const stem = filename.split("/").pop().replace(/\.(md|txt)$/i, "").toLowerCase();
-      const stemUnder = stem.replace(/-/g, "_");
-      const node = graphData.nodes.find((n) => n.id === stemUnder || n.id === stem);
+      const rawStem = filename.split("/").pop().replace(/\.(md|txt)$/i, "");
+      const stemNorm = normalizeToId(rawStem);          // "MNode Value" → "mnode_value"
+      const stemUnder = rawStem.toLowerCase().replace(/-/g, "_"); // legacy hyphen→_ fallback
+      const node = graphData.nodes.find((n) => n.id === stemNorm || n.id === stemUnder);
       if (node) map.set(filename, node.id);
     }
 
@@ -1919,7 +2117,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
               // Match files whose node has a tag containing the tag query
               matches = files.filter((f) => {
                 const basename = f.filename.split("/").pop();
-                const stemId = basename.replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+                const stemId = normalizeToId(basename.replace(/\.(md|txt)$/i, ""));
                 const node = graphData.nodes.find((n) => n.id === stemId);
                 return (node?.tags || []).some((t) => t.includes(tagQ));
               });
@@ -1940,7 +2138,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
                 : basename;
               // For tag search, show matching tags as a hint
               const tagHints = isTagSearch ? (() => {
-                const stemId = basename.replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+                const stemId = normalizeToId(basename.replace(/\.(md|txt)$/i, ""));
                 const node = graphData.nodes.find((n) => n.id === stemId);
                 return (node?.tags || []).filter((t) => t.includes(tagQ));
               })() : [];
@@ -1992,7 +2190,114 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
           </div>
         )}
 
-        {/* Toolbar */}
+        {/* Menubar */}
+        <div
+          className="flex items-center gap-0.5 px-2 py-0.5 border-b flex-shrink-0"
+          style={{ backgroundColor: "#13131f", borderColor: "rgba(255,255,255,0.07)" }}
+        >
+          {/* File menu */}
+          <div className="relative" ref={fileMenuToolbarRef}>
+            <button
+              onClick={() => setFileMenuToolbarOpen((v) => !v)}
+              disabled={!openFile}
+              className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors"
+              style={{
+                color: openFile ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.2)",
+                backgroundColor: fileMenuToolbarOpen ? "rgba(255,255,255,0.08)" : "transparent",
+              }}
+              onMouseEnter={(e) => { if (openFile) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = fileMenuToolbarOpen ? "rgba(255,255,255,0.08)" : "transparent"; }}
+            >
+              File
+              <ChevronDown size={11} style={{ opacity: 0.5, transform: fileMenuToolbarOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+            </button>
+
+            {fileMenuToolbarOpen && openFile && (
+              <div
+                className="absolute left-0 top-full mt-1 z-50 rounded-xl py-1 shadow-2xl"
+                style={{ backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)", minWidth: "170px" }}
+              >
+                {fileMenuRename ? (
+                  <div className="px-3 py-2">
+                    <p className="text-xs mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>Rename file</p>
+                    <input
+                      ref={fileMenuRenameInputRef}
+                      type="text"
+                      value={fileMenuRename.value}
+                      onChange={(e) => setFileMenuRename({ value: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          renameFile(openFile.filename, fileMenuRename.value);
+                          setFileMenuRename(null);
+                          setFileMenuToolbarOpen(false);
+                        }
+                        if (e.key === "Escape") { setFileMenuRename(null); }
+                      }}
+                      className="w-full bg-transparent outline-none text-xs rounded px-2 py-1"
+                      style={{ color: "rgba(255,255,255,0.85)", caretColor: "#60a5fa", border: "1px solid rgba(255,255,255,0.15)" }}
+                      autoFocus
+                    />
+                    <div className="flex gap-1.5 mt-1.5">
+                      <button
+                        className="text-xs px-2 py-0.5 rounded"
+                        style={{ backgroundColor: "rgba(96,165,250,0.2)", color: "#93c5fd" }}
+                        onClick={() => {
+                          renameFile(openFile.filename, fileMenuRename.value);
+                          setFileMenuRename(null);
+                          setFileMenuToolbarOpen(false);
+                        }}
+                      >Rename</button>
+                      <button
+                        className="text-xs px-2 py-0.5 rounded"
+                        style={{ color: "rgba(255,255,255,0.35)" }}
+                        onClick={() => setFileMenuRename(null)}
+                      >Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
+                      style={{ color: "rgba(255,255,255,0.7)" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                      onClick={() => {
+                        const basename = openFile.filename.split("/").pop().replace(/\.(md|txt)$/, "");
+                        setFileMenuRename({ value: basename });
+                      }}
+                    >
+                      <Pencil size={12} style={{ color: "rgba(255,255,255,0.35)", flexShrink: 0 }} />
+                      Rename
+                    </button>
+                    <button
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
+                      style={{ color: "rgba(255,255,255,0.7)" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                      onClick={() => { downloadFile(); setFileMenuToolbarOpen(false); }}
+                    >
+                      <Download size={12} style={{ color: "rgba(255,255,255,0.35)", flexShrink: 0 }} />
+                      Download
+                    </button>
+                    <div className="my-1 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }} />
+                    <button
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
+                      style={{ color: "#f87171" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(248,113,113,0.07)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                      onClick={(e) => { setFileMenuToolbarOpen(false); deleteFile(openFile.filename, e); }}
+                    >
+                      <Trash2 size={12} style={{ flexShrink: 0 }} />
+                      Delete
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Formatting toolbar */}
         <div
           className="flex items-center gap-0.5 px-3 py-1.5 border-b flex-shrink-0 flex-wrap"
           style={{ backgroundColor: "#16162a", borderColor: "rgba(255,255,255,0.07)" }}
@@ -2158,6 +2463,93 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
                 />
               </div>
             )}
+            {/* Node type selector */}
+            {openNode && (() => {
+              const activeType = nodeTypeOverride ?? openNode.type;
+              const activeCfg = NODE_TYPE_CONFIG[activeType] || nodeTypeFallback;
+              return (
+              <div className="relative mb-1" ref={typeDropdownRef}>
+                <button
+                  onClick={() => { setTypeDropdownOpen((v) => !v); setNewTypeInput(""); }}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors"
+                  style={{
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    backgroundColor: typeDropdownOpen ? "rgba(255,255,255,0.08)" : "transparent",
+                    color: "rgba(255,255,255,0.5)",
+                  }}
+                  onMouseEnter={(e) => { if (!typeDropdownOpen) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"; }}
+                  onMouseLeave={(e) => { if (!typeDropdownOpen) e.currentTarget.style.backgroundColor = "transparent"; }}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: activeCfg.color }}
+                  />
+                  <span>{activeCfg.label}</span>
+                  <ChevronDown size={10} style={{ opacity: 0.5, transform: typeDropdownOpen ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.15s" }} />
+                </button>
+
+                {typeDropdownOpen && (
+                  <div
+                    className="absolute z-50 rounded-lg overflow-hidden mt-1"
+                    style={{
+                      top: "100%", left: 0, minWidth: 160,
+                      backgroundColor: "rgba(20,20,32,0.98)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+                    }}
+                  >
+                    {/* Existing types */}
+                    {Object.entries(NODE_TYPE_CONFIG).map(([typeKey, cfg]) => {
+                      const isActive = activeType === typeKey;
+                      return (
+                        <button
+                          key={typeKey}
+                          onMouseDown={(e) => { e.preventDefault(); saveNodeType(typeKey); setTypeDropdownOpen(false); }}
+                          className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs"
+                          style={{
+                            backgroundColor: isActive ? "rgba(255,255,255,0.08)" : "transparent",
+                            color: isActive ? "#fff" : "rgba(255,255,255,0.7)",
+                          }}
+                          onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                          onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = isActive ? "rgba(255,255,255,0.08)" : "transparent"; }}
+                        >
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
+                          <span className="flex-1">{cfg.label}</span>
+                          {isActive && <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>✓</span>}
+                        </button>
+                      );
+                    })}
+                    {/* Divider + add new type */}
+                    <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", margin: "4px 0" }} />
+                    <div className="px-3 py-1.5 flex items-center gap-1.5">
+                      <input
+                        ref={newTypeInputRef}
+                        type="text"
+                        value={newTypeInput}
+                        onChange={(e) => setNewTypeInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { e.preventDefault(); if (newTypeInput.trim()) addWorkspaceType(newTypeInput); }
+                          if (e.key === "Escape") { setTypeDropdownOpen(false); setNewTypeInput(""); }
+                        }}
+                        placeholder="Add new type…"
+                        className="flex-1 bg-transparent outline-none text-xs"
+                        style={{ color: "rgba(255,255,255,0.6)", caretColor: "#60a5fa" }}
+                        spellCheck={false}
+                        autoFocus
+                      />
+                      {newTypeInput.trim() && (
+                        <button
+                          onMouseDown={(e) => { e.preventDefault(); addWorkspaceType(newTypeInput); }}
+                          className="text-xs px-1.5 py-0.5 rounded"
+                          style={{ backgroundColor: "rgba(96,165,250,0.2)", color: "#93c5fd" }}
+                        >Add</button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              );
+            })()}
             {/* Duplicate / supplemental file indicator */}
             {supplementalFiles.length > 0 && (
               <div className="text-xs mb-4 flex flex-col gap-0.5">
@@ -2324,11 +2716,187 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
                             </span>
                           </span>
                         </button>
+
+                        {/* ── AI writing assistant ── */}
+                        <div className="my-1 mx-2" style={{ height: 1, backgroundColor: "rgba(255,255,255,0.07)" }} />
+                        {[
+                          { action: "rephrase",    label: "Rephrase",        icon: <WandSparkles size={13} /> },
+                          { action: "expand",      label: "Expand",          icon: <Sparkles size={13} /> },
+                          { action: "shorten",     label: "Shorten",         icon: <Sparkles size={13} /> },
+                          { action: "continuity",  label: "Check continuity", icon: <Sparkles size={13} /> },
+                        ].map(({ action, label, icon }) => (
+                          <button
+                            key={action}
+                            className="w-full text-left px-3 py-2 text-sm flex items-center gap-2"
+                            style={{ color: "#c4b5fd" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(196,181,253,0.07)")}
+                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setEditorContextMenu(null);
+                              runAiAssist(action, text);
+                            }}
+                          >
+                            <span style={{ flexShrink: 0, color: "rgba(196,181,253,0.55)" }}>{icon}</span>
+                            {label}
+                          </button>
+                        ))}
+                        <button
+                          className="w-full text-left px-3 py-2 text-sm flex items-center gap-2"
+                          style={{ color: "#c4b5fd" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(196,181,253,0.07)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setEditorContextMenu(null);
+                            // open the custom input panel pre-seeded with selection
+                            setAiAssist({ action: "custom", streaming: false, result: "", error: null, selectionFrom: editor.state.selection.from, selectionTo: editor.state.selection.to, selectedText: text, awaitingInstruction: true });
+                            setAiCustomInput("");
+                            setTimeout(() => aiCustomInputRef.current?.focus(), 50);
+                          }}
+                        >
+                          <span style={{ flexShrink: 0, color: "rgba(196,181,253,0.55)" }}><Sparkles size={13} /></span>
+                          Custom instruction…
+                        </button>
                       </>
                     );
                   })()}
                 </div>
               </>
+            )}
+
+            {/* ── AI writing assistant panel ────────────────────────── */}
+            {aiAssist && (
+              <div
+                className="fixed z-50 rounded-xl shadow-2xl flex flex-col"
+                style={{
+                  bottom: 24,
+                  right: 24,
+                  width: 420,
+                  maxHeight: "60vh",
+                  backgroundColor: "rgba(18,18,30,0.98)",
+                  border: "1px solid rgba(196,181,253,0.25)",
+                  boxShadow: "0 8px 40px rgba(0,0,0,0.7)",
+                }}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ borderColor: "rgba(196,181,253,0.15)" }}>
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={13} style={{ color: "#c4b5fd" }} />
+                    <span className="text-xs font-semibold" style={{ color: "#c4b5fd" }}>
+                      {{
+                        rephrase: "Rephrase",
+                        expand: "Expand",
+                        shorten: "Shorten",
+                        continuity: "Continuity Check",
+                        custom: "AI Assistant",
+                      }[aiAssist.action]}
+                    </span>
+                    {aiAssist.streaming && (
+                      <Loader size={11} className="animate-spin" style={{ color: "rgba(196,181,253,0.5)" }} />
+                    )}
+                  </div>
+                  <button onClick={() => setAiAssist(null)} style={{ color: "rgba(255,255,255,0.3)" }}>
+                    <X size={14} />
+                  </button>
+                </div>
+
+                {/* Custom instruction input */}
+                {aiAssist.awaitingInstruction ? (
+                  <div className="px-4 py-3 flex flex-col gap-2">
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>What should I do with the selected text?</p>
+                    <input
+                      ref={aiCustomInputRef}
+                      type="text"
+                      value={aiCustomInput}
+                      onChange={(e) => setAiCustomInput(e.target.value)}
+                      placeholder="e.g. rewrite in a more formal tone…"
+                      className="w-full bg-transparent outline-none text-sm rounded px-3 py-1.5"
+                      style={{ color: "rgba(255,255,255,0.85)", caretColor: "#c4b5fd", border: "1px solid rgba(255,255,255,0.15)" }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && aiCustomInput.trim()) {
+                          const sel = aiAssist.selectedText;
+                          setAiAssist((prev) => ({ ...prev, awaitingInstruction: false }));
+                          runAiAssist("custom", sel, aiCustomInput.trim());
+                        }
+                        if (e.key === "Escape") setAiAssist(null);
+                      }}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        className="text-xs px-3 py-1 rounded-md font-medium"
+                        style={{ backgroundColor: "rgba(196,181,253,0.2)", color: "#c4b5fd" }}
+                        onClick={() => {
+                          if (!aiCustomInput.trim()) return;
+                          const sel = aiAssist.selectedText;
+                          setAiAssist((prev) => ({ ...prev, awaitingInstruction: false }));
+                          runAiAssist("custom", sel, aiCustomInput.trim());
+                        }}
+                      >Run</button>
+                      <button
+                        className="text-xs px-3 py-1 rounded-md"
+                        style={{ color: "rgba(255,255,255,0.35)" }}
+                        onClick={() => setAiAssist(null)}
+                      >Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Result */}
+                    <div className="flex-1 overflow-y-auto px-4 py-3 text-sm" style={{ color: "rgba(255,255,255,0.82)", whiteSpace: "pre-wrap", minHeight: 60, lineHeight: 1.6 }}>
+                      {aiAssist.error ? (
+                        <span style={{ color: "#f87171" }}>{aiAssist.error}</span>
+                      ) : aiAssist.result ? (
+                        aiAssist.result
+                      ) : (
+                        <span style={{ color: "rgba(255,255,255,0.25)" }}>Generating…</span>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    {!aiAssist.streaming && !aiAssist.error && aiAssist.result && aiAssist.action !== "continuity" && (
+                      <div className="flex gap-2 px-4 py-2.5 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+                        <button
+                          className="text-xs px-3 py-1.5 rounded-md font-medium"
+                          style={{ backgroundColor: "rgba(196,181,253,0.2)", color: "#c4b5fd" }}
+                          onClick={() => {
+                            if (!editor) return;
+                            const { selectionFrom, selectionTo, result } = aiAssist;
+                            editor.chain().focus()
+                              .deleteRange({ from: selectionFrom, to: selectionTo })
+                              .insertContentAt(selectionFrom, result)
+                              .run();
+                            setAiAssist(null);
+                          }}
+                        >Replace selection</button>
+                        <button
+                          className="text-xs px-3 py-1.5 rounded-md font-medium"
+                          style={{ backgroundColor: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.6)" }}
+                          onClick={() => {
+                            if (!editor) return;
+                            editor.chain().focus().insertContentAt(aiAssist.selectionTo, "\n\n" + aiAssist.result).run();
+                            setAiAssist(null);
+                          }}
+                        >Insert after</button>
+                        <button
+                          className="text-xs px-3 py-1.5 rounded-md"
+                          style={{ color: "rgba(255,255,255,0.3)" }}
+                          onClick={() => setAiAssist(null)}
+                        >Dismiss</button>
+                      </div>
+                    )}
+                    {(!aiAssist.streaming && (aiAssist.error || aiAssist.action === "continuity")) && (
+                      <div className="flex gap-2 px-4 py-2.5 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+                        <button
+                          className="text-xs px-3 py-1.5 rounded-md"
+                          style={{ color: "rgba(255,255,255,0.3)" }}
+                          onClick={() => setAiAssist(null)}
+                        >Dismiss</button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             )}
 
             {/* ── Autocomplete dropdown ─────────────────────────────── */}
@@ -2709,7 +3277,7 @@ export default function FilesEditor({ graphData = { nodes: [], links: [] }, work
                 >
                   {backlinks.map(({ filename: blFilename }, i) => {
                     const parts = blFilename.split("/");
-                    const stemNodeId = parts[parts.length - 1].replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+                    const stemNodeId = normalizeToId(parts[parts.length - 1].replace(/\.(md|txt)$/i, ""));
                     // Resolve via filenameToNodeId first so merged/renamed nodes (e.g. shouyou.md → sh_y_hinata)
                     // display their authoritative name and colour rather than the raw filename stem.
                     const resolvedNodeId = filenameToNodeId.get(blFilename) ?? stemNodeId;

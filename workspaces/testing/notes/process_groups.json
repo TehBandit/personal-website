@@ -1,0 +1,18 @@
+{
+  "id": "process_groups",
+  "name": "Process Groups",
+  "type": "concept",
+  "excerpt": "Process Groups in project management include initiating, planning, executing, monitoring/controlling, and closing.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_7_8_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Process Groups in project management consist of initiating, planning, executing, monitoring/controlling, and closing. These groups help structure the project management process.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_8_2020.md",
+  "createdAt": 1776059550749,
+  "updatedAt": 1776059550749,
+  "context_summary": "- Process Groups include initiating, planning, executing, monitoring/controlling, and closing.\n- They help structure the project management process."
+}

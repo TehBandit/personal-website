@@ -1,0 +1,21 @@
+{
+  "id": "myfirstnote",
+  "name": "myfirstnote",
+  "type": "entity",
+  "excerpt": "",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "second_node",
+      "label": "references"
+    },
+    {
+      "target": "day",
+      "label": "references"
+    }
+  ],
+  "sourceFile": "myfirstnote.md",
+  "createdAt": 1776266068269,
+  "updatedAt": 1776266403379
+}

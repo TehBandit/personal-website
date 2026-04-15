@@ -20,6 +20,80 @@ function resolveDirs(workspace) {
   };
 }
 
+/**
+ * Return the first node type key defined in workspace.json's nodeTypes, falling
+ * back to "character" for workspaces that use the default narrative config.
+ */
+function getDefaultNodeType(workspace) {
+  try {
+    const wsJson = JSON.parse(fs.readFileSync(path.join(WORKSPACES_DIR, workspace, "workspace.json"), "utf-8"));
+    const keys = Object.keys(wsJson.nodeTypes || {});
+    if (keys.length > 0) return keys[0];
+  } catch { /* no config or parse error */ }
+  return "character";
+}
+
+/**
+ * Read all node JSONs from notesDir, build a list of { id, patterns[] } where
+ * patterns covers the node name and each alias. Then scan `content` for any
+ * mentions, update the source node's connections array, and add reverse
+ * connections on each mentioned node.
+ */
+function syncConnectionsForFile(filename, content, sourceId, notesDir) {
+  if (!fs.existsSync(notesDir)) return;
+  const jsonFiles = fs.readdirSync(notesDir).filter((f) => f.endsWith(".json"));
+
+  // Build lookup: id → { data, path, patterns }
+  const nodeMap = new Map();
+  for (const jf of jsonFiles) {
+    const jPath = path.join(notesDir, jf);
+    let data;
+    try { data = JSON.parse(fs.readFileSync(jPath, "utf-8")); } catch { continue; }
+    if (!data.id || !data.name) continue;
+    const names = [data.name, ...(data.aliases || [])];
+    const patterns = names.map((n) => {
+      const esc = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(`\\b${esc}\\b`, "i");
+    });
+    nodeMap.set(data.id, { data, path: jPath, patterns });
+  }
+
+  if (!nodeMap.has(sourceId)) return;
+
+  // Determine which nodes are mentioned in content (excluding self)
+  const mentionedIds = new Set();
+  for (const [id, { patterns }] of nodeMap) {
+    if (id === sourceId) continue;
+    if (patterns.some((p) => p.test(content))) mentionedIds.add(id);
+  }
+
+  // Update source node: set connections to exactly the mentioned set, preserving labels
+  const { data: srcData, path: srcPath } = nodeMap.get(sourceId);
+  const existingConns = new Map((srcData.connections || []).map((c) => [c.target, c]));
+  const newConns = [];
+  for (const id of mentionedIds) {
+    newConns.push(existingConns.get(id) ?? { target: id, label: "references" });
+  }
+  // Keep connections to nodes NOT in the map (external refs), keep manual ones not in content
+  for (const [target, conn] of existingConns) {
+    if (!mentionedIds.has(target) && !nodeMap.has(target)) newConns.push(conn);
+  }
+  srcData.connections = newConns;
+  srcData.updatedAt = Date.now();
+  fs.writeFileSync(srcPath, JSON.stringify(srcData, null, 2), "utf-8");
+
+  // Add reverse reference on each mentioned target (don't remove existing ones)
+  for (const id of mentionedIds) {
+    const { data: tgtData, path: tgtPath } = nodeMap.get(id);
+    const alreadyLinked = (tgtData.connections || []).some((c) => c.target === sourceId);
+    if (!alreadyLinked) {
+      tgtData.connections = [...(tgtData.connections || []), { target: sourceId, label: "references" }];
+      tgtData.updatedAt = Date.now();
+      fs.writeFileSync(tgtPath, JSON.stringify(tgtData, null, 2), "utf-8");
+    }
+  }
+}
+
 export default function handler(req, res) {
   const dirs = resolveDirs(req.query.workspace);
   if (!dirs) return res.status(400).json({ error: "Invalid workspace" });
@@ -76,7 +150,11 @@ export default function handler(req, res) {
     const { name: nodeName } = req.body || {};
     if (nodeName && typeof nodeName === "string" && nodeName.trim()) {
       const trimmedName = nodeName.trim().substring(0, 120);
-      const requestedId = path.basename(filename).replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+      const requestedId = path.basename(filename)
+        .replace(/\.(md|txt)$/i, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_|_$/g, "");
       if (!fs.existsSync(notesDir)) fs.mkdirSync(notesDir, { recursive: true });
 
       const existingNodes = fs.readdirSync(notesDir)
@@ -117,7 +195,7 @@ export default function handler(req, res) {
         nodeData = {
           id: nodeId,
           name: trimmedName,
-          type: "character",
+          type: getDefaultNodeType(req.query.workspace),
           excerpt: "",
           notes: "",
           aliases: [],
@@ -178,14 +256,11 @@ export default function handler(req, res) {
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found" });
     const content = req.body?.content ?? "";
     fs.writeFileSync(filePath, content, "utf-8");
-    // Touch updatedAt on the corresponding node JSON so streaks count raw-file edits
-    const rawStem = path.basename(filename).replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+    const rawStem = path.basename(filename).replace(/\.(md|txt)$/i, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
     const rawNodeJsonPath = path.join(notesDir, `${rawStem}.json`);
     if (fs.existsSync(rawNodeJsonPath)) {
       try {
-        const nd = JSON.parse(fs.readFileSync(rawNodeJsonPath, "utf-8"));
-        nd.updatedAt = Date.now();
-        fs.writeFileSync(rawNodeJsonPath, JSON.stringify(nd, null, 2), "utf-8");
+        syncConnectionsForFile(filename, content, rawStem, notesDir);
         rebuildGraphCache(req.query.workspace, notesDir);
         bumpWorkspaceVersion(req.query.workspace);
       } catch { /* non-fatal */ }
@@ -195,13 +270,14 @@ export default function handler(req, res) {
 
   // ── PATCH: update aliases in the corresponding notes/ JSON ─────────────────
   if (req.method === "PATCH") {
-    const nodeId = path.basename(filename).replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+    const nodeId = path.basename(filename).replace(/\.(md|txt)$/i, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
     const jsonPath = path.join(notesDir, `${nodeId}.json`);
     if (!fs.existsSync(jsonPath)) return res.status(404).json({ error: "Node JSON not found" });
-    const { aliases, tags, name, propagate } = req.body || {};
+    const { aliases, tags, name, type, propagate } = req.body || {};
     if (aliases !== undefined && !Array.isArray(aliases)) return res.status(400).json({ error: "aliases must be an array" });
     if (tags !== undefined && !Array.isArray(tags)) return res.status(400).json({ error: "tags must be an array" });
     if (name !== undefined && (typeof name !== "string" || !name.trim())) return res.status(400).json({ error: "name must be a non-empty string" });
+    if (type !== undefined && (typeof type !== "string" || !type.trim())) return res.status(400).json({ error: "type must be a non-empty string" });
     const data = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
     if (aliases !== undefined) {
       data.aliases = aliases
@@ -214,6 +290,9 @@ export default function handler(req, res) {
         .map((t) => t.trim().toLowerCase().replace(/\s+/g, "-").substring(0, 40));
     }
     let filesUpdated = [];
+    if (type !== undefined) {
+      data.type = type.trim().toLowerCase().replace(/[^a-z0-9_]/g, "").substring(0, 40);
+    }
     if (name !== undefined) {
       const oldName = data.name ?? "";
       data.name = name.trim().substring(0, 120);
@@ -291,7 +370,7 @@ export default function handler(req, res) {
     fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2), "utf-8");
     rebuildGraphCache(req.query.workspace, dirs.notesDir);
     bumpWorkspaceVersion(req.query.workspace);
-    return res.status(200).json({ aliases: data.aliases, tags: data.tags, name: data.name, filesUpdated });
+    return res.status(200).json({ aliases: data.aliases, tags: data.tags, name: data.name, type: data.type, filesUpdated });
   }
 
   // ── DELETE: remove file or empty folder ────────────────────────────────────
@@ -322,7 +401,7 @@ export default function handler(req, res) {
     }
     fs.unlinkSync(filePath);
     // Clean up node JSONs: match by filename-stem AND by sourceFile field
-    const stemId = path.basename(filename).replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+    const stemId = path.basename(filename).replace(/\.(md|txt)$/i, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
     const sourceFileIds = findNodesBySourceFile(notesDir, filename);
     const allIds = [...new Set([stemId, ...sourceFileIds])];
     purgeNodes(notesDir, allIds);

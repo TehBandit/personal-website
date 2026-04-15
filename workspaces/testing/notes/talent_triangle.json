@@ -1,0 +1,18 @@
+{
+  "id": "talent_triangle",
+  "name": "Talent Triangle",
+  "type": "concept",
+  "excerpt": "The Talent Triangle includes technical skills, soft skills, and strategic and business skills.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_7_8_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "The Talent Triangle in project management emphasizes the importance of technical skills, soft skills, and strategic and business skills. These skills are crucial for effective project management.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_8_2020.md",
+  "createdAt": 1776059550750,
+  "updatedAt": 1776059550750,
+  "context_summary": "- The Talent Triangle includes technical skills, soft skills, and strategic/business skills.\n- These skills are crucial for effective project management."
+}

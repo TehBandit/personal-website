@@ -1,0 +1,21 @@
+{
+  "id": "bit_4484_notes_7_19_2020",
+  "name": "BIT 4484 Notes 7 19 2020",
+  "type": "topic",
+  "excerpt": "BIT 4484 Notes 7 19 2020 covers essential project planning concepts.",
+  "notes": "Planning Projects pt1\n\nPlanning Projects\n\nPurpose - Guides project execution \n\nShould be realistic and useful\n\nProject Integration Management - Knowledge area that involves coordinating all the project knowledge areas throughout a project’s lifespan\n\nProject Management Plan - Document used to integrate all other project documents and guide execution, monitoring and control\n\nFacilitates communication among stakeholders\n\nServes as a baseline for measurement and control\n\nA starting point to reference for future comparison\n\nShould be dynamic and flexible\n\nProject Scope Management - Determines how scope will be defined, validated, and controlled\n\nVerification - Deliverable complies with given requirements and specifications\n\nQuality Control\n\nRequirements Traceability Matrix (RTM) - Table that lists requirements and various attributes on how close we are to meeting those requirements\n\nValidation - Formal acceptance of the deliverables by the customers and other stakeholders\n\nDefining Scope - Exactly what the project is expected to accomplish\n\nMay need to be updated as project progresses\n\nScope Creep - Scope becoming larger as project continues\n\nAvoiding Scope Creep\n\nKnow project\n\nDocument Requirements\n\nChange Control Processes\n\nAvoid Gold Plating - Always wanting to make things just a liiiiiitttle bit better\n\nWork Breakdown Structure - Deliverable-oriented grouping of the work involved in a project that defines the total scope of the project.\n\nBreaks down all work into discrete tasks\n\nWork Package - Deliverable at the lowest level of the WBS\n\n100% of all deliverables should be included in WBS\n\nGraphical Form\n\nEntire project in Level 1\n\nMain Groupings in Level 2\n\nSmaller groupings further down\n\nAll blocks are nouns which is cool i guess\n\n\n\nTabular form\n\nSame information, presented in a list\n\nA good WBS is Mutually Exclusive Completely Exhaustive",
+  "connections": [
+    {
+      "target": "agile_project_selection",
+      "label": "discusses project management techniques"
+    },
+    {
+      "target": "project_portfolio_selection",
+      "label": "involves project selection strategies"
+    }
+  ],
+  "aliases": [],
+  "sourceFile": "BIT_4484_Notes_7_19_2020.md",
+  "createdAt": 1776059501276,
+  "updatedAt": 1776059501276
+}

@@ -1,0 +1,18 @@
+{
+  "id": "program",
+  "name": "Program",
+  "type": "concept",
+  "excerpt": "A Program is a group of related projects managed in a coordinated manner.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_7_8_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "A Program consists of related projects managed together to obtain benefits not apparent if managed individually. It is not necessarily a megaproject, which is a single large project over $1 billion.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_8_2020.md",
+  "createdAt": 1776059550748,
+  "updatedAt": 1776197047286,
+  "context_summary": "- A Program is a group of related projects.\n- Programs are managed in a coordinated manner.\n- Benefits are obtained that are not apparent when projects are managed individually."
+}

@@ -1,0 +1,25 @@
+{
+  "id": "project_risk_management",
+  "name": "Project Risk Management",
+  "type": "concept",
+  "excerpt": "Project Risk Management involves identifying and managing project risks.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_8_2_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Project Risk Management involves identifying and managing project risks. It includes the Probability Impact Matrix, which classifies risks by likelihood and impact. Strategies include Risk Avoidance, Acceptance, Transference, and Mitigation. Positive risks can be managed through Exploitation, Sharing, Enhancement, and Acceptance. Contingency and Fallback Plans are prepared for specific risk events, and Contingency Reserves are set aside to alleviate risk effects.\n\nWorkarounds are unplanned responses to risk events.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_8_2_2020.md",
+  "createdAt": 1776059571082,
+  "updatedAt": 1776059622106,
+  "context_summary": [
+    "- Involves identifying and managing project risks.",
+    "- Uses the Probability Impact Matrix for classification.",
+    "- Strategies include Avoidance, Acceptance, Transference, and Mitigation.",
+    "- Positive risks can be managed through Exploitation and Sharing.",
+    "- Prepares Contingency and Fallback Plans.",
+    "- Sets aside Contingency Reserves for risk effects."
+  ]
+}

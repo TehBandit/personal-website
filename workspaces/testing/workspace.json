@@ -1,22 +1,22 @@
 {
-  "name": "Testing",
+  "name": "testing",
   "slug": "testing",
   "nodeTypes": {
-    "entity": {
+    "topic": {
       "color": "#60a5fa",
-      "label": "Entity"
+      "label": "Topic"
     },
-    "event": {
+    "source": {
       "color": "#34d399",
-      "label": "Event"
+      "label": "Source"
     },
-    "idea": {
+    "person": {
       "color": "#fb923c",
-      "label": "Idea"
+      "label": "Person"
     },
-    "document": {
+    "concept": {
       "color": "#c084fc",
-      "label": "Document"
+      "label": "Concept"
     }
   }
 }

@@ -1,0 +1,26 @@
+{
+  "id": "activity_list",
+  "name": "Activity List",
+  "type": "concept",
+  "excerpt": "The Activity List is a tabular list of activities to be included on a project schedule.",
+  "connections": [
+    {
+      "target": "project_schedule_management",
+      "label": "used in"
+    },
+    {
+      "target": "work_breakdown_structure",
+      "label": "defined by"
+    },
+    {
+      "target": "bit_4484_notes_7_26_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "The Activity List is created by identifying activities required to create each work package on the WBS. It is essential for defining the project schedule and ensuring all necessary tasks are accounted for.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_26_2020.md",
+  "createdAt": 1776059528032,
+  "updatedAt": 1776059528032,
+  "context_summary": "- A tabular list of activities for the project schedule.\n- Created by identifying activities for each work package on the WBS.\n- Essential for defining the project schedule."
+}

@@ -1,0 +1,25 @@
+{
+  "id": "closing_methods",
+  "name": "Closing Methods",
+  "type": "concept",
+  "excerpt": "Closing Methods describe how projects are concluded, including integration, addition, extinction, and starvation.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_8_9_2020",
+      "label": "featured in"
+    }
+  ],
+  "notes": "Closing Methods in project management include Integration, where the project is successfully completed and integrated into operations; Addition, where a new unit is added to the company; Extinction, where the project is completed with no further additions; and Starvation, where the project ends due to lack of funding. These methods are crucial for formal project closure.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1776059622102,
+  "updatedAt": 1776059622102,
+  "context_summary": [
+    "- Describe how projects are concluded.",
+    "- Include Integration, Addition, Extinction, and Starvation.",
+    "- Integration involves successful project completion.",
+    "- Addition adds a new unit to the company.",
+    "- Extinction ends the project with no further additions.",
+    "- Starvation ends the project due to lack of funding."
+  ]
+}

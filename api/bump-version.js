@@ -140,6 +140,17 @@ export function rebuildGraphCache(workspace, notesDir) {
     // Pre-build a basename → full-path map from a single recursive scan of the
     // workspace directory (excluding notes/). O(D + N) instead of O(N×D).
     const rawFileMap = walkBasenameMap(wsDir, new Set([path.resolve(notesDir)]));
+    // Secondary map: normalizedId → absolute path, for filenames with spaces/mixed case
+    // (e.g. "MNode Value.md" → key "mnode_value"). Built once, O(files).
+    const normRawFileMap = new Map();
+    const _normId = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+    for (const [basename, fullPath] of rawFileMap) {
+      const extMatch = basename.match(/\.(md|txt)$/i);
+      if (extMatch) {
+        const normKey = _normId(basename.slice(0, basename.length - extMatch[0].length));
+        if (!normRawFileMap.has(normKey)) normRawFileMap.set(normKey, fullPath);
+      }
+    }
 
     const FILE_PREVIEW_LIMIT = 600;
 
@@ -157,6 +168,7 @@ export function rebuildGraphCache(workspace, notesDir) {
         rawFileMap.get(stemHyphen + ".txt") ??
         rawFileMap.get(id + ".md") ??
         rawFileMap.get(id + ".txt") ??
+        normRawFileMap.get(id) ??
         null;
       // Derive sourceFile from the discovered raw file path when unset — this
       // ensures nodes whose source lives at the workspace root (not notes-raw/)

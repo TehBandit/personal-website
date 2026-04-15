@@ -1,0 +1,18 @@
+{
+  "id": "cognitive_work",
+  "name": "Cognitive Work",
+  "type": "concept",
+  "excerpt": "Cognitive Work suggests that higher rewards can lead to lower performance.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_8_3_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Cognitive Work theory posits that for tasks requiring cognitive effort, higher monetary rewards can paradoxically lead to lower performance. It emphasizes the importance of autonomy, mastery, and purpose in motivating individuals.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_8_3_2020.md",
+  "createdAt": 1776059597146,
+  "updatedAt": 1776059597146,
+  "context_summary": "- Higher monetary rewards can lower performance.\n- Emphasizes autonomy, mastery, and purpose in motivation."
+}

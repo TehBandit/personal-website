@@ -1,0 +1,18 @@
+{
+  "id": "leadership_styles",
+  "name": "Leadership Styles",
+  "type": "concept",
+  "excerpt": "Leadership styles in project management include laissez-faire, transactional, servant, transformational, charismatic, and interactional.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_7_8_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Leadership styles in project management include laissez-faire (hands-off), transactional (reward-based), servant (community-focused), transformational (inspirational), charismatic (enthusiasm-driven), and interactional (a combination of transactional, transformational, and charismatic).",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_8_2020.md",
+  "createdAt": 1776059550750,
+  "updatedAt": 1776059550750,
+  "context_summary": "- Leadership styles include laissez-faire, transactional, servant, transformational, charismatic, and interactional.\n- Laissez-faire is hands-off.\n- Transactional is reward-based.\n- Servant leadership is community-focused.\n- Transformational leadership is inspirational.\n- Charismatic leadership is enthusiasm-driven.\n- Interactional combines various styles."
+}

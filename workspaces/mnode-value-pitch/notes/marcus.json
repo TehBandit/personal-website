@@ -1,0 +1,28 @@
+{
+  "id": "marcus",
+  "name": "Marcus",
+  "type": "character",
+  "excerpt": "",
+  "notes": "",
+  "aliases": [
+    "Taylor",
+    "Marcus Taylor"
+  ],
+  "connections": [
+    {
+      "target": "brooklyn",
+      "label": "references"
+    },
+    {
+      "target": "new_york",
+      "label": "references"
+    },
+    {
+      "target": "mnode_value",
+      "label": "references"
+    }
+  ],
+  "sourceFile": "Marcus.md",
+  "createdAt": 1776203464079,
+  "updatedAt": 1776259729048
+}

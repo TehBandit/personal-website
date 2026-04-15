@@ -15,12 +15,26 @@
  * @param {Array<{filename: string}>} files - flat file list (e.g. from notes-raw-list)
  * @returns {Set<string>} set of node IDs that have an owned file
  */
+/**
+ * Normalize a raw filename stem (no extension) to a node ID.
+ * Matches the server-side logic in notes-raw-file.js:
+ *   lowercase → replace non-alphanumeric runs with _ → strip leading/trailing _
+ */
+export function normalizeToId(stem) {
+  return stem.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+}
+
 export function computeOwnFileIds(nodes, files) {
   // Use lowercase keys throughout so mixed-case filenames (e.g. BIT_4484_Notes.md)
   // match lowercase node IDs (e.g. bit_4484_notes).
   const basenames = new Set(files.map((f) => f.filename.split("/").pop().toLowerCase()));
   const fileSet   = new Set(files.map((f) => f.filename.toLowerCase()));
-  const ids       = new Set();
+  // Also build a set of normalized IDs derived from each file's basename, covering
+  // filenames with spaces or mixed case (e.g. "MNode Value.md" → "mnode_value").
+  const normalizedIds = new Set(
+    files.map((f) => normalizeToId(f.filename.split("/").pop().replace(/\.(md|txt)$/i, "")))
+  );
+  const ids = new Set();
 
   for (const node of nodes) {
     // 1. Merged nodes: one or more constituent files still exist in the workspace.
@@ -28,13 +42,13 @@ export function computeOwnFileIds(nodes, files) {
       ids.add(node.id);
       continue;
     }
-    // 2. Stem basename match in both hyphen and underscore forms.
-    // node.id is always lowercase so no extra .toLowerCase() needed on the stems.
+    // 2. Stem basename match in hyphen, underscore, and normalized forms.
     const stemHyphen = node.id.replace(/_/g, "-");
     const stemUnder  = node.id;
     if (
       basenames.has(stemHyphen + ".md") || basenames.has(stemHyphen + ".txt") ||
-      basenames.has(stemUnder  + ".md") || basenames.has(stemUnder  + ".txt")
+      basenames.has(stemUnder  + ".md") || basenames.has(stemUnder  + ".txt") ||
+      normalizedIds.has(node.id)
     ) {
       ids.add(node.id);
     }
@@ -92,7 +106,22 @@ export function graphBFS(fromId, toId, adjacencyMap, nodeMap) {
  * e.g. "maren-ashveil.md" → "notes-raw/maren-ashveil.md"
  */
 export function buildBasenameMap(files) {
-  return new Map(files.map((f) => [f.filename.split("/").pop().toLowerCase(), f.filename]));
+  const map = new Map();
+  for (const f of files) {
+    const basename = f.filename.split("/").pop();
+    const lc = basename.toLowerCase();
+    // Primary: exact lowercase basename (e.g. "maren-ashveil.md")
+    if (!map.has(lc)) map.set(lc, f.filename);
+    // Secondary: normalized-ID form (e.g. "MNode Value.md" → key "mnode_value.md")
+    // so resolveNodeFilename and mentionableEntities can find the file via node.id
+    const extMatch = lc.match(/\.(md|txt)$/i);
+    if (extMatch) {
+      const stem = lc.slice(0, lc.length - extMatch[0].length);
+      const normKey = normalizeToId(stem) + extMatch[0];
+      if (normKey !== lc && !map.has(normKey)) map.set(normKey, f.filename);
+    }
+  }
+  return map;
 }
 
 /**

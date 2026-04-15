@@ -95,8 +95,7 @@ export default function handler(req, res) {
       return res.status(409).json({ error: "A workspace with that name already exists" });
     }
 
-    fs.mkdirSync(path.join(workspaceDir, "notes"), { recursive: true });
-    fs.mkdirSync(path.join(workspaceDir, "notes-raw"), { recursive: true });
+    fs.mkdirSync(workspaceDir, { recursive: true });
     const nodeTypes = WORKSPACE_PRESETS[preset] ?? WORKSPACE_PRESETS.narrative;
     fs.writeFileSync(
       path.join(workspaceDir, "workspace.json"),
@@ -105,6 +104,61 @@ export default function handler(req, res) {
     );
 
     return res.status(201).json({ slug, name: trimmed, nodeTypes });
+  }
+
+  // ── PATCH: add a new node type to a workspace's config ──────────────────
+  if (req.method === "PATCH") {
+    const { slug } = req.query || {};
+    if (!slug || !validSlug(slug)) {
+      return res.status(400).json({ error: "Invalid workspace slug" });
+    }
+    const workspaceDir = path.join(WORKSPACES_DIR, slug);
+    if (!fs.existsSync(workspaceDir)) {
+      return res.status(404).json({ error: "Workspace not found" });
+    }
+    const metaPath = path.join(workspaceDir, "workspace.json");
+    let meta;
+    try { meta = JSON.parse(fs.readFileSync(metaPath, "utf-8")); } catch {
+      return res.status(500).json({ error: "Could not read workspace config" });
+    }
+    const { addType } = req.body || {};
+    if (!addType || typeof addType !== "object") {
+      return res.status(400).json({ error: "addType is required" });
+    }
+    const { key, color, label } = addType;
+    if (!key || typeof key !== "string" || !/^[a-z0-9_]+$/.test(key.trim()) || key.trim().length > 40) {
+      return res.status(400).json({ error: "type key must be lowercase letters, digits or underscores" });
+    }
+    const trimmedKey = key.trim();
+    if (!meta.nodeTypes) meta.nodeTypes = {};
+    if (meta.nodeTypes[trimmedKey]) {
+      return res.status(409).json({ error: "Type already exists" });
+    }
+    const trimmedLabel = (typeof label === "string" && label.trim())
+      ? label.trim().substring(0, 40)
+      : trimmedKey.charAt(0).toUpperCase() + trimmedKey.slice(1);
+    const safeColor = (typeof color === "string" && /^#[0-9a-fA-F]{6}$/.test(color.trim()))
+      ? color.trim()
+      : "#94a3b8";
+    meta.nodeTypes[trimmedKey] = { color: safeColor, label: trimmedLabel };
+    fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), "utf-8");
+    return res.status(200).json({ nodeTypes: meta.nodeTypes });
+  }
+
+  // ── DELETE: remove a workspace entirely ──────────────────────────────────
+  if (req.method === "DELETE") {
+    const { slug } = req.query || {};
+    if (!slug || !validSlug(slug)) {
+      return res.status(400).json({ error: "Invalid workspace slug" });
+    }
+
+    const workspaceDir = path.join(WORKSPACES_DIR, slug);
+    if (!fs.existsSync(workspaceDir)) {
+      return res.status(404).json({ error: "Workspace not found" });
+    }
+
+    fs.rmSync(workspaceDir, { recursive: true, force: true });
+    return res.status(200).json({ deleted: slug });
   }
 
   return res.status(405).json({ error: "Method not allowed" });

@@ -1,0 +1,35 @@
+{
+  "id": "earned_value_management",
+  "name": "Earned Value Management",
+  "type": "concept",
+  "excerpt": "Earned Value Management measures project performance based on scope, schedule, and cost.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_8_9_2020",
+      "label": "featured in"
+    },
+    {
+      "target": "project_scope_management",
+      "label": "related to"
+    },
+    {
+      "target": "project_schedule_management",
+      "label": "related to"
+    },
+    {
+      "target": "project_cost_management",
+      "label": "related to"
+    }
+  ],
+  "notes": "Earned Value Management is a key tool and technique for monitoring and controlling projects. It involves calculations such as Planned Value (PV), Actual Costs (AC), Rate of Performance (RP), and Earned Value (EV). It helps in determining Cost Variance (CV) and Schedule Variance (SV), and uses indices like Cost Performance Index (CPI) and Schedule Performance Index (SPI) to assess project financial effectiveness and schedule adherence.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1776059622089,
+  "updatedAt": 1776059622089,
+  "context_summary": [
+    "- Measures project performance based on scope, schedule, and cost.",
+    "- Involves calculations like Planned Value (PV) and Actual Costs (AC).",
+    "- Determines Cost Variance (CV) and Schedule Variance (SV).",
+    "- Uses Cost Performance Index (CPI) and Schedule Performance Index (SPI)."
+  ]
+}

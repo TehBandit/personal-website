@@ -1,0 +1,25 @@
+{
+  "id": "mnode_value",
+  "name": "MNode Value",
+  "type": "character",
+  "excerpt": "",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "marcus",
+      "label": "references"
+    },
+    {
+      "target": "new_york",
+      "label": "references"
+    },
+    {
+      "target": "obsidian",
+      "label": "references"
+    }
+  ],
+  "sourceFile": "MNode Value.md",
+  "createdAt": 1776203493975,
+  "updatedAt": 1776259743923
+}

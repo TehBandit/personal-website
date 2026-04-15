@@ -1,0 +1,22 @@
+{
+  "id": "critical_path_method",
+  "name": "Critical Path Method",
+  "type": "concept",
+  "excerpt": "The Critical Path Method is used to determine the shortest project duration.",
+  "connections": [
+    {
+      "target": "project_schedule_management",
+      "label": "used in"
+    },
+    {
+      "target": "bit_4484_notes_7_26_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "The Critical Path Method identifies critical activities with zero slack that cannot be delayed without affecting the project completion date. It involves two passes through the project network: one forward and one backward.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_26_2020.md",
+  "createdAt": 1776059528033,
+  "updatedAt": 1776059528033,
+  "context_summary": "- Used to determine the shortest project duration.\n- Identifies critical activities with zero slack.\n- Involves two passes through the project network: forward and backward."
+}

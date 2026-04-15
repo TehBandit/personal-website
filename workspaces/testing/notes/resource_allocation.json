@@ -1,0 +1,21 @@
+{
+  "id": "resource_allocation",
+  "name": "Resource Allocation",
+  "type": "concept",
+  "excerpt": "Resource Allocation involves distributing resources to selected projects.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_7_12_2020",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Resource Allocation is the process of distributing available resources to various projects that have been selected. It ensures that projects have the necessary resources to proceed and succeed.",
+  "aliases": [],
+  "sourceFile": "BIT_4484_Notes_7_12_2020.md",
+  "createdAt": 1776197680165,
+  "updatedAt": 1776197680165,
+  "context_summary": [
+    "- Resource Allocation distributes resources to selected projects.",
+    "- It ensures projects have necessary resources to succeed."
+  ]
+}

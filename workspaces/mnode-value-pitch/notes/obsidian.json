@@ -1,0 +1,21 @@
+{
+  "id": "obsidian",
+  "name": "obsidian",
+  "type": "character",
+  "excerpt": "",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "brooklyn",
+      "label": "references"
+    },
+    {
+      "target": "mnode_value",
+      "label": "references"
+    }
+  ],
+  "sourceFile": "obsidian.md",
+  "createdAt": 1776227064788,
+  "updatedAt": 1776259729049
+}

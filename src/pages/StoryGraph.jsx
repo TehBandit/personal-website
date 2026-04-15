@@ -11,6 +11,7 @@ import { NODE_TYPE_CONFIG as STATIC_NODE_TYPE_CONFIG } from "../constants/nodeTy
 import { darkenHex } from "../utils/color.js";
 import { computeOwnFileIds, buildAdjacencyMap, graphBFS, buildBasenameMap, resolveNodeFilename } from "../utils/graphHelpers.js";
 import { NodeTypeContext } from "../contexts/NodeTypeContext.jsx";
+import { invalidateHomeCache } from "./StoryGraphHome.jsx";
 
 const GRAPH_BG = "#0f0f1a";
 
@@ -251,27 +252,69 @@ export default function StoryGraph() {
     }
   };
 
+  // When FilesEditor adds a new node type to the workspace config, update the
+  // workspaces list so the derived NODE_TYPE_CONFIG useMemo re-runs immediately.
+  const handleWorkspaceNodeTypesChanged = useCallback((newNodeTypes) => {
+    setWorkspaces((prev) =>
+      prev.map((w) => (w.slug === workspace ? { ...w, nodeTypes: newNodeTypes } : w))
+    );
+  }, [workspace]);
+
+  const handleDeleteWorkspace = async (slug, closeCallback) => {
+    const res = await fetch(`/api/workspaces?slug=${encodeURIComponent(slug)}`, { method: "DELETE" });
+    if (res.ok) {
+      invalidateHomeCache();
+      // Compute the next workspace BEFORE updating state so both setters
+      // can be called at the top level (not inside an updater callback).
+      const remaining = workspaces.filter((w) => w.slug !== slug);
+      setWorkspaces(remaining);
+      if (workspace === slug) {
+        setWorkspace(remaining.length > 0 ? remaining[0].slug : null);
+      }
+      closeCallback?.();
+    }
+  };
+
   // Fetch graph data — extracted into a callback so it can be called after upload too
   // silent=true skips the loading spinner (used for background auto-refresh)
   const loadGraph = useCallback((silent = false) => {
     if (!workspace) return;
     if (!silent) { setLoading(true); setLoadError(null); }
+    let cancelled = false;
     fetch(`/api/story-notes?workspace=${encodeURIComponent(workspace)}`)
       .then((r) => {
         if (!r.ok) throw new Error(`Server error ${r.status}`);
         return r.json();
       })
       .then((data) => {
+        if (cancelled) return;
         setGraphData(data);
         setDisallowedAliases(new Set((data.disallowedAliases || []).map((a) => a.toLowerCase())));
         if (!silent) setLoading(false);
       })
       .catch((err) => {
+        if (cancelled) return;
         if (!silent) { setLoadError(err.message); setLoading(false); }
       });
+    return () => { cancelled = true; };
   }, [workspace]);
 
-  useEffect(() => { if (workspace) loadGraph(); }, [loadGraph, workspace]);
+  useEffect(() => {
+    if (workspace) return loadGraph();
+  }, [loadGraph, workspace]);
+
+  // Keep URL ?workspace= param in sync with state
+  useEffect(() => {
+    if (!workspace) return;
+    const cur = searchParams.get("workspace");
+    if (cur !== workspace) {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("workspace", workspace);
+        return next;
+      }, { replace: true });
+    }
+  }, [workspace, searchParams, setSearchParams]);
 
   // Reset graph state when switching workspaces
   const graphVersionRef = useRef(null);
@@ -592,6 +635,28 @@ export default function StoryGraph() {
     const node = graphData.nodes.find((n) => n.id === nodeId);
     if (node) openNodeFile(node);
   }, [graphData.nodes, openNodeFile]);
+
+  // When FilesEditor's file list changes (file created, renamed, deleted, etc.),
+  // update storyFiles for ownFileIds colour and also silently reload the graph so
+  // new nodes appear in the left sidebar immediately without waiting for the 2s poll.
+  const onFilesEditorFilesChange = useCallback((files) => {
+    setStoryFiles(files);
+    loadGraph(true);
+  }, [loadGraph]);
+
+  const onFilesEditorReady = useCallback((api) => {
+    filesEditorApi.current = api;
+    const paramFile = searchParams.get("file");
+    if (paramFile) {
+      setActiveTab("files");
+      setTimeout(() => api.openFileByName(decodeURIComponent(paramFile)), 80);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("file");
+        return next;
+      }, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // react-force-graph-2d has no native onNodeDblClick — detect via click timing.
   const lastNodeClickRef = useRef({ id: null, time: 0 });
@@ -1085,6 +1150,7 @@ export default function StoryGraph() {
           workspaceName={workspaces.find((w) => w.slug === workspace)?.name ?? workspace}
           onWorkspaceChange={setWorkspace}
           onCreateWorkspace={handleCreateWorkspace}
+          onDeleteWorkspace={handleDeleteWorkspace}
         />
 
         <span
@@ -1135,25 +1201,13 @@ export default function StoryGraph() {
             workspaces={workspaces}
             onWorkspaceChange={setWorkspace}
             onCreateWorkspace={handleCreateWorkspace}
+            onDeleteWorkspace={handleDeleteWorkspace}
             nodeTransparent={nodeTransparent}
             nodeBorder={nodeBorder}
             disallowedAliases={disallowedAliases}
-            onReady={(api) => {
-                filesEditorApi.current = api;
-                // If navigated here with ?file=, open it once then strip the param
-                // so it doesn't re-fire on tab/workspace switches.
-                const paramFile = searchParams.get("file");
-                if (paramFile) {
-                  setActiveTab("files");
-                  setTimeout(() => api.openFileByName(decodeURIComponent(paramFile)), 80);
-                  setSearchParams((prev) => {
-                    const next = new URLSearchParams(prev);
-                    next.delete("file");
-                    return next;
-                  }, { replace: true });
-                }
-              }}
-            onFilesChange={setStoryFiles}
+            onReady={onFilesEditorReady}
+            onFilesChange={onFilesEditorFilesChange}
+            onWorkspaceNodeTypesChanged={handleWorkspaceNodeTypesChanged}
           />
         </div>
 
@@ -2419,7 +2473,7 @@ export default function StoryGraph() {
                         type="text"
                         value={(uploadMode === "derive" || uploadFiles.length > 0) ? uploadFolderName : uploadTitle}
                         onChange={(e) => (uploadMode === "derive" || uploadFiles.length > 0) ? setUploadFolderName(e.target.value) : setUploadTitle(e.target.value)}
-                        placeholder={uploadMode === "derive" ? "e.g. The Sunken Archive" : uploadFiles.length > 0 ? "Optional — leave blank for uploads/" : "e.g. Aldric Senn"}
+                        placeholder={uploadMode === "derive" ? "e.g. The Sunken Archive" : uploadFiles.length > 0 ? "Optional — leave blank for workspace root" : "e.g. Aldric Senn"}
                         className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                         style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", caretColor: "#60a5fa" }}
                         spellCheck={false}
@@ -2430,7 +2484,7 @@ export default function StoryGraph() {
                           : uploadMode === "derive"
                           ? "A folder will be created with this name. Each extracted entity gets its own source file inside it."
                           : uploadFiles.length > 1
-                          ? `Files will be saved into this folder. Leave blank to save into uploads/.`
+                          ? `Files will be saved into this folder. Leave blank to save to the workspace root.`
                           : "Used as context to help the AI identify the primary subject."}
                       </p>
                     </div>

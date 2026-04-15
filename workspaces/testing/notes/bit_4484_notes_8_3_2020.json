@@ -1,0 +1,29 @@
+{
+  "id": "bit_4484_notes_8_3_2020",
+  "name": "BIT 4484 Notes 8 3 2020",
+  "type": "topic",
+  "excerpt": "BIT 4484 Notes 8 3 2020 covers project execution and management techniques.",
+  "notes": "Chapter 7 - Executing Projects\n\nProject Execution\n\nMost noticed processed group\n\nMost time, money, and results\n\nProject Integration Management\n\nMost important output of a project is its deliverables\n\nManagement by Walking Around (MBWA) - Talk to employees, see how project is going\n\nIssue Log - logs issues\n\nMatter under question that could impede project success\n\nCommon issues\n\nUpper management not supporting\n\nTeam not significantly involved\n\nConflict Handling\n\nCollaboration Mode - Directly face conflict and allow parties to work through disagreement\n\nCompromise - give and take approach, give satisfaction to all\n\nSmoothing or Accommodating - Suppress areas of disagreement, emphasize areas of agreement\n\nForce or Direct - You’re wrong, i'm right\n\nWithdraw - Ignore problem, avoidance\n\n\n\nConflict can avoid groupthink\n\nConformance to what you think the group wants\n\nTask-related conflict, difference over team objectives, is positive\n\nEmotional conflict, personal disagreements, is negative\n\nProject Quality Management\n\nQuality Assurance - all activities relevant to satisfying quality standards\n\nBenchmarking - Compares to other similar projects\n\nQuality audit - Helps identify lessons learned and improve performance\n\nCause and effect diagrams - find root causes of problems\n\nFishbone or ishikawa diagrams\n\nKanban - Just in time approach\n\nSign - Signal when things need to be done\n\nMotivation\n\nIntrinsic - Motivation for own enjoyment\n\nExtrinsic - Motivation by reward or punishment\n\nMotivational Factors - Factors that cause job satisfaction\n\nHygiene Factors - Factors that will not cause satisfaction, but will cause dissatisfaction if they are not there\n\nMcClelland Acquired Needs-Theory\n\nAchievement\n\nAffiliation\n\nPower\n\nDouglas McGregor\n\nTheory X - People avoid work\n\nTheory Y - People naturally want to work\n\nCognitive Work\n\nHigher reward = lower performance\n\nAutonomy - Desire to be self directed\n\nMastery\n\nPurpose\n\nHabits of Highly Effective People\n\nBe proactive\n\nBegin with the end in mind\n\nPut the first things first\n\nThink win-win - for you to win, someone else has to lose\n\nSeek first to understand, then to be understood\n\nSynergize\n\nSharpen the Saw\n\nManaging Projects\n\nManagers can best help by inputting expertise and work challenge\n\nFail when relying on authority, money, or penalty\n\nGood managers are empathic listeners - listen with intent to understand\n\nHave rapport - Support of team\n\nMirroring - Matching behaviors to person you are talking to\n\nStaff Assignment\n\nResource Loading - Amount of resources a schedule requires during specific time periods\n\nOverallocation - Assigning more work to an employee that can be done\n\nResource Levelling - Resolving resource conflict by delaying tasks\n\nAssessing Team Performance\n\nStages\n\nForming - Getting to know each other\n\nStorming - Exchange differences of opinions\n\nNorming - Developing a common method of flow for the team\n\nPerforming - Getting job done\n\nAdjourning - Ending team\n\nSocial Styles Profile\n\nDrivers - proactive and task oriented\n\nExpressive - proactive and people oriented\n\nAnalyticals - Reactive and task oriented\n\nAmiables - Reactive and people oriented\n\nPut good news in writing, bad news in person\n\nProject Procurement Management\n\nSource Selection\n\nApproach one supplier\n\nApproach a few supplier\n\nAdvertise to many sellers\n\nShort list - List of 3-5 top best sellers\n\nPrepare a best-and-final offer",
+  "connections": [
+    {
+      "target": "bit_4484_notes_7_19_2020",
+      "label": "previous notes in series"
+    },
+    {
+      "target": "bit_4484_notes_7_26_2020",
+      "label": "previous notes in series"
+    },
+    {
+      "target": "bit_4484_notes_7_8_2020",
+      "label": "previous notes in series"
+    },
+    {
+      "target": "bit_4484_notes_8_2_2020",
+      "label": "previous notes in series"
+    }
+  ],
+  "aliases": [],
+  "sourceFile": "BIT_4484_Notes_8_3_2020.md",
+  "createdAt": 1776059587921,
+  "updatedAt": 1776059587921
+}

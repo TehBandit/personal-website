@@ -159,7 +159,8 @@ export default async function handler(req, res) {
     if (!workspace || !/^[a-z0-9-]+$/.test(workspace)) {
       return res.status(400).json({ error: "Invalid workspace" });
     }
-    const notesDir = path.join(process.cwd(), "workspaces", workspace, "notes");
+    const wsDir = path.join(process.cwd(), "workspaces", workspace);
+    const notesDir = path.join(wsDir, "notes");
 
     // --- Load workspace nodeTypes so extraction uses the correct type vocabulary ---
     let workspaceNodeTypes = null;
@@ -236,7 +237,7 @@ export default async function handler(req, res) {
       const _fnFocused = req.body.filename || `upload-${Date.now()}.md`;
       const _bnFocused = path.basename(_fnFocused).replace(/[^a-zA-Z0-9._-]/g, "_");
       const _safeFocusedFilename = _bnFocused.replace(/\.(txt|docx)$/i, ".md");
-      const focusedSourceFile = `uploads/${_safeFocusedFilename}`;
+      const focusedSourceFile = _safeFocusedFilename;
 
       // Ask gpt-4o-mini for a one-sentence excerpt, a type, and any connections
       // to nodes already in the graph.  Characters found in this pass are NOT
@@ -324,9 +325,8 @@ ${rawText}`;
 
       // Save the raw file NOW so rebuildGraphCache (called at the end of the
       // main extraction) finds the sourceFile on disk and does not purge this node.
-      const _focusedUploadsDir = path.join(process.cwd(), "workspaces", workspace, "uploads");
-      if (!fs.existsSync(_focusedUploadsDir)) fs.mkdirSync(_focusedUploadsDir, { recursive: true });
-      fs.writeFileSync(path.join(_focusedUploadsDir, _safeFocusedFilename), markdownContent ?? rawText, "utf-8");
+      if (!fs.existsSync(wsDir)) fs.mkdirSync(wsDir, { recursive: true });
+      fs.writeFileSync(path.join(wsDir, _safeFocusedFilename), markdownContent ?? rawText, "utf-8");
 
       // Fall through to the full multi-entity extraction ↓
     }
@@ -470,12 +470,12 @@ ${rawText}`;
     const _rawBasename = path.basename(_uploadFilename).replace(/[^a-zA-Z0-9._-]/g, "_");
     const safeUploadFilename = _rawBasename.replace(/\.(txt|docx)$/i, ".md");
 
-    // If the caller supplied a folderName, save into that folder; otherwise default to uploads/
+    // If the caller supplied a folderName, save into that folder; otherwise save at workspace root.
     const _folderName = (req.body.folderName || "").trim();
     const _safeFolder = _folderName
       ? _folderName.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").substring(0, 60)
-      : "uploads";
-    const uploadSourceFile = `${_safeFolder}/${safeUploadFilename}`;
+      : "";
+    const uploadSourceFile = _safeFolder ? `${_safeFolder}/${safeUploadFilename}` : safeUploadFilename;
 
     // --- Save each genuinely new node ---
     if (!fs.existsSync(notesDir)) fs.mkdirSync(notesDir, { recursive: true });
@@ -588,7 +588,9 @@ ${rawText}`;
     bumpWorkspaceVersion(workspace);
 
     // --- Save source file to workspace folder for record-keeping ---
-    const uploadsDir = path.join(process.cwd(), "workspaces", workspace, _safeFolder);
+    const uploadsDir = _safeFolder
+      ? path.join(process.cwd(), "workspaces", workspace, _safeFolder)
+      : path.join(process.cwd(), "workspaces", workspace);
     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
     fs.writeFileSync(path.join(uploadsDir, safeUploadFilename), markdownContent ?? rawText, "utf-8");
 

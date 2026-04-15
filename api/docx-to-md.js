@@ -5,6 +5,10 @@
  *
  * Body: { base64: string, workspace: string }
  * Returns: { markdown: string }
+ *
+ * Images embedded in the docx are preserved as base64 data URIs
+ * (![](data:image/png;base64,...)) so they display in the editor without
+ * any server-side file management.
  */
 import mammoth from "mammoth";
 import { htmlToMarkdown, MAMMOTH_OPTIONS } from "./_docx-md.js";
@@ -31,6 +35,11 @@ export default async function handler(req, res) {
 
     if (!markdown) {
       return res.status(400).json({ error: "No text content found in document" });
+    }
+
+    // Debug mode: pass ?debug=1 to also get the raw mammoth HTML
+    if (req.query?.debug === "1") {
+      return res.status(200).json({ markdown, _mammothHtml: result.value });
     }
 
     return res.status(200).json({ markdown });

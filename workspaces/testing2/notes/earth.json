@@ -1,0 +1,12 @@
+{
+  "id": "earth",
+  "name": "earth",
+  "type": "planet",
+  "excerpt": "",
+  "notes": "",
+  "aliases": [],
+  "connections": [],
+  "sourceFile": "earth.md",
+  "createdAt": 1776266430315,
+  "updatedAt": 1776267609259
+}

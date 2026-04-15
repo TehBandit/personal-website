@@ -1,0 +1,28 @@
+{
+  "id": "wasa_video",
+  "name": "Wasa Video",
+  "type": "source",
+  "excerpt": "The Wasa Video discusses the changes and challenges faced by the Wasa warship.",
+  "connections": [
+    {
+      "target": "bit_4484_notes_8_9_2020",
+      "label": "featured in"
+    },
+    {
+      "target": "project_scope_management",
+      "label": "illustrates scope creep"
+    }
+  ],
+  "notes": "The Wasa Video highlights the changes made to the Wasa warship, including increasing its length and adding double cannons, which ultimately led to its sinking. It serves as an example of scope creep and the consequences of unmanaged changes.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1776059622100,
+  "updatedAt": 1776059622100,
+  "context_summary": [
+    "- Discusses changes faced by the Wasa warship.",
+    "- Length of the warship was increased.",
+    "- Double cannons were added to the warship.",
+    "- The changes led to the warship's sinking.",
+    "- Serves as an example of scope creep."
+  ]
+}
