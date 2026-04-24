@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Send, RefreshCw, BookOpen, ChevronDown, ChevronUp, Loader, AlertCircle, X, Trash2, PanelLeftOpen, PanelLeftClose, Network, SquarePen, Copy, Check, Pencil } from "lucide-react";
 import { useNodeTypeConfig } from "../contexts/NodeTypeContext.jsx";
 import { buildAdjacencyMap, graphBFS } from "../utils/graphHelpers.js";
+import { buildWordBoundaryPattern, collectGreedyMatches, overlapsAnyRange } from "../../shared/story-rules.js";
 
 const BG = "#0a0a14";
 const SIDEBAR_BG = "#0c0c18";
@@ -27,9 +28,193 @@ const GRAPH_KEYWORDS = [
   "directly connected", "direct connection",
   "connect to", "connects to", "connected to",
   "relate to", "related to", "relationship between",
+  "how do", "how does", "how are",
+  "relate", "relation between",
   "link between", "linked to",
   "adjacent",
+  "focus",
 ];
+
+function tokenizeWords(value) {
+  if (!value) return [];
+  const matches = value.toLowerCase().match(/[a-z0-9]+/g);
+  return matches || [];
+}
+
+function tokenizeWordsWithSpans(value) {
+  if (!value) return [];
+  const spans = [];
+  const re = /[a-z0-9]+/gi;
+  let m;
+  while ((m = re.exec(value)) !== null) {
+    spans.push({
+      start: m.index,
+      end: m.index + m[0].length,
+      wordLower: m[0].toLowerCase(),
+    });
+  }
+  return spans;
+}
+
+function isSingleEditAway(a, b) {
+  if (a === b) return true;
+  const al = a.length;
+  const bl = b.length;
+  if (Math.abs(al - bl) > 1) return false;
+
+  let i = 0;
+  let j = 0;
+  let edits = 0;
+
+  while (i < al && j < bl) {
+    if (a[i] === b[j]) {
+      i++;
+      j++;
+      continue;
+    }
+    edits++;
+    if (edits > 1) return false;
+
+    if (al === bl) {
+      i++;
+      j++;
+    } else if (al > bl) {
+      i++;
+    } else {
+      j++;
+    }
+  }
+
+  if (i < al || j < bl) edits++;
+  return edits <= 1;
+}
+
+function isAdjacentSwapAway(a, b) {
+  if (a.length !== b.length || a.length < 2) return false;
+  let i = 0;
+  while (i < a.length && a[i] === b[i]) i++;
+  if (i >= a.length - 1) return false;
+  if (a[i] !== b[i + 1] || a[i + 1] !== b[i]) return false;
+  return a.slice(i + 2) === b.slice(i + 2);
+}
+
+function isCloseWordMatch(observedWord, targetWord) {
+  if (!observedWord || !targetWord) return false;
+  const observed = observedWord.toLowerCase();
+  const target = targetWord.toLowerCase();
+  if (observed === target) return true;
+  if (observed[0] !== target[0]) return false;
+  return isSingleEditAway(observed, target) || isAdjacentSwapAway(observed, target);
+}
+
+function isFuzzyPhraseWindow(windowWords, targetWords) {
+  if (!windowWords?.length || !targetWords?.length || windowWords.length !== targetWords.length) return false;
+  let changedWords = 0;
+  for (let i = 0; i < targetWords.length; i++) {
+    if (windowWords[i] === targetWords[i]) continue;
+    if (!isCloseWordMatch(windowWords[i], targetWords[i])) return false;
+    changedWords++;
+  }
+  return changedWords > 0;
+}
+
+/**
+ * Greedy non-overlapping matcher for candidate entities.
+ * Candidates should already be sorted longest-first.
+ */
+function collectGreedyEntityMatches(text, candidates, options = {}) {
+  if (!text || !candidates?.length) return [];
+  const {
+    enableFuzzy = false,
+    maxFuzzyTextLength = 240,
+  } = options;
+
+  const exactCandidates = candidates.map((entity) => ({
+    ...entity,
+    patternSource: entity.patternSource || buildWordBoundaryPattern(entity.name || ""),
+  }));
+  const exactMatches = collectGreedyMatches(text, exactCandidates);
+
+  const occupied = exactMatches.map((m) => ({ start: m.start, end: m.end }));
+  const matchedCandidates = new Set(exactMatches.map((m) => m.item));
+  const matches = exactMatches.map((m) => ({
+    start: m.start,
+    end: m.end,
+    text: m.text,
+    entity: m.item,
+  }));
+
+  if (enableFuzzy && text.length <= maxFuzzyTextLength) {
+    const wordSpans = tokenizeWordsWithSpans(text);
+    for (const entity of candidates) {
+      if (matchedCandidates.has(entity)) continue;
+      const targetWords = entity.wordTokens || tokenizeWords(entity.name || "");
+      if (targetWords.length < 2) continue;
+      if (targetWords.join("").length < 8) continue;
+      const windowSize = targetWords.length;
+      if (wordSpans.length < windowSize) continue;
+
+      for (let i = 0; i <= wordSpans.length - windowSize; i++) {
+        const first = wordSpans[i];
+        const last = wordSpans[i + windowSize - 1];
+        const start = first.start;
+        const end = last.end;
+        if (overlapsAnyRange(start, end, occupied)) continue;
+
+        const windowWords = [];
+        for (let j = 0; j < windowSize; j++) {
+          windowWords.push(wordSpans[i + j].wordLower);
+        }
+        if (!isFuzzyPhraseWindow(windowWords, targetWords)) continue;
+
+        occupied.push({ start, end });
+        matches.push({ start, end, text: text.slice(start, end), entity });
+        matchedCandidates.add(entity);
+        break;
+      }
+    }
+  }
+
+  matches.sort((a, b) => a.start - b.start || b.end - a.end);
+  return matches;
+}
+
+/**
+ * Greedy longest-match node mention detection.
+ *
+ * Problem with plain `lower.includes(name)`: "management" appears inside
+ * "management history", so BOTH nodes match even when the user only typed
+ * "management history". This causes the wrong node to be used as primary.
+ *
+ * Fix: sort candidates longest-first, then consume text ranges so that a
+ * shorter name can only match at positions NOT already covered by a longer
+ * match. "management history" consumes its span; "management" can only
+ * match if there's a standalone occurrence elsewhere in the query.
+ */
+function greedyMentionedNodes(lower, nodes) {
+  const candidates = nodes
+    .flatMap((node) => {
+      const terms = [node.name, ...(node.aliases || [])]
+        .filter((term) => typeof term === "string" && term.trim().length > 0);
+      return terms.map((term) => ({
+        node,
+        term,
+        wordTokens: tokenizeWords(term),
+        patternSource: buildWordBoundaryPattern(term),
+      }));
+    })
+    .sort((a, b) => b.term.length - a.term.length);
+
+  const matches = collectGreedyEntityMatches(lower, candidates, { enableFuzzy: true, maxFuzzyTextLength: 220 });
+  const seen = new Set();
+  const result = [];
+  for (const { entity } of matches) {
+    if (seen.has(entity.node.id)) continue;
+    seen.add(entity.node.id);
+    result.push(entity.node);
+  }
+  return result;
+}
 
 function getNodeNeighbors(nodeId, graphData) {
   const nodeMap = new Map(graphData.nodes.map((n) => [n.id, n]));
@@ -57,6 +242,70 @@ function computeShortestPath(fromId, toId, graphData) {
   return graphBFS(fromId, toId, adj, nodeMap);
 }
 
+function getEdgeLabelBetween(aId, bId, graphData) {
+  for (const link of graphData.links) {
+    const src = typeof link.source === "object" ? link.source.id : link.source;
+    const tgt = typeof link.target === "object" ? link.target.id : link.target;
+    if ((src === aId && tgt === bId) || (src === bId && tgt === aId)) {
+      return link.label || "";
+    }
+  }
+  return "";
+}
+
+function joinWithAnd(items) {
+  if (!items?.length) return "";
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+function summarizeAnchorRelations(anchor, mentioned, graphData) {
+  const targets = mentioned.filter((n) => n.id !== anchor.id);
+  const connected = [];
+  const missing = [];
+
+  for (const target of targets) {
+    const pathNodes = computeShortestPath(anchor.id, target.id, graphData);
+    if (!pathNodes) {
+      missing.push(target);
+      continue;
+    }
+    connected.push({ target, pathNodes, hops: pathNodes.length - 1 });
+  }
+
+  return {
+    anchor,
+    targets,
+    connected,
+    missing,
+    connectedCount: connected.length,
+    directCount: connected.filter((p) => p.hops === 1).length,
+    totalHops: connected.reduce((sum, p) => sum + p.hops, 0),
+    maxHops: connected.reduce((m, p) => Math.max(m, p.hops), 0),
+  };
+}
+
+function chooseSmartAnchor(mentioned, graphData) {
+  if (!mentioned?.length) return null;
+  const analyses = mentioned.map((anchor, mentionIndex) => ({
+    mentionIndex,
+    ...summarizeAnchorRelations(anchor, mentioned, graphData),
+  }));
+
+  analyses.sort((a, b) => {
+    return (
+      b.connectedCount - a.connectedCount ||
+      b.directCount - a.directCount ||
+      a.totalHops - b.totalHops ||
+      a.maxHops - b.maxHops ||
+      a.mentionIndex - b.mentionIndex
+    );
+  });
+
+  return analyses[0];
+}
+
 /**
  * Returns a graph query result object, or null if the query is not graph-structural.
  * { type, focusNode, neighborNodes, pathNodes, linkLabels, answer }
@@ -67,22 +316,131 @@ function analyzeGraphQuery(text, graphData) {
 
   if (!GRAPH_KEYWORDS.some((k) => lower.includes(k))) return null;
 
-  // Find mentioned node names — longer names first to avoid partial-match preference
-  const mentioned = graphData.nodes
-    .filter((n) => lower.includes(n.name.toLowerCase()))
-    .sort((a, b) => b.name.length - a.name.length);
+  // Find mentioned node names using greedy longest-match so that "management"
+  // inside "management history" is not counted as a separate match.
+  const mentioned = greedyMentionedNodes(lower, graphData.nodes);
 
   if (mentioned.length === 0) return null;
 
   const primary = mentioned[0];
 
+  // Multi-focus query: "focus X and Y" — 2+ nodes + explicit "focus" keyword, no path intent
+  const focusKeywords = ["focus"];
+  const pathKeywords = ["path", "hops", "degrees", "connect", "relate", "link", "how does", "how is", "how are", "how do"];
+  if (
+    mentioned.length >= 2 &&
+    focusKeywords.some((k) => lower.includes(k)) &&
+    !pathKeywords.some((k) => lower.includes(k))
+  ) {
+    const names = mentioned.map((n) => n.name).join(" and ");
+    return {
+      type: "multi-focus",
+      focusNode: primary,
+      focusNodes: mentioned,
+      neighborNodes: [],
+      pathNodes: [],
+      linkLabels: {},
+      answer: `Focusing on ${names} on the graph.`,
+    };
+  }
+
   // Path query: 2+ nodes AND a path-related keyword
   // "how does/is" is allowed here (broad) since we already require 2 named nodes
-  const pathKeywords = ["path", "hops", "degrees", "connect", "relate", "link", "how does", "how is", "how are"];
   if (
     mentioned.length >= 2 &&
     pathKeywords.some((k) => lower.includes(k))
   ) {
+    // Multi-target relation query: "How does A relate to B and C?"
+    // Evaluate A -> B and A -> C (and any further targets), then summarize
+    // the common connector/structure rather than dropping extra entities.
+    if (mentioned.length >= 3) {
+      const anchorSummary = chooseSmartAnchor(mentioned, graphData);
+      const anchor = anchorSummary?.anchor || mentioned[0];
+      const targets = anchorSummary?.targets || mentioned.filter((n) => n.id !== anchor.id);
+      const connected = anchorSummary?.connected || [];
+      const missing = anchorSummary?.missing || [];
+      const allPathNodesById = new Map([[anchor.id, anchor]]);
+
+      for (const { pathNodes } of connected) {
+        for (const node of pathNodes) allPathNodesById.set(node.id, node);
+      }
+
+      if (connected.length === 0) {
+        return {
+          type: "no-path",
+          focusNode: anchor,
+          focusNodes: [anchor],
+          neighborNodes: [],
+          pathNodes: [],
+          linkLabels: {},
+          answer: `There is no path connecting ${anchor.name} to ${joinWithAnd(targets.map((n) => n.name))} in the graph.`,
+        };
+      }
+
+      const intermediateSets = connected.map(({ pathNodes }) => new Set(pathNodes.slice(1, -1).map((n) => n.id)));
+      let sharedIntermediateIds = null;
+      for (const ids of intermediateSets) {
+        if (sharedIntermediateIds == null) {
+          sharedIntermediateIds = new Set(ids);
+          continue;
+        }
+        sharedIntermediateIds = new Set([...sharedIntermediateIds].filter((id) => ids.has(id)));
+      }
+
+      const sharedIntermediates = sharedIntermediateIds
+        ? [...sharedIntermediateIds]
+          .map((id) => allPathNodesById.get(id))
+          .filter(Boolean)
+        : [];
+
+      const relationLines = connected.map(({ target, pathNodes, hops }) => {
+        if (hops === 1) {
+          const edgeLabel = getEdgeLabelBetween(anchor.id, target.id, graphData);
+          return `- ${anchor.name} -> ${target.name}: direct connection${edgeLabel ? ` (${edgeLabel})` : ""}`;
+        }
+        return `- ${anchor.name} -> ${target.name}: ${hops} hops via ${pathNodes.map((n) => n.name).join(" -> ")}`;
+      });
+
+      const connectedNames = connected.map(({ target }) => target.name);
+      const routeHints = connected.map(({ pathNodes }) => pathNodes.map((n) => n.name).join(" -> "));
+      const sharedLine = sharedIntermediates.length
+        ? `Shared connector${sharedIntermediates.length !== 1 ? "s" : ""}: ${joinWithAnd(sharedIntermediates.map((n) => n.name))}.`
+        : `Common connector across the requested nodes: ${anchor.name}.`;
+      const missingLine = missing.length
+        ? `No path found from ${anchor.name} to ${joinWithAnd(missing.map((n) => n.name))}.`
+        : "";
+      const answer = [
+        `Tracing how ${anchor.name} relates to ${joinWithAnd(connectedNames)} based on the graph structure.`,
+        sharedLine,
+        missingLine,
+      ].filter(Boolean).join("\n");
+
+      const tracePrompt = [
+        `Trace how ${anchor.name} relates to ${joinWithAnd(connectedNames)} based only on the notes.`,
+        sharedIntermediates.length
+          ? `Use ${joinWithAnd(sharedIntermediates.map((n) => n.name))} as the shared connector context.`
+          : "Explain the common factor(s) connecting these relationships.",
+        `Use these graph routes as structure: ${routeHints.join(" | ")}.`,
+        missing.length
+          ? `Also note that no path was found from ${anchor.name} to ${joinWithAnd(missing.map((n) => n.name))}.`
+          : "",
+        "Write a cohesive narrative paragraph (not bullets), and explicitly identify the determining factor that links them.",
+      ].filter(Boolean).join(" ");
+
+      return {
+        type: "multi-focus",
+        focusNode: anchor,
+        focusNodes: [...allPathNodesById.values()],
+        neighborNodes: [],
+        pathNodes: [],
+        linkLabels: {},
+        answer,
+        tracePrompt,
+        pathHint: routeHints.join(" | "),
+        traceNodeIds: [...allPathNodesById.keys()],
+      };
+    }
+
     const secondary = mentioned[1];
     const pathNodes = computeShortestPath(primary.id, secondary.id, graphData);
     if (!pathNodes) {
@@ -129,6 +487,220 @@ function analyzeGraphQuery(text, graphData) {
     linkLabels: labels,
     answer: `${primary.name} has ${nodes.length} direct connection${nodes.length !== 1 ? "s" : ""} on the graph:\n\n${list}`,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge query detection — content/fact questions that should use RAG
+// instead of graph structural analysis.
+// These patterns unambiguously signal "tell me what the notes say about X".
+// When matched, the graph structural interceptor is bypassed so the query
+// reaches the AI + RAG pipeline with the relevant node's content pinned.
+// ---------------------------------------------------------------------------
+
+const KNOWLEDGE_QUERY_PATTERNS = [
+  /\bsummariz/,
+  /\btell\s+me\s+about\b/,
+  /\bwhat\s+(?:do\s+(?:we|i)\s+know|is\s+known|is\s+written)\s+about\b/,
+  /\bdescribe\b/,
+  /\bwho\s+is\b/,
+  /\bwho\s+are\b/,
+  /\bwhat\s+is\b/,
+  /\bwhat\s+are\b/,
+  /\bhow\s+old\b/,
+  /\bbackground\s+on\b/,
+];
+
+function detectKnowledgeQuery(text, graphData) {
+  if (!graphData?.nodes?.length) return null;
+  const lower = text.toLowerCase().trim();
+  if (!KNOWLEDGE_QUERY_PATTERNS.some((p) => p.test(lower))) return null;
+
+  // Find all node names using greedy longest-match so shorter names don't
+  // falsely match inside longer ones (e.g. "management" inside "management history").
+  const mentioned = greedyMentionedNodes(lower, graphData.nodes);
+
+  if (mentioned.length === 0) return null;
+
+  return {
+    isSummarize: /\bsummariz/.test(lower),
+    nodes: mentioned.slice(0, 3),
+    pinnedNodeIds: mentioned.slice(0, 3).map((n) => n.id),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Meta commands — filter-based focus/tag mutations (no AI round-trip)
+// ---------------------------------------------------------------------------
+
+function parseMetaFilter(lower, graphData) {
+  // Tag filter: "tagged veldmoor" / "with tag veldmoor" / "with the tag 'veldmoor'"
+  const tagM = lower.match(/(?:tagged?|with\s+(?:the\s+)?tag)\s+['"]?([a-z0-9][a-z0-9_-]*)['"]?/);
+  if (tagM) return { type: "tag", value: tagM[1] };
+
+  // Node type filter — match actual types present in the graph
+  const types = [...new Set(graphData.nodes.map((n) => n.type).filter(Boolean))];
+  for (const t of types) {
+    if (new RegExp(`\\b${t}\\s+nodes?\\b`, "i").test(lower)) return { type: "nodeType", value: t };
+  }
+
+  // "all nodes" (broad — no additional filter)
+  if (/\ball\s+nodes?\b/.test(lower)) return { type: "all" };
+
+  // Date filter: "created before/after/on DATE"
+  const dateM = lower.match(/(?:created|added)\s+(before|after|on)\s+(.+?)(?:\s*$)/);
+  if (dateM) {
+    const date = new Date(dateM[2].trim());
+    if (!isNaN(date)) return { type: "date", op: dateM[1], date };
+  }
+
+  // Derived / no source file
+  if (/\bderived\b|\bno\s+(?:source\s+)?file\b|\bwithout\s+(?:a\s+)?file\b/.test(lower)) {
+    return { type: "noFile" };
+  }
+
+  return null;
+}
+
+function applyMetaFilter(filter, graphData) {
+  if (!filter) return null;
+  switch (filter.type) {
+    case "all": return graphData.nodes;
+    case "tag":
+      return graphData.nodes.filter((n) => (n.tags || []).some((t) => t.toLowerCase() === filter.value));
+    case "nodeType":
+      return graphData.nodes.filter((n) => n.type?.toLowerCase() === filter.value.toLowerCase());
+    case "date": {
+      const { op, date } = filter;
+      const d = date;
+      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
+      const dayEnd   = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
+      return graphData.nodes.filter((n) => {
+        if (!n.createdAt) return false;
+        if (op === "before") return n.createdAt < dayStart;
+        if (op === "after")  return n.createdAt > dayEnd;
+        return n.createdAt >= dayStart && n.createdAt <= dayEnd;
+      });
+    }
+    case "noFile": return graphData.nodes.filter((n) => !n.sourceFile);
+    default: return null;
+  }
+}
+
+function describeMetaFilter(filter) {
+  if (!filter) return "";
+  switch (filter.type) {
+    case "all":      return " (all nodes)";
+    case "tag":      return ` tagged '${filter.value}'`;
+    case "nodeType": return ` of type '${filter.value}'`;
+    case "date":     return ` created ${filter.op} ${filter.date.toLocaleDateString()}`;
+    case "noFile":   return " with no source file";
+    default:         return "";
+  }
+}
+
+/**
+ * Detects metadata-driven commands (no named-node matching required):
+ *   "focus all nodes tagged veldmoor"
+ *   "add tag veldmoor to all character nodes"
+ *   "remove tag test from nodes created before Mar 15, 2026"
+ * Returns { action, targetTag?, filter, nodeIds, answer } or null.
+ */
+// ---------------------------------------------------------------------------
+// Disallowed action detection — certain operations are never executed via chat
+// ---------------------------------------------------------------------------
+
+// Each entry: { pattern: RegExp, reason: string }
+const DISALLOWED_RULES = [
+  // Deletion / destruction
+  { pattern: /\bdelete\b/,                          reason: "deleting nodes or files" },
+  { pattern: /\bremove\s+(node|file|note|all)\b/,   reason: "removing nodes or files" },
+  { pattern: /\berase\b/,                           reason: "erasing content" },
+  { pattern: /\bdestroy\b/,                         reason: "destructive actions" },
+  { pattern: /\bwipe\b/,                            reason: "wiping content" },
+  { pattern: /\bpurge\b/,                           reason: "purging content" },
+  { pattern: /\btrash\b/,                           reason: "trashing content" },
+  { pattern: /\bdrop\b.*\bnode\b/,                  reason: "dropping nodes" },
+
+  // Rename / move files
+  { pattern: /\brename\b/,                          reason: "renaming files or nodes" },
+  { pattern: /\bmove\s+(node|file|note)\b/,         reason: "moving files" },
+
+  // Modifying connections / edges
+  { pattern: /\b(add|create|make|insert)\b.*\b(connection|edge|link|relationship)\b/, reason: "modifying connections" },
+  { pattern: /\b(remove|delete|unlink|disconnect)\b.*\b(connection|edge|link|relationship)\b/, reason: "modifying connections" },
+  { pattern: /\bconnect\s+\w.*\bto\b/,              reason: "modifying connections" },
+  { pattern: /\bdisconnect\b/,                      reason: "modifying connections" },
+  { pattern: /\bunlink\b/,                          reason: "modifying connections" },
+
+  // Workspace creation / deletion
+  { pattern: /\b(create|make|add|new)\b.*\bworkspace\b/, reason: "creating workspaces" },
+  { pattern: /\b(delete|remove|destroy)\b.*\bworkspace\b/, reason: "deleting workspaces" },
+];
+
+const DISALLOWED_RESPONSE =
+  "That action isn't available through chat. Things like deleting nodes or files, renaming, modifying connections, and creating or deleting workspaces must be done through the editor directly.";
+
+function detectDisallowedAction(text) {
+  const lower = text.toLowerCase();
+  return DISALLOWED_RULES.some(({ pattern }) => pattern.test(lower));
+}
+
+function analyzeMetaCommand(text, graphData) {
+  if (!graphData?.nodes?.length) return null;
+  const lower = text.toLowerCase().trim();
+
+  // ADD TAG: "add [the] tag X to <filter>"
+  const addM = lower.match(/\badd\s+(?:the\s+)?tag\s+['"]?([a-z0-9][a-z0-9_-]*)['"]?\s+to\s+(.+)/);
+  if (addM) {
+    const targetTag = addM[1];
+    const filter = parseMetaFilter(addM[2], graphData);
+    const matched = applyMetaFilter(filter, graphData) ?? [];
+    const desc = describeMetaFilter(filter);
+    if (matched.length === 0) return { action: "add-tag", targetTag, nodeIds: [], answer: `No nodes found${desc}.` };
+    return {
+      action: "add-tag", targetTag, filter,
+      nodeIds: matched.map((n) => n.id),
+      answer: `Adding tag **${targetTag}** to ${matched.length} node${matched.length !== 1 ? "s" : ""}${desc}.`,
+    };
+  }
+
+  // REMOVE TAG: "remove [the] tag X from <filter>"
+  const removeM = lower.match(/\bremove\s+(?:the\s+)?tag\s+['"]?([a-z0-9][a-z0-9_-]*)['"]?\s+from\s+(.+)/);
+  if (removeM) {
+    const targetTag = removeM[1];
+    const filter = parseMetaFilter(removeM[2], graphData);
+    const matched = applyMetaFilter(filter, graphData) ?? [];
+    const desc = describeMetaFilter(filter);
+    if (matched.length === 0) return { action: "remove-tag", targetTag, nodeIds: [], answer: `No nodes found${desc}.` };
+    return {
+      action: "remove-tag", targetTag, filter,
+      nodeIds: matched.map((n) => n.id),
+      answer: `Removing tag **${targetTag}** from ${matched.length} node${matched.length !== 1 ? "s" : ""}${desc}.`,
+    };
+  }
+
+  // FOCUS with metadata filter — only intercept when a filter keyword is present
+  // (named-node focus like "focus virsa col" is handled by analyzeGraphQuery)
+  const hasFocusWord = /\bfocus\b/.test(lower);
+  const hasMetaIndicator =
+    /\b(tagged?|with\s+(?:the\s+)?tag|created\s+(?:before|after|on)|derived|no\s+(?:source\s+)?file)\b/.test(lower) ||
+    /\ball\s+\w+\s+nodes?\b/.test(lower) ||
+    /\ball\s+nodes?\b/.test(lower);
+  if (hasFocusWord && hasMetaIndicator) {
+    const filter = parseMetaFilter(lower, graphData);
+    const matched = applyMetaFilter(filter, graphData) ?? [];
+    const desc = describeMetaFilter(filter);
+    if (matched.length > 0) {
+      return {
+        action: "focus", filter,
+        nodeIds: matched.map((n) => n.id),
+        answer: `Focusing on ${matched.length} node${matched.length !== 1 ? "s" : ""}${desc} on the graph.`,
+      };
+    }
+    if (filter) return { action: "focus", filter, nodeIds: [], answer: `No nodes found${desc}.` };
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -275,7 +847,7 @@ function GraphMinimap({ graphResult, graphData, onOpenNode, onShowPath }) {
 // Citation card
 // ---------------------------------------------------------------------------
 
-function CitationCard({ source, index, onOpenNode }) {
+function CitationCard({ source, citationNumber, onOpenNode }) {
   const NODE_TYPE_CONFIG = useNodeTypeConfig();
   const nodeTypeFallback = Object.values(NODE_TYPE_CONFIG)[0];
   const cfg = NODE_TYPE_CONFIG[source.nodeType] || nodeTypeFallback;
@@ -297,7 +869,7 @@ function CitationCard({ source, index, onOpenNode }) {
         className="text-[10px] font-bold rounded w-4 h-4 flex items-center justify-center flex-shrink-0"
         style={{ backgroundColor: ACCENT_DIM, color: ACCENT }}
       >
-        {index + 1}
+        {citationNumber}
       </span>
       <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
       <span className="text-xs truncate flex-1" style={{ color: TEXT }}>{source.nodeName}</span>
@@ -331,8 +903,8 @@ function CitationsPanel({ sources, onOpenNode }) {
       </button>
       {open && (
         <div className="flex flex-col gap-1 mt-1.5">
-          {sources.map((src, i) => (
-            <CitationCard key={src.nodeId} source={src} index={i} onOpenNode={onOpenNode} />
+          {sources.map((src) => (
+            <CitationCard key={src.nodeId} source={src} citationNumber={src.citationNumber} onOpenNode={onOpenNode} />
           ))}
         </div>
       )}
@@ -360,18 +932,48 @@ function stripBold(str) {
  * aliases + auto-partial single words from multi-word names (stop-words excluded).
  * Returns { map, regex } or null when graphData has no nodes.
  */
-function buildChatEntities(graphData, NODE_TYPE_CONFIG, nodeTypeFallback) {
+function buildChatEntities(graphData, NODE_TYPE_CONFIG, nodeTypeFallback, ownFileIds) {
   if (!graphData?.nodes?.length) return null;
   const STOP_WORDS = new Set([
-    "the","and","for","not","but","nor","yet","so","of","in","on","at","to",
-    "by","up","as","an","a","or","its","it","he","she","they","his","her",
-    "their","our","my","your","who","whom","which","that","this","these",
-    "those","from","with","into","onto","upon","over","under","about","after",
-    "before","old","new","one","two","three","four","five","six","seven",
+    // articles, prepositions, conjunctions
+    "a","an","the","and","but","nor","or","yet","so","for","of","in","on",
+    "at","to","by","up","as","into","onto","upon","over","under","about",
+    "after","before","from","with","than","not","no","both","either","neither",
+    // pronouns / relative words
+    "it","its","he","she","they","we","you","me","him","her","us","them",
+    "my","his","our","your","their","who","whom","whose","which","that","this",
+    "these","those",
+    // question words (critical — prevents "how","what","when" from aliasing titles)
+    "how","what","when","where","why","whether",
+    // auxiliary / modal verbs
+    "is","are","was","were","be","been","being","am",
+    "has","have","had","do","does","did",
+    "can","will","would","could","should","may","might","must","shall",
+    // common short verbs
+    "get","got","put","set","let","use","used","make","made","take","took",
+    "come","came","went","give","gave","tell","told","know","see","say","try",
+    "keep","kept","seem","feel","look","call","find","need","want","said",
+    // adverbs / quantifiers / determiners
+    "also","even","just","only","very","quite","too","per","now","once",
+    "here","there","still","back","else","ever","far","well","much","more",
+    "most","less","many","some","few","all","any","each","every","own",
+    "same","real","true","like","long","such",
+    // numbers
+    "one","two","three","four","five","six","seven","eight","nine","ten",
+    // common adjectives that appear in descriptive chapter/document titles
+    "old","new","big","main","next","last","first","early","late","high",
+    "low","good","best","bad","key","top",
   ]);
   const seen = new Set();
   const list = [];
+
+  // ── Pass 1: canonical names + explicit aliases ────────────────────────────
+  // These MUST be registered before auto-partials so that a multi-word node
+  // (e.g. "Management History") can never steal the `seen` key for a node
+  // that has that same word as its own canonical name (e.g. "Management").
+  // Without this, iteration order determines which node "wins" the key — fragile.
   for (const node of graphData.nodes) {
+    if (ownFileIds && !ownFileIds.has(node.id)) continue; // skip grey nodes — no file
     const cfg = NODE_TYPE_CONFIG[node.type] || nodeTypeFallback;
     const push = (name) => {
       const key = name.toLowerCase();
@@ -381,18 +983,41 @@ function buildChatEntities(graphData, NODE_TYPE_CONFIG, nodeTypeFallback) {
     };
     push(node.name);
     for (const alias of (node.aliases || [])) push(alias);
+  }
+
+  // ── Pass 2: first/last-name partials for character nodes only ───────────────
+  // Lets users refer to "Sable" or "Voss" when a character is named "Sable Voss".
+  // Intentionally restricted to type "character": topic, concept, source, faction,
+  // location, etc. nodes often have descriptive multi-word titles whose individual
+  // words (e.g. "History", "Strategic", "Design") are not useful stand-alone links
+  // and can cause spurious matches in ordinary prose.
+  // Blocked by `seen` if any node already owns that exact string canonically.
+  for (const node of graphData.nodes) {
+    if (node.type !== "character") continue;
+    if (ownFileIds && !ownFileIds.has(node.id)) continue; // skip grey nodes — no file
+    const cfg = NODE_TYPE_CONFIG[node.type] || nodeTypeFallback;
+    const push = (name) => {
+      const key = name.toLowerCase();
+      if (seen.has(key) || !name.trim()) return;
+      seen.add(key);
+      list.push({ name, nodeId: node.id, color: cfg.color });
+    };
     const words = node.name.trim().split(/\s+/);
     if (words.length > 1) {
       for (const w of words) {
         if (w.length > 2 && !STOP_WORDS.has(w.toLowerCase())) push(w);
       }
     }
+
   }
   list.sort((a, b) => b.name.length - a.name.length);
-  const map = new Map(list.map((e) => [e.name.toLowerCase(), e]));
-  const escaped = list.map((e) => e.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  const regex = new RegExp(`\\b(${escaped.join("|")})\\b`, "gi");
-  return { map, regex };
+  return {
+    entities: list.map((e) => ({
+      ...e,
+      wordTokens: tokenizeWords(e.name),
+      patternSource: buildWordBoundaryPattern(e.name),
+    })),
+  };
 }
 
 /**
@@ -404,39 +1029,41 @@ function renderInline(text, citations, onOpenNode, key, entityData) {
 
   const linkifyPlain = (str, baseKey) => {
     if (!entityData || !onOpenNode || !str) return str;
-    const { map, regex } = entityData;
-    regex.lastIndex = 0;
+    const { entities } = entityData;
+    if (!entities?.length) return str;
+    // Skip linkification on long strings (full note content) — the regex has many
+    // alternations and applying it to thousands of characters causes visible jank.
+    if (str.length > 2000) return str;
+
+    const matches = collectGreedyEntityMatches(str, entities, { enableFuzzy: true, maxFuzzyTextLength: 260 });
+    if (!matches.length) return str;
+
     const segments = [];
     let last = 0;
-    let m;
-    while ((m = regex.exec(str)) !== null) {
-      if (m.index > last) segments.push(str.slice(last, m.index));
-      const entity = map.get(m[0].toLowerCase());
-      if (entity) {
-        segments.push(
-          <button
-            key={`${baseKey}-el-${m.index}`}
-            onClick={() => onOpenNode(entity.nodeId)}
-            title={entity.name}
-            style={{
-              color: entity.color,
-              textDecoration: "underline",
-              textUnderlineOffset: "2px",
-              cursor: "pointer",
-              fontWeight: 500,
-              background: "none",
-              border: "none",
-              padding: 0,
-              font: "inherit",
-            }}
-          >
-            {m[0]}
-          </button>
-        );
-      } else {
-        segments.push(m[0]);
-      }
-      last = regex.lastIndex;
+    for (const { start, end, text, entity } of matches) {
+      if (start > last) segments.push(str.slice(last, start));
+      segments.push(
+        <button
+          key={`${baseKey}-el-${start}`}
+          onClick={() => onOpenNode(entity.nodeId)}
+          title={entity.name}
+          style={{
+            color: entity.color,
+            textDecoration: "underline",
+            textUnderlineOffset: "2px",
+            cursor: "pointer",
+            fontWeight: 500,
+            background: "none",
+            border: "none",
+            padding: 0,
+            font: "inherit",
+            userSelect: "text",
+          }}
+        >
+          {text}
+        </button>
+      );
+      last = end;
     }
     if (last < str.length) segments.push(str.slice(last));
     return segments.length ? segments : str;
@@ -463,6 +1090,7 @@ function renderInline(text, citations, onOpenNode, key, entityData) {
                   cursor: onOpenNode ? "pointer" : "default",
                   textDecoration: "underline",
                   textUnderlineOffset: "2px",
+                  userSelect: "text",
                 }}
               >
                 [{num}]
@@ -549,14 +1177,26 @@ function renderContent(content, citations, onOpenNode, entityData) {
   return <div style={{ lineHeight: "1.6" }}>{elements}</div>;
 }
 
-function MessageBubble({ message, onOpenNode, graphData, onRegenerate, onEditSubmit, isLast, onShowPath }) {
-  const NODE_TYPE_CONFIG = useNodeTypeConfig();
-  const nodeTypeFallback = Object.values(NODE_TYPE_CONFIG)[0];
+function MessageBubble({ message, onOpenNode, graphData, ownFileIds, entityData, onRegenerate, onEditSubmit, isLast, onShowPath }) {
   const isUser = message.role === "user";
   const isStreaming = message.streaming;
   const isThinking = isStreaming && message.content === "";
 
-  const entityData = useMemo(() => buildChatEntities(graphData, NODE_TYPE_CONFIG, nodeTypeFallback), [graphData, NODE_TYPE_CONFIG, nodeTypeFallback]);
+  // Filter citations: grey nodes (no own file) become null so inline [N] markers
+  // degrade to plain text, while the panel only shows nodes with real notes.
+  const filteredCitations = useMemo(() => {
+    if (!message.citations) return null;
+    return message.citations.map((c) =>
+      (ownFileIds && !ownFileIds.has(c.nodeId)) ? null : c
+    );
+  }, [message.citations, ownFileIds]);
+
+  const panelCitations = useMemo(() => {
+    if (!filteredCitations) return null;
+    return filteredCitations
+      .map((c, i) => (c ? { ...c, citationNumber: i + 1 } : null))
+      .filter(Boolean);
+  }, [filteredCitations]);
 
   const [copied, setCopied] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -720,14 +1360,14 @@ function MessageBubble({ message, onOpenNode, graphData, onRegenerate, onEditSub
                   />
                 </>
               ) : (
-                renderContent(message.content, message.citations, onOpenNode, entityData)
+                renderContent(message.content, filteredCitations, onOpenNode, entityData)
               )}
             </div>
 
             {/* Citations flush inside the card */}
-            {!isUser && message.citations && message.citations.length > 0 && (
+            {!isUser && panelCitations && panelCitations.length > 0 && (
               <div className="border-t px-4 pt-2 pb-3" style={{ borderColor: BORDER }}>
-                <CitationsPanel sources={message.citations} onOpenNode={onOpenNode} />
+                <CitationsPanel sources={panelCitations} onOpenNode={onOpenNode} />
               </div>
             )}
           </div>
@@ -753,10 +1393,7 @@ function MessageBubble({ message, onOpenNode, graphData, onRegenerate, onEditSub
           </div>
         )}
 
-        {/* Graph minimap */}
-        {!isUser && message.graphResult && (
-          <GraphMinimap graphResult={message.graphResult} graphData={graphData} onOpenNode={onOpenNode} onShowPath={onShowPath} />
-        )}
+        {/* Graph minimap — suppressed: graph is visible on the same screen, path is auto-highlighted */}
       </div>
     </div>
   );
@@ -1003,7 +1640,14 @@ function SessionSidebar({ sessions, activeId, onSelect, onNew, onDelete }) {
 // Main WorkspaceChat component
 // ---------------------------------------------------------------------------
 
-export default function WorkspaceChat({ workspace, onOpenNode, graphData = null, chatFocusNode = null, onShowPath = null, pendingQuestion = null, onPendingConsumed = null, compact = false }) {
+export default function WorkspaceChat({ workspace, onOpenNode, graphData = null, ownFileIds = null, chatFocusNode = null, onShowPath = null, onBulkPatch = null, pendingQuestion = null, onPendingConsumed = null, compact = false }) {
+  // Build entity linkification data once per workspace/graph change.
+  // Computed here (parent) rather than inside each MessageBubble so that N
+  // messages don't each rebuild the same map+regex on every workspace switch.
+  const _ntc = useNodeTypeConfig();
+  const _ntf = Object.values(_ntc)[0];
+  const entityData = useMemo(() => buildChatEntities(graphData, _ntc, _ntf, ownFileIds), [graphData, _ntc, _ntf, ownFileIds]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Session state
   const [sessions, setSessions] = useState(() => loadSessions(workspace));
   const [activeId, setActiveId] = useState(() => {
@@ -1146,24 +1790,14 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
 
       const userMsg = { role: "user", content: text, createdAt: Date.now() };
 
-      // Intercept graph structural queries — answer directly from graph data without the API
-      const graphAnalysis = graphData ? analyzeGraphQuery(text, graphData) : null;
-      if (graphAnalysis) {
+      // Intercept disallowed (destructive) requests — reply inline, no API call
+      if (detectDisallowedAction(text)) {
         const assistantMsg = {
           role: "assistant",
-          content: graphAnalysis.answer,
+          content: DISALLOWED_RESPONSE,
           streaming: false,
           citations: null,
-          graphResult: {
-            type: graphAnalysis.type,
-            focusNodeId: graphAnalysis.focusNode.id,
-            // path: all nodes in order (incl. endpoints); neighbors: neighbor IDs only
-            nodeIds: [
-              ...(graphAnalysis.pathNodes || []).map((n) => n.id),
-              ...(graphAnalysis.neighborNodes || []).map((n) => n.id),
-            ],
-            linkLabels: graphAnalysis.linkLabels || {},
-          },
+          graphResult: null,
         };
         setSessions((prev) => {
           const session = prev.find((s) => s.id === effectiveId) ?? prev[0];
@@ -1176,6 +1810,227 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
         });
         setSending(false);
         setTimeout(() => inputRef.current?.focus(), 50);
+        return;
+      }
+
+      // Intercept metadata commands (filter-based focus/tag mutations) — no AI round-trip
+      const metaCmd = graphData ? analyzeMetaCommand(text, graphData) : null;
+      if (metaCmd) {
+        const assistantMsg = {
+          role: "assistant",
+          content: metaCmd.answer,
+          streaming: false,
+          citations: null,
+          graphResult: metaCmd.action === "focus" && metaCmd.nodeIds.length > 0
+            ? { type: "meta-focus", focusNodeIds: metaCmd.nodeIds }
+            : null,
+        };
+        setSessions((prev) => {
+          const session = prev.find((s) => s.id === effectiveId) ?? prev[0];
+          const newMsgs = [...(session?.messages ?? []), userMsg, assistantMsg];
+          const title = session?.title ?? deriveTitle(newMsgs);
+          return prev.map((s) => {
+            if (s.id !== (session?.id ?? effectiveId)) return s;
+            return { ...s, messages: newMsgs, title, updatedAt: Date.now() };
+          });
+        });
+        if (metaCmd.action === "focus" && metaCmd.nodeIds.length > 0) {
+          onShowPath?.({ type: "meta-focus", focusNodeIds: metaCmd.nodeIds });
+        } else if ((metaCmd.action === "add-tag" || metaCmd.action === "remove-tag") && metaCmd.nodeIds.length > 0) {
+          onBulkPatch?.({ action: metaCmd.action, targetTag: metaCmd.targetTag, nodeIds: metaCmd.nodeIds });
+        }
+        setSending(false);
+        setTimeout(() => inputRef.current?.focus(), 50);
+        return;
+      }
+
+      // Detect knowledge/content queries BEFORE the graph structural interceptor.
+      // "who is X", "how old is X", "summarize X", "describe X" etc. should be
+      // answered from note content even when they also match graph keywords.
+      const knowledgeHint = graphData ? detectKnowledgeQuery(text, graphData) : null;
+
+      // Intercept graph structural queries — answer directly from graph data without the API.
+      // Skipped when the query is clearly about note content (knowledgeHint is set).
+      const graphAnalysis = (!knowledgeHint && graphData) ? analyzeGraphQuery(text, graphData) : null;
+      if (graphAnalysis) {
+        const derivedGraphNodeIds = [
+          ...(graphAnalysis.pathNodes || []).map((n) => n.id),
+          ...(graphAnalysis.neighborNodes || []).map((n) => n.id),
+        ];
+        const graphNodeIds = graphAnalysis.traceNodeIds?.length
+          ? graphAnalysis.traceNodeIds
+          : derivedGraphNodeIds;
+        const graphResult = {
+          type: graphAnalysis.type,
+          focusNodeId: graphAnalysis.focusNode.id,
+          focusNodeIds: graphAnalysis.focusNodes?.map((n) => n.id) ?? null,
+          nodeIds: [...new Set(graphNodeIds)],
+          linkLabels: graphAnalysis.linkLabels || {},
+        };
+
+        const shouldStreamNarrative = graphAnalysis.type === "path" || !!graphAnalysis.tracePrompt;
+
+        // Non-trace results (multi-focus/focus, neighbors, no-path): answer immediately.
+        if (!shouldStreamNarrative) {
+          const assistantMsg = {
+            role: "assistant",
+            content: graphAnalysis.answer,
+            streaming: false,
+            citations: null,
+            graphResult,
+          };
+          setSessions((prev) => {
+            const session = prev.find((s) => s.id === effectiveId) ?? prev[0];
+            const newMsgs = [...(session?.messages ?? []), userMsg, assistantMsg];
+            const title = session?.title ?? deriveTitle(newMsgs);
+            return prev.map((s) => {
+              if (s.id !== (session?.id ?? effectiveId)) return s;
+              return { ...s, messages: newMsgs, title, updatedAt: Date.now() };
+            });
+          });
+          onShowPath?.(graphResult);
+          setSending(false);
+          setTimeout(() => inputRef.current?.focus(), 50);
+          return;
+        }
+
+        // Found a traceable relationship pattern: show structural summary immediately,
+        // then stream a narrative explanation from notes.
+        let traceNodeIds = graphResult.nodeIds;
+        let pathHint = graphAnalysis.pathHint || "";
+        let tracePrompt = graphAnalysis.tracePrompt || "";
+
+        if (graphAnalysis.type === "path") {
+          const pathNames = graphAnalysis.pathNodes.map((n) => n.name);
+          pathHint = pathNames.join(" → ");
+          const middleNames = pathNames.slice(1, -1);
+          tracePrompt = middleNames.length > 0
+            ? `Trace the connection from ${pathNames[0]} to ${pathNames[pathNames.length - 1]} through ${middleNames.join(" and ")}, explaining each relationship step by step based only on the notes.`
+            : `Describe the relationship between ${pathNames[0]} and ${pathNames[pathNames.length - 1]} in depth — their history, shared significance, any tensions or dynamics, and how each influences the other — drawing only from the notes. Do not just list the connection; give a thorough narrative account.`;
+        } else if (!tracePrompt) {
+          tracePrompt = `Describe how ${graphAnalysis.focusNode.name} relates to the requested entities using only the notes in a cohesive narrative paragraph.`;
+        }
+
+        const initialContent = graphAnalysis.answer;
+        const snapSession = sessions.find((s) => s.id === effectiveId) ?? sessions[0];
+        const currentMessages = [...(snapSession?.messages ?? []), userMsg];
+        const assistantIdx = currentMessages.length;
+
+        setSessions((prev) => {
+          const session = prev.find((s) => s.id === (snapSession?.id ?? effectiveId)) ?? prev[0];
+          const msgs = [...(session?.messages ?? []), userMsg, {
+            role: "assistant",
+            content: initialContent,
+            streaming: true,
+            citations: null,
+            graphResult,
+            createdAt: Date.now(),
+          }];
+          return prev.map((s) => {
+            if (s.id !== session?.id) return s;
+            return { ...s, messages: msgs, title: s.title ?? deriveTitle(msgs), updatedAt: Date.now() };
+          });
+        });
+
+        onShowPath?.(graphResult);
+
+        // Use the explicit trace prompt as the final user message for the API, but keep the
+        // original user message visible in the UI (already stored above).
+        const historyMessages = currentMessages.slice(0, -1).map(({ role, content }) => ({ role, content }));
+        const payload = [...historyMessages, { role: "user", content: tracePrompt }];
+        abortRef.current = new AbortController();
+
+        try {
+          const response = await fetch("/api/workspace-chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              workspace,
+              messages: payload,
+              graphNodeIds: traceNodeIds,
+              ...(pathHint ? { graphPathHint: pathHint } : {}),
+            }),
+            signal: abortRef.current.signal,
+          });
+
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || "Request failed");
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let aiAccContent = "";
+          let finalCitations = null;
+
+          const flush = (line) => {
+            if (!line.startsWith("data: ")) return;
+            let parsed;
+            try { parsed = JSON.parse(line.slice(6)); } catch { return; }
+            if (parsed.type === "token") {
+              aiAccContent += parsed.content;
+              updateMessages((prev) => {
+                const next = [...prev];
+                next[assistantIdx] = { ...next[assistantIdx], content: initialContent + "\n\n" + aiAccContent };
+                return next;
+              }, effectiveId);
+            } else if (parsed.type === "correction") {
+              aiAccContent = parsed.content;
+              updateMessages((prev) => {
+                const next = [...prev];
+                next[assistantIdx] = { ...next[assistantIdx], content: initialContent + "\n\n" + aiAccContent };
+                return next;
+              }, effectiveId);
+            } else if (parsed.type === "citations") {
+              finalCitations = parsed.sources;
+            } else if (parsed.type === "error") {
+              throw new Error(parsed.message);
+            }
+          };
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop();
+            for (const line of lines) { if (line.trim()) flush(line); }
+          }
+          if (buffer.trim()) flush(buffer);
+
+          updateMessages((prev) => {
+            const next = [...prev];
+            next[assistantIdx] = {
+              role: "assistant",
+              content: initialContent + "\n\n" + aiAccContent,
+              streaming: false,
+              citations: finalCitations,
+              graphResult,
+            };
+            return next;
+          }, effectiveId);
+        } catch (err) {
+          if (err.name === "AbortError") {
+            updateMessages((prev) => {
+              const next = [...prev];
+              if (next[assistantIdx]) next[assistantIdx] = { ...next[assistantIdx], streaming: false };
+              return next;
+            }, effectiveId);
+          } else {
+            // Keep the static path answer but mark done — don't wipe it on error
+            updateMessages((prev) => {
+              const next = [...prev];
+              if (next[assistantIdx]) next[assistantIdx] = { ...next[assistantIdx], streaming: false };
+              return next;
+            }, effectiveId);
+            setError(err.message || "Something went wrong");
+          }
+        } finally {
+          setSending(false);
+          abortRef.current = null;
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }
         return;
       }
 
@@ -1197,7 +2052,7 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
       });
 
       // Collect node IDs from any recent graph result in this session (last 6 messages)
-      // so follow-up questions can draw on the notes for those nodes
+      // so follow-up questions can draw on the notes for those nodes.
       const recentMsgs = activeSession?.messages ?? [];
       const recentGraphResult = [...recentMsgs].reverse().slice(0, 6).find((m) => m.graphResult)?.graphResult;
       const graphNodeIds = forcedNodeIds ?? (recentGraphResult?.nodeIds?.length ? recentGraphResult.nodeIds : null);
@@ -1229,9 +2084,12 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
           body: JSON.stringify({
             workspace,
             messages: payload,
-            ...(graphNodeIds ? { graphNodeIds } : {}),
+            ...(knowledgeHint?.pinnedNodeIds?.length
+              ? { graphNodeIds: knowledgeHint.pinnedNodeIds }
+              : graphNodeIds ? { graphNodeIds } : {}),
             ...(graphPathHint ? { graphPathHint } : {}),
-            ...(mode ? { mode } : {}),
+            ...(knowledgeHint?.isSummarize ? { mode: "summarize" }
+              : mode ? { mode } : {}),
           }),
           signal: abortRef.current.signal,
         });
@@ -1432,6 +2290,8 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
                 message={msg}
                 onOpenNode={onOpenNode}
                 graphData={graphData}
+                ownFileIds={ownFileIds}
+                entityData={entityData}
                 onShowPath={onShowPath}
                 isLast={i === messages.length - 1}
                 onRegenerate={msg.role === "assistant" ? regenerate : undefined}

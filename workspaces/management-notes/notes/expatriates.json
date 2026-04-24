@@ -1,0 +1,18 @@
+{
+  "id": "expatriates",
+  "name": "Expatriates",
+  "type": "concept",
+  "excerpt": "Expatriates are individuals who leave their home country to work abroad.",
+  "connections": [
+    {
+      "target": "global_management",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Expatriates are people who leave their home country to work in another country, with success often measured by their ability to stay for the full length of their assignment.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_6_2020.md",
+  "createdAt": 1776913837257,
+  "updatedAt": 1776913837257,
+  "context_summary": "- Expatriates are individuals who leave their home country to work abroad.\n- Success is often measured by the length of their assignment."
+}

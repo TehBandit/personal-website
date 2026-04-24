@@ -21,5 +21,8 @@
   ],
   "notes": "The 14th Lowland is a provincial infantry regiment where Dellan Moor served for four years. The regiment was primarily used for labor and construction tasks. Sable Voss was a supply administrator in this regiment. Dellan deserted from this regiment fourteen months ago.",
   "sourceFile": "notes-raw/dellan-moor.md",
-  "createdAt": 1774226394039
+  "createdAt": 1774226394039,
+  "tags": [
+    "new"
+  ]
 }

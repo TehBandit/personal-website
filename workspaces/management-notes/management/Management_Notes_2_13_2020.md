@@ -1,0 +1,90 @@
+**<u>Chapter 6. Strategic Management How Exceptional Managers Realize a Grant Design</u>**
+
+- *Strategic Positioning and Levels of Strategy*
+  - **Strategic Positioning** - Strategy that attempts to achieve sustainable competitive advantage by preserving that is distinctive about a company
+    - Performing different activities from rivals, or doing similar activities in different ways
+    - **Sources**
+      - Few needs, many customers
+      - Broad needs, few customers
+      - Broad needs, many customers
+    - Create unique position
+    - Requires trade-offs
+    - Creates a fit among activities
+    - **Levels of Strategy**
+      - **1 - Corporate Level**
+        - Focuses on organization as a whole
+          - *What business are we in?*
+          - *What do we offer?*
+        - **Corporate Strategy**
+          - **Growth** - Increase in sales revenue, market share, customers serves, etc.
+            - **Innovation Strategy** - Growing market share by improving products or services
+            - **Mergers & Acquisitions**
+          - **Stability** - Little or no significant change
+          - **Defensive** - Reduction of efforts
+            - Also called **retrenchment**
+            - *General Motors Example*
+              - Declared bankruptcy
+          - **Single-Product Strategy** - Sticking at being good at just one thing
+          - **Diversification** - Moving into new lines of business
+            - Reduces risk
+            - **Vertical Integration** - Expanding into a business line that creates the components of an existing business line
+        - **BCG Matrix** - Evaluates business units based on **growth rates** and **market share**
+          - **Stars** - High Growth / High Market Share
+          - **Question Marks** - High Growth / Low Market Share
+            - Will either become Stars or Dogs
+          - **Cash Cows** - Low Growth / High Market Share
+          - **Dogs** - Low Growth / Low Market Share
+        - **Strategy Formulation** - Chooses from different strategies the best one for the firm’s needs
+      - **2 - Business Level**
+        - Focuses on individual business units or product lines
+        - **Porter’s Model for Industry Analysis**
+          - Threat of New Entrants
+          - Bargaining Power of Suppliers
+          - Bargaining Power of Buyers
+          - Threats of Substitutes
+          - Competition
+        - **Porter’s Four Competitive Strategies**
+          - **Cost-Leadership** - Keep costs below all competitors
+            - Wide market
+          - **Differentiation** - Offer unique or superior products in relation to the whole market
+            - Wide market
+            - Related to **brands**
+          - **Cost-Focus** - Keep costs below specific competitors
+            - Narrow market
+          - **Focused-Differentiation** - Offer products different or superior to specific competitors
+            - Narrow market
+      - **3 - Functional Level**
+        - Focuses on key departments or units within the business units
+- *The Strategic Management Process*
+  - **Strategic Management**
+    - *Establish the mission, vision, and value statements*
+      - **Mission Statement** - Firm’s purpose for being
+        - Statement of purpose
+        - Provides focus
+      - **Vision Statement** - What firm wants to become
+        - Provides a picture of the future
+      - **Values Statement** - What firm stands for
+    - *Assess the current reality*
+      - **Current Reality Assessment**
+        - Also called **organizational assessment**
+        - Looks at where the organization currently stands
+          - What is working, what isn't
+        - **SWOT Analysis** - Assesses **S**trengths, **W**eaknesses, **O**pportunities, and **T**hreats
+        - **VRIO Analysis** - Assesses **V**alue, **R**arity, **I**mitability, and **O**rganization
+          - All 4 mean you have a **sustainable competitive advantage**
+      - **Forecasting** - Predicting the future
+        - **Trend Analysis** - Extends past events to the future
+      - **Contingency Planning**  - Planning ahead to combat future scenarios
+      - **Benchmarking**
+    - *Formulate Corporate, Business, and Functional Strategies*
+      - Translates the broad mission and vision statements into a **corporate strategy** which explains how goals will be accomplished
+    - *Execute the Strategy*
+      - **Strategy Implementation** - **Execute** strategy
+        - Use questioning, analysis, and follow through to align people with goals and achieve results
+      - Engage people, keep simple, stay focused, keep moving
+    - *Maintain a Feedback Loop*
+      - **Strategic Control** - Monitors the execution of the strategy and making adjustments if necessary
+- *Core Processes of Business*
+  - People
+  - Strategy
+  - Operations

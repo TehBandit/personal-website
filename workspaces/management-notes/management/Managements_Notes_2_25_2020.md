@@ -1,0 +1,55 @@
+**<u>Organizing</u>**
+
+- *Organization*
+  - Job Design
+  - **Grouping Jobs**
+    - Who reports to whom, what departments are there
+    - **Flat** Organization vs **Tall** Organization
+      - How many levels of hierarchy
+      - The more narrow the span on control, the taller the organization
+  - Why are organizations Structured Differently?
+    - The Objective is to optimize **communication** and **coordination** to achieve a goal
+  - Avoiding **Silos**
+    - Each department should have a clear high level objective that everyone should be reaching towards
+  - **Organizational Authority**
+    - **Authority** (vs Power)
+      - **Right** to command
+        - You’re allowed to tell people what to do
+    - **Responsibility**
+      - **Obligation** to perform certain activities
+    - **Accountability**
+      - **Expectation** to deliver
+      - Have to answer for it
+    - **Delegation**
+      - Manager gives an employee **responsibility** and **authority**
+      - Managers receives more **accountability** for employee
+  - **Organizational Culture**
+    - Shared set expectations and norms that influence how members of a group behave
+    - Mix of **rituals**, **values**, **traditions** that define a group
+    - **Managing and Maintaining**
+      - Company founder provides the **vision**
+      - **Managers**
+        - **Organizational Socialization**
+          - How managers teach their employees the culture of the company
+        - Stories and Heroes
+        - **Rites** of passage/enhancement
+          - Formal events that signify importance
+          - **Rite of Passage** - Formal way in which one enters the organization
+          - Rite of Enhancement - Ceremony to commemorate those who exhibit company values exceptionally
+    - *Why is Culture Important*
+      - Influences how members of a group behave
+      - **Strong Culture** - Deeply held, widely shared
+        - People believe and buy into it
+      - **Toxic Culture** - Negative culture for business
+      - **Changing a Culture**
+        - **Scorched Earth Approach** - Essentially starting from scratch
+        - **Leadership** - Leading by example
+          - Good comes from the top
+        - **Selection** - Picking people you feel will uphold your values
+        - **Values** - Unwritten rules and observable behavior
+          - Power of **conformity**
+            - People want to fit in
+        - Communication
+        - Celebrate Desired Behavior
+        - Accountability
+        - New behaviors only stick once they become an **unconscious norm**

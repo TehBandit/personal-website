@@ -1,0 +1,13 @@
+{
+  "id": "swot_analysis",
+  "name": "SWOT Analysis",
+  "type": "concept",
+  "excerpt": "SWOT Analysis evaluates strengths, weaknesses, opportunities, and threats.",
+  "connections": [],
+  "notes": "SWOT Analysis is a strategic planning tool used to identify and evaluate the internal strengths and weaknesses, and external opportunities and threats of a project or organization.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_12_2020.md",
+  "createdAt": 1776286362368,
+  "updatedAt": 1776286362368,
+  "context_summary": "- Evaluates strengths, weaknesses, opportunities, and threats\n- Used as a strategic planning tool\n- Identifies internal and external factors"
+}

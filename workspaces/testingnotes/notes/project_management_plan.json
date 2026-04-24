@@ -1,0 +1,13 @@
+{
+  "id": "project_management_plan",
+  "name": "Project Management Plan",
+  "type": "concept",
+  "excerpt": "Project Management Plan integrates all project documents for execution.",
+  "connections": [],
+  "notes": "The Project Management Plan is a document used to integrate all other project documents and guide execution, monitoring, and control. It facilitates communication among stakeholders, serves as a baseline for measurement and control, and acts as a starting point for future comparison. The plan should be dynamic and flexible to adapt to changes.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_19_2020.md",
+  "createdAt": 1776286384671,
+  "updatedAt": 1776286384671,
+  "context_summary": "- Integrates all project documents for execution.\n- Guides execution, monitoring, and control.\n- Facilitates communication among stakeholders.\n- Serves as a baseline for measurement and control.\n- Acts as a starting point for future comparison.\n- Should be dynamic and flexible to adapt to changes."
+}

@@ -36,5 +36,9 @@
     }
   ],
   "sourceFile": "bulk_test/rella_corse.md",
-  "createdAt": 1774322398402
+  "createdAt": 1774322398402,
+  "tags": [
+    "new",
+    "thing"
+  ]
 }

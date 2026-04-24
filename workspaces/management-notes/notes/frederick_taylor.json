@@ -1,0 +1,18 @@
+{
+  "id": "frederick_taylor",
+  "name": "Frederick Taylor",
+  "type": "person",
+  "excerpt": "Frederick Taylor pioneered Scientific Management.",
+  "connections": [
+    {
+      "target": "management_history",
+      "label": "pioneered concept in"
+    }
+  ],
+  "notes": "Frederick Taylor is known for pioneering Scientific Management, focusing on finding the most efficient way to perform tasks through methods like Time and Motion Studies.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_1_28_2020.md",
+  "createdAt": 1776913737790,
+  "updatedAt": 1776913737790,
+  "context_summary": "- Pioneered Scientific Management.\n- Focused on efficiency in task performance.\n- Utilized Time and Motion Studies."
+}

@@ -1,0 +1,18 @@
+{
+  "id": "challenges_of_managers",
+  "name": "Challenges of Managers",
+  "type": "concept",
+  "excerpt": "Managers face challenges like competitive advantage and globalization.",
+  "connections": [
+    {
+      "target": "management",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Managers face various challenges, including managing for competitive advantage, adapting to information technology disruptions, managing diversity, globalization, ethical standards, sustainability, and ensuring happiness and meaningfulness in the workplace.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_1_23_2020.md",
+  "createdAt": 1776913717650,
+  "updatedAt": 1776913717650,
+  "context_summary": "- Managers face challenges like competitive advantage.\n- Must adapt to information technology disruptions.\n- Manage diversity and globalization.\n- Uphold ethical standards and sustainability.\n- Ensure happiness and meaningfulness in the workplace."
+}

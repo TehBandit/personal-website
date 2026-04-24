@@ -11,5 +11,9 @@
       "label": "younger sister"
     }
   ],
-  "createdAt": 1773187128655
+  "createdAt": 1773187128655,
+  "tags": [
+    "new",
+    "thing"
+  ]
 }

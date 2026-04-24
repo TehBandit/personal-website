@@ -1,0 +1,18 @@
+{
+  "id": "quality_assurance",
+  "name": "Quality Assurance",
+  "type": "concept",
+  "excerpt": "Quality Assurance involves activities to satisfy quality standards.",
+  "connections": [
+    {
+      "target": "project_quality_management",
+      "label": "part of"
+    }
+  ],
+  "notes": "Quality Assurance in project management includes all activities relevant to satisfying quality standards. It involves benchmarking, quality audits, and using tools like cause and effect diagrams.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_8_3_2020.md",
+  "createdAt": 1776286483056,
+  "updatedAt": 1776286483056,
+  "context_summary": "- Involves activities to satisfy quality standards.\n- Includes benchmarking and quality audits.\n- Uses tools like cause and effect diagrams."
+}

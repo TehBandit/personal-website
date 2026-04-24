@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
-
-const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
+import { WORKSPACES_DIR } from "./_storygraph-paths.js";
 
 export default function handler(req, res) {
   const { workspace } = req.query;

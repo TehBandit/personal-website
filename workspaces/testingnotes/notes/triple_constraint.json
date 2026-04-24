@@ -1,0 +1,13 @@
+{
+  "id": "triple_constraint",
+  "name": "Triple Constraint",
+  "type": "concept",
+  "excerpt": "The Triple Constraint involves managing scope, schedule, and cost.",
+  "connections": [],
+  "notes": "The Triple Constraint in project management refers to the balance of scope, schedule, and cost. Quality is sometimes included as a fourth constraint, forming a Quadruple Constraint.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_8_2020.md",
+  "createdAt": 1776286433654,
+  "updatedAt": 1776286433654,
+  "context_summary": "- Involves managing scope, schedule, and cost.\n- Quality may be a fourth constraint."
+}

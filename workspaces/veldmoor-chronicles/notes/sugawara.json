@@ -20,5 +20,9 @@
     }
   ],
   "sourceFile": "five_plus_one/sugawara.md",
-  "createdAt": 1774479234021
+  "createdAt": 1774479234021,
+  "tags": [
+    "new",
+    "thing"
+  ]
 }

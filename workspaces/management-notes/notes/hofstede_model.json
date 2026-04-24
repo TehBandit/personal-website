@@ -1,0 +1,18 @@
+{
+  "id": "hofstede_model",
+  "name": "Hofstede Model of Four Cultural Dimensions",
+  "type": "concept",
+  "excerpt": "The Hofstede Model analyzes cultural dimensions like individualism and power distance.",
+  "connections": [
+    {
+      "target": "global_management",
+      "label": "appears in"
+    }
+  ],
+  "notes": "The Hofstede Model of Four Cultural Dimensions analyzes cultural aspects such as individualism/collectivism, power distance, uncertainty avoidance, and masculinity/femininity.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_6_2020.md",
+  "createdAt": 1776913837264,
+  "updatedAt": 1776913837264,
+  "context_summary": "- The Hofstede Model analyzes cultural dimensions.\n- It includes individualism/collectivism and power distance."
+}

@@ -1,0 +1,22 @@
+{
+  "id": "satisficing",
+  "name": "Satisficing",
+  "type": "concept",
+  "excerpt": "Satisficing is choosing an option that is 'good enough'.",
+  "connections": [
+    {
+      "target": "decision_making",
+      "label": "appears in"
+    },
+    {
+      "target": "bounded_rationality",
+      "label": "related to"
+    }
+  ],
+  "notes": "Satisficing is a decision-making strategy that aims for a satisfactory or adequate result, rather than the optimal solution. It is often used when decision makers face constraints that limit their ability to find the best possible solution.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_19_2020.md",
+  "createdAt": 1776913795005,
+  "updatedAt": 1776913795005,
+  "context_summary": "- Choosing an option that is 'good enough'.\n- A decision-making strategy for satisfactory results.\n- Used when constraints limit finding the best solution."
+}

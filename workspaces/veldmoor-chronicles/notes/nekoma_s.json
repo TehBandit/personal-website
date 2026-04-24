@@ -27,5 +27,8 @@
       "label": "volleyball team"
     }
   ],
-  "createdAt": 1775204825170
+  "createdAt": 1775204825170,
+  "tags": [
+    "new"
+  ]
 }

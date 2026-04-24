@@ -11,5 +11,8 @@
       "label": "current team"
     }
   ],
-  "createdAt": 1774317809628
+  "createdAt": 1774317809628,
+  "tags": [
+    "new"
+  ]
 }

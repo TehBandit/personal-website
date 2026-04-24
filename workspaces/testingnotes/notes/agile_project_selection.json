@@ -1,0 +1,13 @@
+{
+  "id": "agile_project_selection",
+  "name": "Agile Project Selection",
+  "type": "concept",
+  "excerpt": "Agile Project Selection allows quick adaptation to changes.",
+  "connections": [],
+  "notes": "Agile Project Selection refers to the ability to move and pivot quickly in response to a changing environment. It involves continuously exploring the needs of customers and stakeholders, with frequent feedback and updates to team direction.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_12_2020.md",
+  "createdAt": 1776286362368,
+  "updatedAt": 1776286362368,
+  "context_summary": "- Allows quick adaptation to changes\n- Involves continuous exploration of customer needs\n- Incorporates frequent feedback and updates"
+}

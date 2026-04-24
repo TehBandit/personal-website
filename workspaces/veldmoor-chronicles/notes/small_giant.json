@@ -15,5 +15,9 @@
       "label": "former ace"
     }
   ],
-  "createdAt": 1775042303382
+  "createdAt": 1775042303382,
+  "tags": [
+    "new",
+    "thing"
+  ]
 }

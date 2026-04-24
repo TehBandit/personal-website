@@ -1,8 +1,7 @@
 import fs from "fs";
 import path from "path";
-import { bumpWorkspaceVersion, rebuildGraphCache } from "./bump-version.js";
-
-const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
+import { syncWorkspaceAfterWrite } from "./bump-version.js";
+import { WORKSPACES_DIR } from "./_storygraph-paths.js";
 
 export default function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -78,6 +77,15 @@ export default function handler(req, res) {
   if (extraSourceFiles.length > 0) target.additionalSourceFiles = extraSourceFiles;
   else delete target.additionalSourceFiles;
 
+  // originSourceFile is immutable provenance: keep target's first-ingested path,
+  // or fall back to source/legacy fields when missing.
+  target.originSourceFile =
+    target.originSourceFile ||
+    source.originSourceFile ||
+    target.sourceFile ||
+    source.sourceFile ||
+    "";
+
   // Connections: union, skip self-references to either ID, deduplicate
   const existingTargets = new Set((target.connections || []).map((c) => c.target));
   for (const conn of (source.connections || [])) {
@@ -122,8 +130,7 @@ export default function handler(req, res) {
   try { fs.unlinkSync(sourcePath); } catch { /* already gone */ }
 
   // ── Rebuild + bump ──────────────────────────────────────────────────────────
-  rebuildGraphCache(workspace, notesDir);
-  bumpWorkspaceVersion(workspace);
+  syncWorkspaceAfterWrite(workspace, notesDir);
 
   return res.status(200).json({ ok: true, targetId, mergedFrom: sourceId });
 }

@@ -7,15 +7,11 @@
   "aliases": [],
   "connections": [
     {
-      "target": "second_node",
-      "label": "references"
-    },
-    {
       "target": "day",
       "label": "references"
     }
   ],
   "sourceFile": "myfirstnote.md",
-  "createdAt": 1776266068269,
-  "updatedAt": 1776266403379
+  "createdAt": 1776787200000,
+  "updatedAt": 1776890800185
 }

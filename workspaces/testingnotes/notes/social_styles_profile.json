@@ -1,0 +1,13 @@
+{
+  "id": "social_styles_profile",
+  "name": "Social Styles Profile",
+  "type": "concept",
+  "excerpt": "Social Styles Profile categorizes people as drivers, expressives, analyticals, or amiables.",
+  "connections": [],
+  "notes": "The Social Styles Profile is a model that categorizes people into four types: Drivers (proactive and task-oriented), Expressives (proactive and people-oriented), Analyticals (reactive and task-oriented), and Amiables (reactive and people-oriented).",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_8_3_2020.md",
+  "createdAt": 1776286483061,
+  "updatedAt": 1776286483061,
+  "context_summary": "- Categorizes people into four types.\n- Types include Drivers, Expressives, Analyticals, and Amiables."
+}

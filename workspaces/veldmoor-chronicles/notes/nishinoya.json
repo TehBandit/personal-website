@@ -15,5 +15,9 @@
       "label": "team member"
     }
   ],
-  "createdAt": 1773804259520
+  "createdAt": 1773804259520,
+  "tags": [
+    "new",
+    "thing"
+  ]
 }

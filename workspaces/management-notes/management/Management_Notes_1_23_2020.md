@@ -1,0 +1,61 @@
+**Management**
+
+- *Management*
+  - **Management** - Getting work done **effectively and efficiently** through other people through planning, organizing, leading, and controlling the organization’s resources
+    - **Effectiveness** - Ability to reach goal
+      - The *ends*
+      - Top priority
+    - **Efficiency** - Methods of how you go about pursuing the end goal
+      - The *means*
+      - Ideally want to minimize resource usage
+      - Secondary priority
+  - **Transformation Process**
+    - The process of turning **inputs to outputs**
+      - **Productivity** - The ratio of revenue to expenses
+        - *Productivity =*
+      - *Profit = Revenue - Expenses*
+  - **Commerce** - the exchange of goods and services
+    - Mutually beneficial for both parties
+      - Improves standard of living for all by the **invisible hand**
+        - Everyone specializes in what they are best at, and provides that thing to society
+  - Managers have a **multiplier effect** where a good manager creates multiple good employees
+  - **Principal Functions of Management**
+    - **Planning** - Set goals and decide how to achieve them
+    - **Organizing** - Arrange tasks and resources to complete goals
+    - **Leading** - Motivate and direct others to complete goals
+    - **Controlling** - Monitor performance and take corrective action if needed
+  - **Managerial Pyramid**
+    - **Top Managers**
+      - Make long term decisions about the overall direction of the organization and its objectives, policies, and strategies
+      - C-Level jobs
+    - **Middle Managers**
+      - Implement the orders of the top managers and coordinate and supervise the first-line managers
+      - **Vertically Sliced Managers**
+        - **Functional Managers** - Managers responsible for one specific department
+        - **General Managers** - Responsible for several departments
+    - **First-Line Managers**
+      - Supervise the employees
+    - **Employees**
+  - **Managerial Roles**
+    - **Interpersonal** - Interact with others
+      - Figurehead, leader, liaison
+    - Informational - Handle information for making intelligent decisions
+    - Decisional - Use information to solve problems and take advantage of opportunities
+  - **Managerial Skills**
+    - **Technical**
+    - **Conceptual** - The ability to think analytically
+    - **Human Skills** - The ability to interact well with people
+  - **Challenges of Managers**
+    - **Managing for Competitive Advantage** - Managing better than rivals
+      - Efficiency, responsiveness, innovation, quality
+    - **Managing for Information Technology** - Adapting to disruptions in the industry
+      - **Cloud computing** - Storing data in mass remote locations
+      - **Databases** - Computerized collections of interrelated files
+      - **Big Data** - Data so large it can not be handled by traditional data collection means
+      - Organizational changes
+        - Rise of ecommerce and telebusiness
+    - **Managing for Diversity**
+    - **Managing for Globalization -** Ensuring that the business can function globally and fit into global cultures
+    - **Managing for Ethical Standards**
+    - **Managing for Sustainability**
+    - **Managing for Happiness and Meaningfulness**

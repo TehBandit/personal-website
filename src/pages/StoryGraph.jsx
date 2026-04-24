@@ -10,6 +10,7 @@ import Dashboard from "../components/Dashboard.jsx";
 import { NODE_TYPE_CONFIG as STATIC_NODE_TYPE_CONFIG } from "../constants/nodeTypes.js";
 import { darkenHex } from "../utils/color.js";
 import { computeOwnFileIds, buildAdjacencyMap, graphBFS, buildBasenameMap, resolveNodeFilename } from "../utils/graphHelpers.js";
+import { requestJson } from "../utils/storygraphApi.js";
 import { NodeTypeContext } from "../contexts/NodeTypeContext.jsx";
 import { invalidateHomeCache } from "./StoryGraphHome.jsx";
 
@@ -221,8 +222,7 @@ export default function StoryGraph() {
   // Load workspace list on mount
   useEffect(() => {
     const paramWs = searchParams.get("workspace");
-    fetch("/api/workspaces")
-      .then((r) => r.json())
+    requestJson("/api/workspaces")
       .then((d) => {
         const list = d.workspaces || [];
         setWorkspaces(list);
@@ -239,16 +239,16 @@ export default function StoryGraph() {
 
   const handleCreateWorkspace = async (name, preset, closeCallback) => {
     if (!name?.trim()) return;
-    const res = await fetch("/api/workspaces", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), preset }),
-    });
-    if (res.ok) {
-      const created = await res.json();
+    try {
+      const created = await requestJson("/api/workspaces", {
+        method: "POST",
+        body: { name: name.trim(), preset },
+      });
       setWorkspaces((prev) => [...prev, { slug: created.slug, name: created.name, nodeTypes: created.nodeTypes }]);
       setWorkspace(created.slug);
       closeCallback?.();
+    } catch {
+      // Keep current behavior: fail silently and keep modal open.
     }
   };
 
@@ -261,8 +261,8 @@ export default function StoryGraph() {
   }, [workspace]);
 
   const handleDeleteWorkspace = async (slug, closeCallback) => {
-    const res = await fetch(`/api/workspaces?slug=${encodeURIComponent(slug)}`, { method: "DELETE" });
-    if (res.ok) {
+    try {
+      await requestJson("/api/workspaces", { method: "DELETE", query: { slug } });
       invalidateHomeCache();
       // Compute the next workspace BEFORE updating state so both setters
       // can be called at the top level (not inside an updater callback).
@@ -272,6 +272,8 @@ export default function StoryGraph() {
         setWorkspace(remaining.length > 0 ? remaining[0].slug : null);
       }
       closeCallback?.();
+    } catch {
+      // Keep current behavior: no UI error for failed delete.
     }
   };
 
@@ -281,16 +283,13 @@ export default function StoryGraph() {
     if (!workspace) return;
     if (!silent) { setLoading(true); setLoadError(null); }
     let cancelled = false;
-    fetch(`/api/story-notes?workspace=${encodeURIComponent(workspace)}`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`Server error ${r.status}`);
-        return r.json();
-      })
+    requestJson("/api/story-notes", { query: { workspace } })
       .then((data) => {
         if (cancelled) return;
         setGraphData(data);
         setDisallowedAliases(new Set((data.disallowedAliases || []).map((a) => a.toLowerCase())));
         if (!silent) setLoading(false);
+        graphLoadedRef.current = true;
       })
       .catch((err) => {
         if (cancelled) return;
@@ -318,9 +317,22 @@ export default function StoryGraph() {
 
   // Reset graph state when switching workspaces
   const graphVersionRef = useRef(null);
+  // graphLoadedRef: becomes true after the first successful graph fetch.
+  // Used to suppress spurious loadGraph calls from onFilesEditorFilesChange
+  // that fire before the initial load has completed.
+  const graphLoadedRef = useRef(false);
+  // simulationInitializedRef: becomes true after the first force-config effect fires.
+  // Prevents d3ReheatSimulation() from doubling up on ForceGraph2D's natural start.
+  const simulationInitializedRef = useRef(false);
+  // filesEditorSettledRef: becomes true after FilesEditor's initial file list has
+  // been received. Prevents loadGraph(true) firing on the initial mount population.
+  const filesEditorSettledRef = useRef(false);
   useEffect(() => {
     if (!workspace) return;
     graphVersionRef.current = null;
+    graphLoadedRef.current = false;
+    simulationInitializedRef.current = false;
+    filesEditorSettledRef.current = false;
     setGraphData({ nodes: [], links: [] });
     setSelectedNode(null);
   }, [workspace]);
@@ -329,8 +341,7 @@ export default function StoryGraph() {
   useEffect(() => {
     if (!workspace) return;
     const interval = setInterval(() => {
-      fetch(`/api/graph-version?workspace=${encodeURIComponent(workspace)}`)
-        .then((r) => r.ok ? r.json() : null)
+      requestJson("/api/graph-version", { query: { workspace } })
         .then((data) => {
           if (!data) return;
           if (graphVersionRef.current === null) {
@@ -353,8 +364,7 @@ export default function StoryGraph() {
   // Kept current afterwards by FilesEditor's onFilesChange prop.
   useEffect(() => {
     if (!workspace) return;
-    fetch(`/api/notes-raw-list?workspace=${encodeURIComponent(workspace)}`)
-      .then((r) => r.json())
+    requestJson("/api/notes-raw-list", { query: { workspace } })
       .then((d) => setStoryFiles(d.files || []))
       .catch(() => {});
   }, [workspace]); // workspace only — not graphData, so polling reloads don't cause double-fetches
@@ -400,7 +410,14 @@ export default function StoryGraph() {
       const tgtR = nodeRadius(typeof tgt === "object" ? tgt : { id: tgt });
       return 80 + srcR + tgtR;
     });
-    fg.d3ReheatSimulation();
+    // Skip reheat on the very first load — ForceGraph2D already starts its own
+    // simulation on mount. Calling d3ReheatSimulation() here would double-start it,
+    // causing a second visible expand-from-centre. Only reheat on subsequent data
+    // changes (e.g. after an upload adds new nodes).
+    if (simulationInitializedRef.current) {
+      fg.d3ReheatSimulation();
+    }
+    simulationInitializedRef.current = true;
   }, [graphData, nodeRadius]);
 
   // Flavor text cycling during extraction
@@ -453,15 +470,10 @@ export default function StoryGraph() {
     const cancelTicker = startProgressTicker(setExtractProgress, EXTRACT_STEPS);
     try {
       const body = await buildFileBody(uploadFile);
-
-      const res = await fetch("/api/story-derive", {
+      const data = await requestJson("/api/story-derive", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body, workspace, folderName: uploadFolderName.trim() }),
+        body: { ...body, workspace, folderName: uploadFolderName.trim(), filename: uploadFile.name },
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
 
       setExtractResult({ ...data, mode: "derive" });
       loadGraph();
@@ -509,13 +521,10 @@ export default function StoryGraph() {
       );
       try {
         const body = await buildFileBody(file);
-        const res = await fetch("/api/story-derive", {
+        const data = await requestJson("/api/story-derive", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...body, workspace, folderName: uploadFolderName.trim() }),
+          body: { ...body, workspace, folderName: uploadFolderName.trim(), filename: file.name },
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
         results.push({ file: file.name, ...data });
       } catch (err) {
         errors.push({ file: file.name, error: err.message });
@@ -561,13 +570,10 @@ export default function StoryGraph() {
           .replace(/[-_]+/g, " ")
           .trim()
           .replace(/\b\w/g, (c) => c.toUpperCase());
-        const res = await fetch("/api/story-extract", {
+        const data = await requestJson("/api/story-extract", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...bodyWithFilename, workspace, folderName: uploadFolderName.trim() || undefined, title: impliedTitle }),
+          body: { ...bodyWithFilename, workspace, folderName: uploadFolderName.trim() || undefined, title: impliedTitle },
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
         results.push({ file: file.name, ...data });
       } catch (err) {
         errors.push({ file: file.name, error: err.message });
@@ -595,15 +601,10 @@ export default function StoryGraph() {
         ...(await buildFileBody(uploadFile)),
         filename: uploadFile.name.endsWith(".docx") ? uploadFile.name : uploadFile.name.replace(/\.txt$/i, ".md"),
       };
-
-      const res = await fetch("/api/story-extract", {
+      const data = await requestJson("/api/story-extract", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body, workspace, title: uploadTitle.trim() || undefined }),
+        body: { ...body, workspace, title: uploadTitle.trim() || undefined },
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
 
       setExtractResult(data);
       loadGraph();
@@ -625,7 +626,10 @@ export default function StoryGraph() {
     if (!api?.openFileByName) return;
     const fileSet = new Set(storyFiles.map((f) => f.filename.toLowerCase()));
     const addl = (node.additionalSourceFiles || []).find((sf) => fileSet.has((sf || "").toLowerCase()));
-    const filename = addl ?? resolveNodeFilename(node.id, fileBasenameMap);
+    const filename = (node.sourceFile && fileSet.has(node.sourceFile.toLowerCase()) ? node.sourceFile : null)
+      ?? resolveNodeFilename(node.id, fileBasenameMap)
+      ?? addl
+      ?? null;
     if (!filename) return;
     setActiveTab("files");
     setTimeout(() => api.openFileByName(filename), 80);
@@ -639,10 +643,22 @@ export default function StoryGraph() {
   // When FilesEditor's file list changes (file created, renamed, deleted, etc.),
   // update storyFiles for ownFileIds colour and also silently reload the graph so
   // new nodes appear in the left sidebar immediately without waiting for the 2s poll.
+  // Stable ref so FilesEditor's useEffect([files, onFilesChange]) only fires when
+  // the file list itself changes, not when loadGraph is recreated on workspace switch.
+  const loadGraphRef = useRef(loadGraph);
+  useEffect(() => { loadGraphRef.current = loadGraph; }, [loadGraph]);
   const onFilesEditorFilesChange = useCallback((files) => {
     setStoryFiles(files);
-    loadGraph(true);
-  }, [loadGraph]);
+    if (!graphLoadedRef.current) return;
+    // Skip the initial population from FilesEditor's first loadFiles() call — that's
+    // the same data the graph already has. Only reload on subsequent user-driven changes
+    // (file created, renamed, deleted). The first non-empty report marks "settled".
+    if (!filesEditorSettledRef.current) {
+      if (files.length > 0) filesEditorSettledRef.current = true;
+      return;
+    }
+    loadGraphRef.current(true);
+  }, []); // stable — no deps
 
   const onFilesEditorReady = useCallback((api) => {
     filesEditorApi.current = api;
@@ -702,13 +718,38 @@ export default function StoryGraph() {
     setTraceNoPath(null);
   }, []);
 
+  const handleBulkPatch = useCallback(async ({ action, targetTag, nodeIds }) => {
+    const tags_add    = action === "add-tag"    ? [targetTag] : [];
+    const tags_remove = action === "remove-tag" ? [targetTag] : [];
+    try {
+      await requestJson("/api/node-bulk-patch", {
+        method: "POST",
+        body: { workspace, nodeIds, tags_add, tags_remove },
+      });
+      // Graph refreshes automatically via version polling
+    } catch (err) {
+      console.error("handleBulkPatch failed", err);
+    }
+  }, [workspace]);
+
   const showPathOnGraph = useCallback((graphResult) => {
     if (!graphResult) return;
     if (graphResult.type === "path" && graphResult.nodeIds?.length >= 2) {
+      setFocusNodes(null); // clear any lingering focus so the path zoom takes over
       commitPath(graphResult.nodeIds[0], graphResult.nodeIds[graphResult.nodeIds.length - 1]);
+    } else if (graphResult.type === "meta-focus" && graphResult.focusNodeIds?.length) {
+      const nodes = graphResult.focusNodeIds
+        .map((id) => graphData.nodes.find((n) => n.id === id))
+        .filter(Boolean);
+      if (nodes.length) setFocusNodes(nodes);
+    } else if (graphResult.type === "multi-focus" && graphResult.focusNodeIds?.length) {
+      const nodes = graphResult.focusNodeIds
+        .map((id) => graphData.nodes.find((n) => n.id === id))
+        .filter(Boolean);
+      if (nodes.length) setFocusNodes(nodes);
     } else if (graphResult.type === "neighbors" && graphResult.focusNodeId) {
       const node = graphData.nodes.find((n) => n.id === graphResult.focusNodeId);
-      if (node) { setSelectedNode(node); setFocusNode(node); }
+      if (node) { setSelectedNode(node); setFocusNodes([node]); }
     }
     setActiveTab("graph");
   }, [commitPath, graphData.nodes]);
@@ -814,28 +855,42 @@ export default function StoryGraph() {
   }, []);
 
   // ── Focus mode ───────────────────────────────────────────────────────────────
-  const [focusNode, setFocusNode] = useState(null);
+  const [focusNodes, setFocusNodes] = useState(null);
 
   const focusNeighborIds = useMemo(() => {
-    if (!focusNode) return null;
-    const ids = new Set(adjacencyMap.get(focusNode.id));
-    ids.add(focusNode.id);
+    if (!focusNodes) return null;
+    const ids = new Set();
+    for (const fn of focusNodes) {
+      for (const nbId of (adjacencyMap.get(fn.id) || [])) ids.add(nbId);
+      ids.add(fn.id);
+    }
     return ids;
-  }, [focusNode, adjacencyMap]);
+  }, [focusNodes, adjacencyMap]);
 
-  // Zoom to focused node when entering focus mode
+  // Zoom to focused node(s) when entering focus mode
   useEffect(() => {
-    if (!focusNode || !fgRef.current) return;
-    fgRef.current.centerAt(focusNode.x, focusNode.y, 600);
-    fgRef.current.zoom(2.8, 600);
-  }, [focusNode]);
+    if (!focusNodes || !fgRef.current) return;
+    if (focusNodes.length === 1) {
+      fgRef.current.centerAt(focusNodes[0].x, focusNodes[0].y, 600);
+      fgRef.current.zoom(2.8, 600);
+    } else {
+      const focusIds = new Set(focusNodes.map((fn) => fn.id));
+      fgRef.current.zoomToFit(600, 120, (n) => focusIds.has(n.id));
+    }
+  }, [focusNodes]);
+
+  // Zoom to fit the active path whenever it changes
+  useEffect(() => {
+    if (!activePath || !fgRef.current) return;
+    fgRef.current.zoomToFit(600, 80, (n) => activePath.nodeIds.has(n.id));
+  }, [activePath]);
 
   // Escape to exit focus mode
   useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape" && focusNode) setFocusNode(null); };
+    const onKey = (e) => { if (e.key === "Escape" && focusNodes) setFocusNodes(null); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focusNode]);
+  }, [focusNodes]);
 
   // Escape also clears path / cancels find-path-to mode
   useEffect(() => {
@@ -968,14 +1023,14 @@ export default function StoryGraph() {
       if (focusNeighborIds) {
         const bothInFocus = focusNeighborIds.has(sourceId) && focusNeighborIds.has(targetId);
         if (!bothInFocus) return "rgba(255,255,255,0.03)";
-        const isFocusLink = sourceId === focusNode.id || targetId === focusNode.id;
+        const isFocusLink = focusNodes.some((fn) => fn.id === sourceId || fn.id === targetId);
         if (!hoveredNode) return isFocusLink ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.18)";
       }
       if (!hoveredNode) return "rgba(255,255,255,0.18)";
       const isImmediateNeighborLink = sourceId === hoveredNode.id || targetId === hoveredNode.id;
       return isImmediateNeighborLink ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.06)";
     },
-    [hoveredNode, focusNode, focusNeighborIds, activePath]
+    [hoveredNode, focusNodes, focusNeighborIds, activePath]
   );
 
   const linkWidth = useCallback(
@@ -989,12 +1044,12 @@ export default function StoryGraph() {
       if (focusNeighborIds) {
         const bothInFocus = focusNeighborIds.has(sourceId) && focusNeighborIds.has(targetId);
         if (!bothInFocus) return 0.3;
-        return sourceId === focusNode.id || targetId === focusNode.id ? 2.2 : 1.5;
+        return focusNodes.some((fn) => fn.id === sourceId || fn.id === targetId) ? 2.2 : 1.5;
       }
       if (!hoveredNode) return 1.5;
       return sourceId === hoveredNode.id || targetId === hoveredNode.id ? 2.2 : 1;
     },
-    [hoveredNode, focusNode, focusNeighborIds, activePath]
+    [hoveredNode, focusNodes, focusNeighborIds, activePath]
   );
 
   // Expand click hit-area beyond the visual radius
@@ -1013,11 +1068,11 @@ export default function StoryGraph() {
     const title = node.name;
     const body = node.notes?.trim() ? node.notes.trim() : node.excerpt?.trim() ?? "";
     const content = `# ${title}\n\n${body}`;
-    fetch(
-      `/api/notes-raw-file?filename=${encodeURIComponent(filename)}&workspace=${encodeURIComponent(workspace)}`,
-      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) }
-    )
-      .then((r) => r.ok ? r.json() : Promise.reject(r))
+    requestJson("/api/notes-raw-file", {
+      method: "POST",
+      query: { filename, workspace },
+      body: { content },
+    })
       .then(() => {
         setActiveTab("files");
         const { openFileByName, loadFiles } = filesEditorApi.current;
@@ -1052,11 +1107,13 @@ export default function StoryGraph() {
     // Slow path: fetch from API (cache not yet rebuilt)
     const fileSet = new Set(storyFiles.map((f) => f.filename.toLowerCase()));
     const addl = (selectedNode.additionalSourceFiles || []).find((sf) => fileSet.has((sf || "").toLowerCase()));
-    const filename = addl ?? resolveNodeFilename(selectedNode.id, fileBasenameMap);
+    const filename = (selectedNode.sourceFile && fileSet.has(selectedNode.sourceFile.toLowerCase()) ? selectedNode.sourceFile : null)
+      ?? resolveNodeFilename(selectedNode.id, fileBasenameMap)
+      ?? addl
+      ?? null;
     if (!filename) { setSelectedNodeFileContent(null); return; }
     const nodeId = selectedNode.id;
-    fetch(`/api/notes-raw-file?filename=${encodeURIComponent(filename)}&workspace=${encodeURIComponent(workspace)}`)
-      .then((r) => r.ok ? r.json() : null)
+    requestJson("/api/notes-raw-file", { query: { filename, workspace } })
       .then((d) => {
         if (!d?.content) { setSelectedNodeFileContent(null); return; }
         const body = d.content.replace(/^[^\n]*\n\n?/, "").trimStart();
@@ -1581,7 +1638,7 @@ export default function StoryGraph() {
           </div>
 
           {/* Focus mode banner */}
-          {focusNode && !findingPathFrom && (
+          {focusNodes && !findingPathFrom && (
             <div
               className="absolute top-3 left-1/2 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full"
               style={{
@@ -1593,10 +1650,16 @@ export default function StoryGraph() {
             >
               <Crosshair size={11} style={{ color: "#60a5fa", flexShrink: 0 }} />
               <span className="text-xs" style={{ color: "rgba(255,255,255,0.75)" }}>
-                Focusing on <span style={{ color: "#93c5fd", fontWeight: 600 }}>{focusNode.name}</span>
+                Focusing on{" "}
+                {focusNodes.map((fn, i) => (
+                  <span key={fn.id}>
+                    {i > 0 && <span style={{ color: "rgba(255,255,255,0.45)" }}> &amp; </span>}
+                    <span style={{ color: "#93c5fd", fontWeight: 600 }}>{fn.name}</span>
+                  </span>
+                ))}
               </span>
               <button
-                onClick={() => setFocusNode(null)}
+                onClick={() => setFocusNodes(null)}
                 className="ml-1 transition-opacity opacity-50 hover:opacity-100"
                 style={{ color: "rgba(255,255,255,0.7)" }}
                 title="Exit focus (Esc)"
@@ -1698,7 +1761,7 @@ export default function StoryGraph() {
           )}
 
           {/* Click-to-dismiss hint */}
-          {!selectedNode && !focusNode && (
+          {!selectedNode && !focusNodes && (
             <p
               className="absolute bottom-4 left-1/2 text-xs pointer-events-none"
               style={{ color: "rgba(255,255,255,0.25)", transform: "translateX(-50%)" }}
@@ -1763,14 +1826,31 @@ export default function StoryGraph() {
                 </div>
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => setFocusNode((prev) => prev?.id === selectedNode.id ? null : selectedNode)}
-                    title={focusNode?.id === selectedNode.id ? "Exit focus mode" : "Focus on this node (double-click also works)"}
+                    onClick={() => setFocusNodes((prev) => prev?.length === 1 && prev[0].id === selectedNode.id ? null : [selectedNode])}
+                    title={focusNodes?.length === 1 && focusNodes[0].id === selectedNode.id ? "Exit focus mode" : "Focus on this node (double-click also works)"}
                     className="p-1 rounded-md transition-colors"
-                    style={{ color: focusNode?.id === selectedNode.id ? "#60a5fa" : "rgba(255,255,255,0.3)", backgroundColor: focusNode?.id === selectedNode.id ? "rgba(96,165,250,0.12)" : "transparent" }}
-                    onMouseEnter={(e) => { if (focusNode?.id !== selectedNode.id) e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
-                    onMouseLeave={(e) => { if (focusNode?.id !== selectedNode.id) e.currentTarget.style.color = "rgba(255,255,255,0.3)"; }}
+                    style={{ color: focusNodes?.length === 1 && focusNodes[0].id === selectedNode.id ? "#60a5fa" : "rgba(255,255,255,0.3)", backgroundColor: focusNodes?.length === 1 && focusNodes[0].id === selectedNode.id ? "rgba(96,165,250,0.12)" : "transparent" }}
+                    onMouseEnter={(e) => { if (!(focusNodes?.length === 1 && focusNodes[0].id === selectedNode.id)) e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
+                    onMouseLeave={(e) => { if (!(focusNodes?.length === 1 && focusNodes[0].id === selectedNode.id)) e.currentTarget.style.color = "rgba(255,255,255,0.3)"; }}
                   >
                     <Crosshair size={15} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPendingChatQuestion({
+                        key: Date.now(),
+                        text: `Tell me everything about ${selectedNode.name} — their role, relationships, backstory, and significance — drawing only from the notes.`,
+                        pinnedNodeIds: [selectedNode.id],
+                      });
+                      setRightPanelTab("chat");
+                    }}
+                    title="Ask AI about this node"
+                    className="p-1 rounded-md transition-colors"
+                    style={{ color: "rgba(255,255,255,0.3)" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = "#60a5fa"; e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.1)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.3)"; e.currentTarget.style.backgroundColor = "transparent"; }}
+                  >
+                    <MessageSquare size={15} />
                   </button>
                   <button
                     onClick={() => setSelectedNode(null)}
@@ -2033,8 +2113,10 @@ export default function StoryGraph() {
               workspace={workspace}
               onOpenNode={openNodeById}
               graphData={graphData}
+              ownFileIds={ownFileIds}
               chatFocusNode={selectedNode}
               onShowPath={showPathOnGraph}
+              onBulkPatch={handleBulkPatch}
               pendingQuestion={pendingChatQuestion}
               onPendingConsumed={() => setPendingChatQuestion(null)}
             />
@@ -2098,14 +2180,14 @@ export default function StoryGraph() {
               )}
               {/* Focus */}
               <button
-                onClick={() => { setFocusNode((prev) => prev?.id === graphContextMenu.node.id ? null : graphContextMenu.node); setGraphContextMenu(null); }}
+                onClick={() => { setFocusNodes((prev) => prev?.length === 1 && prev[0].id === graphContextMenu.node.id ? null : [graphContextMenu.node]); setGraphContextMenu(null); }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors"
                 style={{ color: "rgba(255,255,255,0.8)" }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.1)")}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
               >
                 <Crosshair size={13} style={{ color: "#60a5fa", flexShrink: 0 }} />
-                {focusNode?.id === graphContextMenu.node.id ? "Exit focus" : "Focus"}
+                {focusNodes?.length === 1 && focusNodes[0].id === graphContextMenu.node.id ? "Exit focus" : "Focus"}
               </button>
               {/* Open file (only for own nodes) */}
               {ownFileIds.has(graphContextMenu.node.id) && (

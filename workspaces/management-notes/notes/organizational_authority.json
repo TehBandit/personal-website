@@ -1,0 +1,23 @@
+{
+  "id": "organizational_authority",
+  "name": "Organizational Authority",
+  "type": "concept",
+  "excerpt": "Organizational Authority involves the right to command and the responsibility to perform activities.",
+  "connections": [
+    {
+      "target": "organizing",
+      "label": "central to"
+    }
+  ],
+  "notes": "Organizational Authority encompasses the right to command others and the responsibility to perform certain activities. It includes the concepts of authority versus power, responsibility, and accountability.",
+  "aliases": [],
+  "sourceFile": "management/Managements_Notes_2_25_2020.md",
+  "createdAt": 1776913914208,
+  "updatedAt": 1776913914208,
+  "context_summary": [
+    "- Involves the right to command.",
+    "- Includes responsibility to perform activities.",
+    "- Encompasses authority versus power.",
+    "- Involves accountability."
+  ]
+}

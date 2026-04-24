@@ -19,5 +19,9 @@
       "label": "coaches"
     }
   ],
-  "createdAt": 1773587620326
+  "createdAt": 1773587620326,
+  "tags": [
+    "new",
+    "thing"
+  ]
 }

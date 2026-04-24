@@ -1,0 +1,18 @@
+{
+  "id": "planning_control_cycle",
+  "name": "Planning / Control Cycle",
+  "type": "concept",
+  "excerpt": "The planning/control cycle involves making and carrying out plans, then comparing results and taking corrective action.",
+  "connections": [
+    {
+      "target": "planning_and_strategy",
+      "label": "central to"
+    }
+  ],
+  "notes": "The cycle includes planning phases where plans are made and executed, and controlling phases where results are compared and corrective actions are taken.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_10_2020.md",
+  "createdAt": 1776913763515,
+  "updatedAt": 1776913763515,
+  "context_summary": "- Involves making and executing plans\n- Compares results against plans\n- Takes corrective action as needed\n- Includes planning and controlling phases"
+}

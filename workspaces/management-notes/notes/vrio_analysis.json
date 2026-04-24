@@ -1,0 +1,18 @@
+{
+  "id": "vrio_analysis",
+  "name": "VRIO Analysis",
+  "type": "concept",
+  "excerpt": "VRIO Analysis assesses value, rarity, imitability, and organization for competitive advantage.",
+  "connections": [
+    {
+      "target": "chapter_6_strategic_management_how_exceptional_managers_realize_a_grant_design",
+      "label": "featured in"
+    }
+  ],
+  "notes": "VRIO Analysis is a framework used to assess the value, rarity, imitability, and organization of a company's resources and capabilities to determine if they provide a sustainable competitive advantage.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_13_2020.md",
+  "createdAt": 1776913779034,
+  "updatedAt": 1776913779034,
+  "context_summary": "- Assesses value, rarity, imitability, and organization\n- Evaluates resources and capabilities\n- Determines sustainable competitive advantage"
+}

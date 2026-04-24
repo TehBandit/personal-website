@@ -23,13 +23,39 @@ import {
   Quote, Code, Minus, Undo, Redo,
   CheckCircle, AlertCircle, Loader, ArrowLeftRight,
   ChevronsDownUp, ChevronsUpDown, Copy, GitMerge, Scissors, Clipboard, Search, Upload,
-  Download, Pencil, ChevronDown, Sparkles, WandSparkles,
+  Download, Pencil, ChevronDown, Sparkles, WandSparkles, Type, Info,
 } from "lucide-react";
 import { TYPE_PRESETS } from "../constants/nodeTypes.js";
 import { useNodeTypeConfig } from "../contexts/NodeTypeContext.jsx";
 import { darkenHex } from "../utils/color.js";
-import { computeOwnFileIds, normalizeToId } from "../utils/graphHelpers.js";
+import { computeOwnFileIds, normalizeToId, extractTitleFromContent } from "../utils/graphHelpers.js";
+import { buildWordBoundaryPattern, collectGreedyMatches } from "../../shared/story-rules.js";
+import { requestJson } from "../utils/storygraphApi.js";
 const MINIMAP_BG = "#0f0f1a";
+
+/**
+ * Greedy non-overlapping matcher for entity names.
+ *
+ * Assumes entities are already sorted longest-first. Longer phrases claim spans
+ * first ("management history"), then shorter names can only match elsewhere.
+ */
+function collectGreedyEntityMatches(text, entities, currentFilename = null) {
+  const candidates = [];
+  for (const entity of (entities || [])) {
+    if (currentFilename && entity.filename === currentFilename) continue;
+    candidates.push({
+      ...entity,
+      patternSource: entity.patternSource || buildWordBoundaryPattern(entity.name || ""),
+    });
+  }
+
+  return collectGreedyMatches(text, candidates).map((m) => ({
+    start: m.start,
+    end: m.end,
+    text: m.text,
+    entity: m.item,
+  }));
+}
 
 /**
  * Small interactive ForceGraph2D showing the focal node + its immediate neighbors.
@@ -224,21 +250,15 @@ function buildEntityLinksExtension(dataRef) {
               state.doc.descendants((node, pos) => {
                 if (!node.isText || !node.text) return;
                 const text = node.text;
-                for (const { name, filename, color } of entities) {
-                  // Never link to the file currently open
-                  if (currentFilename && filename === currentFilename) continue;
-                  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-                  const re = new RegExp(`\\b${escaped}\\b`, "gi");
-                  let m;
-                  while ((m = re.exec(text)) !== null) {
-                    decorations.push(
-                      Decoration.inline(pos + m.index, pos + m.index + m[0].length, {
-                        class: "entity-link",
-                        "data-filename": filename,
-                        style: `color:${color};cursor:pointer;text-decoration:underline;text-underline-offset:2px;text-decoration-color:${color}55;`,
-                      })
-                    );
-                  }
+                const matches = collectGreedyEntityMatches(text, entities, currentFilename);
+                for (const { start, end, entity } of matches) {
+                  decorations.push(
+                    Decoration.inline(pos + start, pos + end, {
+                      class: "entity-link",
+                      "data-filename": entity.filename,
+                      style: `color:${entity.color};cursor:pointer;text-decoration:underline;text-underline-offset:2px;text-decoration-color:${entity.color}55;`,
+                    })
+                  );
                 }
               });
               lastSet = DecorationSet.create(state.doc, decorations);
@@ -541,14 +561,21 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   const [inlineNew, setInlineNew] = useState(null); // { parentPath, type: "file"|"folder", value }
   const [inlineRename, setInlineRename] = useState(null); // { path, value } | null
   const [fileMenuOpen, setFileMenuOpen] = useState(null); // path of file whose menu is open
-  const [dragItem, setDragItem] = useState(null);       // { path: string }
+  const [dragItem, setDragItem] = useState(null);       // { path: string } — drives isDragging visual only
+  const dragItemRef = useRef(null);                        // always-current, read inside event handlers
   const [dropIndicator, setDropIndicator] = useState(null); // null | { type:"folder"|"line"|"root", path?, position? }
   const [openFile, setOpenFile] = useState(null);   // { filename, content }
   const [folderDeleteModal, setFolderDeleteModal] = useState(null); // { folderPath, filePaths[] } | null
 
+  // ── Multi-select ─────────────────────────────────────────────────────────────
+  const [selectedPaths, setSelectedPaths] = useState(new Set()); // Set<string>
+  const [bulkMoveOpen, setBulkMoveOpen] = useState(false); // move-to folder picker open
+  const lastClickedPathRef = useRef(null); // anchor for shift-click range
+
   // ── File menu (toolbar) ───────────────────────────────────────────────────────
   const [fileMenuToolbarOpen, setFileMenuToolbarOpen] = useState(false);
   const [fileMenuRename, setFileMenuRename] = useState(null); // { value } | null
+  const [nodeInfoOpen, setNodeInfoOpen] = useState(false);   // (i) metadata popup
   const fileMenuToolbarRef = useRef(null);
   const fileMenuRenameInputRef = useRef(null);
 
@@ -583,6 +610,26 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [fileMenuOpen]);
+
+  // Close bulk-move picker on outside click; Escape clears selection
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.type === "keydown" && e.key === "Escape") {
+        setSelectedPaths((prev) => { if (prev.size > 0) { lastClickedPathRef.current = null; return new Set(); } return prev; });
+        setBulkMoveOpen(false);
+        return;
+      }
+      if (e.type === "mousedown") {
+        setBulkMoveOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("keydown", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", handler);
+    };
+  }, []);
   const entityDataRef = useRef({ entities: [], onOpen: null, onHover: null, onHoverEnd: null, currentFilename: null });
   const lastSavedContentRef = useRef(""); // tracks last-written markdown to skip no-op saves
   const openFileRef = useRef(null);        // always current openFile — safe to read inside onUpdate
@@ -617,6 +664,9 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   // ── File search ───────────────────────────────────────────────────────────────
   const [fileSearchQuery, setFileSearchQuery] = useState("");
   const fileSearchRef = useRef(null);
+
+  // ── Show titles toggle ────────────────────────────────────────────────────────
+  const [showTitles, setShowTitles] = useState(false);
 
   // ── Entity hover preview tooltip ─────────────────────────────────────────────
   const [entityTooltip, setEntityTooltip] = useState(null); // { node, x, y } | null
@@ -676,11 +726,10 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     }
     // Always refresh in background (silently if served from cache)
     const controller = new AbortController();
-    fetch(
-      `/api/notes-backlinks?workspace=${encodeURIComponent(workspace)}&filename=${encodeURIComponent(filename)}`,
-      { signal: controller.signal }
-    )
-      .then((r) => r.json())
+    requestJson("/api/notes-backlinks", {
+      query: { workspace, filename },
+      signal: controller.signal,
+    })
       .then((d) => {
         const result = d.backlinks || [];
         backlinksCache.current[filename] = result;
@@ -709,17 +758,28 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     // 1. Stem ID match (standard notes-raw files and focused-note uploads)
     const byId = graphData.nodes.find((n) => n.id === stemId || n.id === stemIdLegacy);
     if (byId) return byId;
-    // 2. Primary sourceFile basename match — only when the node id matches the file stem
+    // 2. Content-title match — for story-extract uploads where the node ID is derived
+    //    from the file's title line rather than the filename (e.g. "monitoring_and_controlling_chapter_8"
+    //    for a file named "BIT_4484_Notes_8_9_2020.md").
+    if (openFile.content) {
+      const titleFromContent = extractTitleFromContent(openFile.content);
+      if (titleFromContent) {
+        const titleId = normalizeToId(titleFromContent);
+        const byTitleId = graphData.nodes.find((n) => n.id === titleId);
+        if (byTitleId) return byTitleId;
+      }
+    }
+    // 3. Primary sourceFile basename match — only when the node id matches the file stem
     const bySourceFile = graphData.nodes.find(
       (n) => n.sourceFile && n.sourceFile.split("/").pop() === basename && (n.id === stemId || n.id === stemIdLegacy)
     );
     if (bySourceFile) return bySourceFile;
-    // 3. Full path match against primarySourceFile — same id-must-match guard
+    // 4. Full path match against primarySourceFile — same id-must-match guard
     const byFullPath = graphData.nodes.find(
       (n) => n.sourceFile === filename && (n.id === stemId || n.id === stemIdLegacy)
     );
     if (byFullPath) return byFullPath;
-    // 4. Full path match against additionalSourceFiles (merged copies with different names)
+    // 5. Full path match against additionalSourceFiles (merged copies with different names)
     return graphData.nodes.find((n) => (n.additionalSourceFiles || []).includes(filename)) ?? null;
   }, [openFile, graphData.nodes]);
 
@@ -744,13 +804,10 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     const sourceId = isOpenAuthority ? picked.id : openNode.id;
     const targetId = isOpenAuthority ? openNode.id : picked.id;
     try {
-      const res = await fetch("/api/notes-merge", {
+      await requestJson("/api/notes-merge", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspace, sourceId, targetId }),
+        body: { workspace, sourceId, targetId },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Merge failed");
       setMergeModal(null);
       setMergeStatus(null);
       if (!isOpenAuthority) setOpenFile(null); // open node was the source — it's been deleted
@@ -759,6 +816,34 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       setMergeStatus({ error: err.message });
     }
   };
+
+  // Map from filename → human-readable node name (for "show titles" mode in sidebar)
+  const fileTitleMap = useMemo(() => {
+    const map = new Map();
+    // Build sourceFile → node lookup.
+    // When multiple nodes share a sourceFile (e.g. a story-extract upload creates
+    // both a focused document node and many extracted entity nodes), prefer the
+    // documentNode — the node explicitly created to represent the file itself.
+    const sourceFileMap = new Map();
+    for (const node of graphData.nodes) {
+      if (!node.sourceFile) continue;
+      const key = node.sourceFile.toLowerCase();
+      if (!sourceFileMap.has(key) || node.documentNode) sourceFileMap.set(key, node);
+    }
+    for (const f of files) {
+      const basename = f.filename.split("/").pop();
+      const rawStem = basename.replace(/\.(md|txt)$/i, "");
+      const stemId = normalizeToId(rawStem);
+      const stemIdLegacy = rawStem.replace(/-/g, "_");
+      // 1. Stem ID match
+      const byId = graphData.nodes.find((n) => n.id === stemId || n.id === stemIdLegacy);
+      if (byId) { map.set(f.filename, byId.name); continue; }
+      // 2. sourceFile match (content-title-derived nodes; documentNode preferred over extracted entities)
+      const bySrc = sourceFileMap.get(f.filename.toLowerCase());
+      if (bySrc) { map.set(f.filename, bySrc.name); }
+    }
+    return map;
+  }, [files, graphData.nodes]);
 
   // Basenames that appear in more than one path (used for sidebar duplicate badge)
   const duplicateBasenames = useMemo(() => {
@@ -814,6 +899,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   // Load aliases + title from graphData nodes (already fetched, no extra request needed)
   const [nodeTitle, setNodeTitle] = useState("");
   useEffect(() => {
+    setNodeInfoOpen(false); // close metadata popup whenever file or node changes
     if (!openNode) { setAliases([]); setNodeTitle(""); setTags([]); setNodeTypeOverride(null); return; }
     setAliases(openNode.aliases || []);
     setTags(openNode.tags || []);
@@ -827,15 +913,12 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     const currentName = openNode?.name ?? "";
     if (trimmed === currentName) return;
 
-    const patchUrl = `/api/notes-raw-file?filename=${encodeURIComponent(openFile.filename)}&workspace=${encodeURIComponent(workspace ?? "")}`;
-
     const commitChange = () => {
-      fetch(patchUrl, {
+      requestJson("/api/notes-raw-file", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed, propagate: true, affectedFiles: backlinks.map((b) => b.filename) }),
+        query: { filename: openFile.filename, workspace: workspace ?? "" },
+        body: { name: trimmed, propagate: true, affectedFiles: backlinks.map((b) => b.filename) },
       })
-        .then((r) => r.json())
         .then((d) => {
           if (Array.isArray(d.filesUpdated) && d.filesUpdated.length > 0) {
             for (const rel of d.filesUpdated) {
@@ -881,10 +964,10 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
   const saveAliases = useCallback((next) => {
     if (!openFile) return;
-    fetch(`/api/notes-raw-file?filename=${encodeURIComponent(openFile.filename)}&workspace=${encodeURIComponent(workspaceRef.current ?? "")}`, {
+    requestJson("/api/notes-raw-file", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ aliases: next }),
+      query: { filename: openFile.filename, workspace: workspaceRef.current ?? "" },
+      body: { aliases: next },
     }).catch(() => {});
   }, [openFile]);
 
@@ -909,10 +992,10 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
   const saveTags = useCallback((next) => {
     if (!openFile) return;
-    fetch(`/api/notes-raw-file?filename=${encodeURIComponent(openFile.filename)}&workspace=${encodeURIComponent(workspaceRef.current ?? "")}`, {
+    requestJson("/api/notes-raw-file", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tags: next }),
+      query: { filename: openFile.filename, workspace: workspaceRef.current ?? "" },
+      body: { tags: next },
     }).catch(() => {});
   }, [openFile]);
 
@@ -940,10 +1023,11 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   const saveNodeType = useCallback((typeKey) => {
     if (!openFile) return;
     setNodeTypeOverride(typeKey);
-    fetch(
-      `/api/notes-raw-file?filename=${encodeURIComponent(openFile.filename)}&workspace=${encodeURIComponent(workspaceRef.current ?? "")}`,
-      { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: typeKey }) }
-    ).catch(() => {});
+    requestJson("/api/notes-raw-file", {
+      method: "PATCH",
+      query: { filename: openFile.filename, workspace: workspaceRef.current ?? "" },
+      body: { type: typeKey },
+    }).catch(() => {});
   }, [openFile]);
 
   const addWorkspaceType = useCallback((rawKey) => {
@@ -952,12 +1036,11 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     const usedColors = new Set(Object.values(NODE_TYPE_CONFIG).map((c) => c.color));
     const color = TYPE_COLOR_PALETTE.find((c) => !usedColors.has(c)) ?? "#94a3b8";
     const label = rawKey.trim().charAt(0).toUpperCase() + rawKey.trim().slice(1);
-    fetch(`/api/workspaces?slug=${encodeURIComponent(workspace ?? "")}`, {
+    requestJson("/api/workspaces", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ addType: { key, color, label } }),
+      query: { slug: workspace ?? "" },
+      body: { addType: { key, color, label } },
     })
-      .then((r) => r.json())
       .then((d) => {
         if (d.nodeTypes) {
           onWorkspaceNodeTypesChanged?.(d.nodeTypes);
@@ -1077,8 +1160,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   // ── Load file list ───────────────────────────────────────────────────────────
   const loadFiles = useCallback(() => {
     if (!workspace) return;
-    fetch(`/api/notes-raw-list?workspace=${encodeURIComponent(workspace)}`)
-      .then((r) => r.json())
+    requestJson("/api/notes-raw-list", { query: { workspace } })
       .then((d) => {
         setFiles(d.files || []);
         const treeData = d.tree || [];
@@ -1103,6 +1185,9 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   useEffect(() => {
     fileCacheRef.current = {}; // clear cache when workspace changes
     backlinksCache.current = {};
+    setSelectedPaths(new Set());
+    lastClickedPathRef.current = null;
+    setBulkMoveOpen(false);
     loadFiles();
   }, [loadFiles]);
 
@@ -1142,8 +1227,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     }
 
     setLoadingFile(true);
-    fetch(`/api/notes-raw-file?filename=${encodeURIComponent(filename)}&workspace=${encodeURIComponent(workspaceRef.current ?? "")}`)
-      .then((r) => r.json())
+    requestJson("/api/notes-raw-file", { query: { filename, workspace: workspaceRef.current ?? "" } })
       .then((d) => {
         fileCacheRef.current[d.filename] = { content: d.content, json: null };
         applyContent(d.filename, d.content, null);
@@ -1168,16 +1252,10 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       const stem = file.name.replace(/\.docx$/i, "");
       const slug = stem.toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[\s_]+/g, "-");
 
-      const res = await fetch("/api/docx-to-md", {
+      const { markdown } = await requestJson("/api/docx-to-md", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ base64, workspace }),
+        body: { base64, workspace },
       });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error || "Conversion failed");
-      }
-      const { markdown } = await res.json();
 
       const filename = slug + ".md";
 
@@ -1186,18 +1264,11 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
         : "";
       const filePath = currentFolder ? `${currentFolder}/${filename}` : filename;
 
-      const createRes = await fetch(
-        `/api/notes-raw-file?filename=${encodeURIComponent(filePath)}&workspace=${encodeURIComponent(workspace)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: markdown }),
-        }
-      );
-      if (!createRes.ok) {
-        const d = await createRes.json();
-        throw new Error(d.error || "File create failed");
-      }
+      await requestJson("/api/notes-raw-file", {
+        method: "POST",
+        query: { filename: filePath, workspace },
+        body: { content: markdown, name: stem },
+      });
 
       if (currentFolder) setOpenFolders((prev) => new Set([...prev, currentFolder]));
       loadFiles();
@@ -1237,13 +1308,12 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       return;
     }
     setSaveState("saving");
-    fetch(`/api/notes-raw-file?filename=${encodeURIComponent(currentFile.filename)}&workspace=${encodeURIComponent(workspaceRef.current ?? "")}`, {
+    requestJson("/api/notes-raw-file", {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
+      query: { filename: currentFile.filename, workspace: workspaceRef.current ?? "" },
+      body: { content },
     })
-      .then((r) => {
-        if (!r.ok) throw new Error("Save failed");
+      .then(() => {
         lastSavedContentRef.current = content;
         // Update cache — store new content and capture the current parsed JSON
         // so the very next open also skips re-parsing.
@@ -1290,11 +1360,11 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       : "";
     const filePath = currentFolder ? `${currentFolder}/${filename}` : filename;
     const content = "";
-    fetch(
-      `/api/notes-raw-file?filename=${encodeURIComponent(filePath)}&workspace=${encodeURIComponent(workspaceRef.current ?? "")}`,
-      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, name: title }) }
-    )
-      .then((r) => { if (!r.ok) throw new Error("Create failed"); })
+    requestJson("/api/notes-raw-file", {
+      method: "POST",
+      query: { filename: filePath, workspace: workspaceRef.current ?? "" },
+      body: { content, name: title },
+    })
       .then(() => {
         if (currentFolder) setOpenFolders((prev) => new Set([...prev, currentFolder]));
         loadFiles();
@@ -1314,13 +1384,12 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     const nodeName = filename.replace(/\.(md|txt)$/i, "");
     const filePath = parentPath ? `${parentPath}/${filename}` : filename;
     setInlineNew(null);
-    fetch(`/api/notes-raw-file?filename=${encodeURIComponent(filePath)}&workspace=${encodeURIComponent(workspace ?? "")}`, {
+    requestJson("/api/notes-raw-file", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: "", name: nodeName }),
+      query: { filename: filePath, workspace: workspace ?? "" },
+      body: { content: "", name: nodeName },
     })
-      .then((r) => {
-        if (!r.ok) throw new Error("Create failed");
+      .then(() => {
         if (parentPath) setOpenFolders((prev) => new Set([...prev, parentPath]));
         loadFiles();
         openFileByName(filePath);
@@ -1341,13 +1410,12 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     if (!trimmed) return;
     const folderPath = parentPath ? `${parentPath}/${trimmed}` : trimmed;
     setInlineNew(null);
-    fetch(`/api/notes-raw-file?filename=${encodeURIComponent(folderPath)}&workspace=${encodeURIComponent(workspace ?? "")}`, {
+    requestJson("/api/notes-raw-file", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isFolder: true }),
+      query: { filename: folderPath, workspace: workspace ?? "" },
+      body: { isFolder: true },
     })
-      .then((r) => {
-        if (!r.ok) throw new Error("Create folder failed");
+      .then(() => {
         setOpenFolders((prev) => new Set([...prev, folderPath]));
         if (parentPath) setOpenFolders((prev) => new Set([...prev, parentPath]));
         loadFiles();
@@ -1376,12 +1444,11 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     }
 
     // ── Background API call ───────────────────────────────────────────────────
-    fetch(`/api/notes-raw-move?workspace=${encodeURIComponent(workspace ?? "")}`, {
+    requestJson("/api/notes-raw-move", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ from: fromPath, to: toPath }),
+      query: { workspace: workspace ?? "" },
+      body: { from: fromPath, to: toPath },
     })
-      .then((r) => { if (!r.ok) return r.json().then((d) => { throw new Error(d.error || "Move failed"); }); })
       .catch((err) => {
         console.error("Move error:", err);
         setFiles(prevFiles);
@@ -1402,13 +1469,14 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       : newName.trim() + ext;
     const newPath = dir ? `${dir}/${newBasename}` : newBasename;
     if (newPath === oldPath) return;
-    const res = await fetch(
-      `/api/notes-raw-move?workspace=${encodeURIComponent(workspaceRef.current ?? "")}`,
-      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from: oldPath, to: newPath }) }
-    );
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      window.alert(err.error ?? "Rename failed");
+    try {
+      await requestJson("/api/notes-raw-move", {
+        method: "POST",
+        query: { workspace: workspaceRef.current ?? "" },
+        body: { from: oldPath, to: newPath },
+      });
+    } catch (err) {
+      window.alert(err.message ?? "Rename failed");
       return;
     }
     if (openFile?.filename === oldPath) setOpenFile((f) => f ? { ...f, filename: newPath } : f);
@@ -1430,6 +1498,46 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       })
       .catch(console.error);
   }, [loadFiles, openFile, editor]);
+
+  // ── Bulk delete ───────────────────────────────────────────────────────────────
+  const bulkDeleteFiles = useCallback(async (paths) => {
+    if (!paths.size) return;
+    if (!window.confirm(`Delete ${paths.size} file${paths.size > 1 ? "s" : ""}? This cannot be undone.`)) return;
+    const ws = encodeURIComponent(workspaceRef.current ?? "");
+    for (const filename of paths) {
+      await fetch(`/api/notes-raw-file?filename=${encodeURIComponent(filename)}&workspace=${ws}`, { method: "DELETE" })
+        .catch(console.error);
+    }
+    setSelectedPaths(new Set());
+    lastClickedPathRef.current = null;
+    loadFiles();
+    if (openFile && paths.has(openFile.filename)) {
+      setOpenFile(null);
+      editor?.commands.setContent("");
+      setIsDirty(false);
+    }
+  }, [loadFiles, openFile, editor]);
+
+  // ── Bulk move ─────────────────────────────────────────────────────────────────
+  const bulkMoveFiles = useCallback(async (paths, toFolderPath) => {
+    if (!paths.size) return;
+    const ws = encodeURIComponent(workspaceRef.current ?? "");
+    for (const fromPath of paths) {
+      const basename = fromPath.split("/").pop();
+      const toPath = toFolderPath ? `${toFolderPath}/${basename}` : basename;
+      if (toPath === fromPath) continue;
+      await fetch(`/api/notes-raw-move?workspace=${ws}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from: fromPath, to: toPath }),
+      }).catch(console.error);
+    }
+    setSelectedPaths(new Set());
+    lastClickedPathRef.current = null;
+    setBulkMoveOpen(false);
+    if (toFolderPath) setOpenFolders((prev) => new Set([...prev, toFolderPath]));
+    loadFiles();
+  }, [loadFiles]);
 
   // ── Download file ─────────────────────────────────────────────────────────────
   const downloadFile = useCallback(() => {
@@ -1610,7 +1718,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
         filename: bestFileForText(name, allNodeFiles),
         color: cfg.color,
         nodeId: node.id,
-        pattern: new RegExp(`\\b${name.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")}\\b`, "i"),
+        patternSource: buildWordBoundaryPattern(name),
       });
 
       pushEntity(node.name);
@@ -1673,30 +1781,29 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   const bibliography = useMemo(() => {
     if (!openFile || !mentionableEntities.length) return [];
     const rawText = openFile.content.toLowerCase();
+    const textMatches = collectGreedyEntityMatches(rawText, mentionableEntities);
     const stemWords = new Set(
       openFile.filename.split("/").pop().replace(/\.(md|txt)$/i, "").split(/[-_]/).map((w) => w.toLowerCase())
     );
     const seen = new Set(); // deduplicate by nodeId — one entry per node regardless of which alias or file matched
     const result = [];
-    for (const entity of mentionableEntities) {
+    for (const { entity } of textMatches) {
       if (entity.nodeId && seen.has(entity.nodeId)) continue;
       // Skip if entity name words all appear in the filename stem (self)
       const words = entity.name.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/);
       if (words.length > 0 && words.every((w) => stemWords.has(w))) continue;
-      if (entity.pattern.test(rawText)) {
-        if (entity.nodeId) seen.add(entity.nodeId);
-        else seen.add(entity.filename);
-        // Use entity.nodeId to look up the canonical node so aliases always display
-        // with the node's proper name and color, even when linking to an additionalSourceFile
-        // (e.g. "Shouyou" alias → dads/shouyou.md but node is sh_y_hinata).
-        const node = entity.nodeId
-          ? graphData.nodes.find((n) => n.id === entity.nodeId)
-          : graphData.nodes.find((n) => {
-              const nid = entity.filename.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
-              return n.id === nid;
-            });
-        result.push({ ...entity, name: node?.name ?? entity.name });
-      }
+      if (entity.nodeId) seen.add(entity.nodeId);
+      else seen.add(entity.filename);
+      // Use entity.nodeId to look up the canonical node so aliases always display
+      // with the node's proper name and color, even when linking to an additionalSourceFile
+      // (e.g. "Shouyou" alias → dads/shouyou.md but node is sh_y_hinata).
+      const node = entity.nodeId
+        ? graphData.nodes.find((n) => n.id === entity.nodeId)
+        : graphData.nodes.find((n) => {
+            const nid = entity.filename.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
+            return n.id === nid;
+          });
+      result.push({ ...entity, name: node?.name ?? entity.name });
     }
     return result.sort((a, b) => a.name.localeCompare(b.name));
   }, [openFile, mentionableEntities, graphData.nodes]);
@@ -1772,6 +1879,55 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     return paths;
   }, [tree]);
 
+  // Flat ordered list of visible file paths (depth-first, respecting open folders).
+  // Used for shift-click range selection.
+  const flatVisibleFiles = useMemo(() => {
+    const result = [];
+    const walk = (nodes) => {
+      for (const node of nodes) {
+        if (node.type === "file") result.push(node.path);
+        else if (node.type === "folder" && openFolders.has(node.path) && node.children) walk(node.children);
+      }
+    };
+    walk(tree);
+    return result;
+  }, [tree, openFolders]);
+
+  // Handle file row click — supports Ctrl/Cmd (toggle), Shift (range), plain (open).
+  const handleFileClick = useCallback((path, e) => {
+    const isCtrl = e.ctrlKey || e.metaKey;
+    const isShift = e.shiftKey;
+
+    if (isCtrl) {
+      e.preventDefault();
+      setSelectedPaths((prev) => {
+        const next = new Set(prev);
+        if (next.has(path)) next.delete(path);
+        else next.add(path);
+        return next;
+      });
+      lastClickedPathRef.current = path;
+      return;
+    }
+
+    if (isShift && lastClickedPathRef.current) {
+      e.preventDefault();
+      const anchor = lastClickedPathRef.current;
+      const anchorIdx = flatVisibleFiles.indexOf(anchor);
+      const targetIdx = flatVisibleFiles.indexOf(path);
+      if (anchorIdx !== -1 && targetIdx !== -1) {
+        const [lo, hi] = anchorIdx < targetIdx ? [anchorIdx, targetIdx] : [targetIdx, anchorIdx];
+        setSelectedPaths(new Set(flatVisibleFiles.slice(lo, hi + 1)));
+      }
+      return;
+    }
+
+    // Plain click — open file, clear multi-select
+    lastClickedPathRef.current = path;
+    setSelectedPaths(new Set());
+    openFileByName(path);
+  }, [flatVisibleFiles, openFileByName]);
+
   // ── File tree renderer ─────────────────────────────────────────────────────
   const renderTree = (nodes, depth) => {
     const items = [];
@@ -1787,9 +1943,9 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
         items.push(
           <div
             key={node.path}
-            onDragOver={(e) => { if (!dragItem) return; e.preventDefault(); e.stopPropagation(); setDropIndicator({ type: "folder", path: node.path }); }}
+            onDragOver={(e) => { if (!dragItemRef.current) return; e.preventDefault(); e.stopPropagation(); setDropIndicator({ type: "folder", path: node.path }); }}
             onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDropIndicator((p) => p?.path === node.path ? null : p); }}
-            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (dragItem) moveFile(dragItem.path, node.path); setDragItem(null); setDropIndicator(null); }}
+            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); const di = dragItemRef.current; dragItemRef.current = null; setDragItem(null); setDropIndicator(null); if (!di) return; if (di.paths) { bulkMoveFiles(di.paths, node.path); } else { moveFile(di.path, node.path); } }}
           >
             <div
               className="group flex items-center gap-1 py-0.5 rounded-md cursor-pointer select-none"
@@ -1870,10 +2026,16 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       } else {
         // File node
         const isActive = openFile?.filename === node.path;
-        const isDragging = dragItem?.path === node.path;
+        const isSelected = selectedPaths.has(node.path);
+        const isDragging = dragItem?.paths ? dragItem.paths.has(node.path) : dragItem?.path === node.path;
         const parentPath = node.path.includes("/") ? node.path.split("/").slice(0, -1).join("/") : "";
         const isLineBefore = dropIndicator?.type === "line" && dropIndicator.path === node.path && dropIndicator.position === "before";
         const isLineAfter = dropIndicator?.type === "line" && dropIndicator.path === node.path && dropIndicator.position === "after";
+        const rowBg = isSelected
+          ? "rgba(96,165,250,0.22)"
+          : isActive
+          ? "rgba(96,165,250,0.12)"
+          : "transparent";
 
         items.push(
           <div key={node.path} style={{ opacity: isDragging ? 0.4 : 1 }}>
@@ -1881,16 +2043,28 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               <div style={{ height: 2, margin: `1px 4px 1px ${indent + 20}px`, borderRadius: 1, backgroundColor: "#60a5fa" }} />
             )}
             <div
-              draggable
+              draggable={true}
               className="group flex items-center gap-1.5 py-0.5 rounded-md cursor-pointer transition-colors"
-              style={{ paddingLeft: indent + 20, paddingRight: 4, backgroundColor: isActive ? "rgba(96,165,250,0.12)" : "transparent" }}
-              onClick={() => openFileByName(node.path)}
-              onMouseEnter={(e) => { if (!isActive && !dragItem) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)"; }}
-              onMouseLeave={(e) => { if (!dragItem) e.currentTarget.style.backgroundColor = isActive ? "rgba(96,165,250,0.12)" : "transparent"; }}
-              onDragStart={(e) => { e.stopPropagation(); setDragItem({ path: node.path }); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", node.path); }}
-              onDragEnd={() => { setDragItem(null); setDropIndicator(null); }}
+              style={{ paddingLeft: indent + 20, paddingRight: 4, backgroundColor: rowBg }}
+              onClick={(e) => handleFileClick(node.path, e)}
+              onMouseEnter={(e) => { if (!isActive && !isSelected && !dragItem) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)"; }}
+              onMouseLeave={(e) => { if (!dragItem) e.currentTarget.style.backgroundColor = rowBg; }}
+              onDragStart={(e) => {
+                e.stopPropagation();
+                // If dragging a file that's part of the multi-selection, carry all selected files.
+                // Otherwise just drag the one file.
+                const isInSelection = selectedPaths.size > 1 && selectedPaths.has(node.path);
+                const item = isInSelection
+                  ? { path: node.path, paths: new Set(selectedPaths) }
+                  : { path: node.path };
+                dragItemRef.current = item;
+                setDragItem(item);
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", node.path);
+              }}
+              onDragEnd={() => { dragItemRef.current = null; setDragItem(null); setDropIndicator(null); }}
               onDragOver={(e) => {
-                if (!dragItem) return;
+                if (!dragItemRef.current) return;
                 e.preventDefault();
                 e.stopPropagation();
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -1898,9 +2072,14 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                 setDropIndicator({ type: "line", path: node.path, position });
               }}
               onDragLeave={() => setDropIndicator((p) => p?.type === "line" && p.path === node.path ? null : p)}
-              onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (dragItem) moveFile(dragItem.path, parentPath); setDragItem(null); setDropIndicator(null); }}
+              onDrop={(e) => {
+                e.preventDefault(); e.stopPropagation();
+                const di = dragItemRef.current; dragItemRef.current = null; setDragItem(null); setDropIndicator(null);
+                if (!di) return;
+                if (di.paths) { bulkMoveFiles(di.paths, parentPath); } else { moveFile(di.path, parentPath); }
+              }}
             >
-              <FileText size={13} style={{ color: isActive ? "#60a5fa" : "rgba(255,255,255,0.3)", flexShrink: 0 }} />
+              <FileText size={13} style={{ color: (isActive || isSelected) ? "#60a5fa" : "rgba(255,255,255,0.3)", flexShrink: 0 }} />
               {inlineRename?.path === node.path ? (
                 <input
                   autoFocus
@@ -1918,7 +2097,9 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                   spellCheck={false}
                 />
               ) : (
-                <span className="text-sm truncate flex-1" style={{ color: isActive ? "#e2e8f0" : "rgba(255,255,255,0.6)" }}>{node.name}</span>
+                <span className="text-sm truncate flex-1" style={{ color: (isActive || isSelected) ? "#e2e8f0" : "rgba(255,255,255,0.6)" }}>
+                  {showTitles ? (fileTitleMap.get(node.path) ?? node.name) : node.name}
+                </span>
               )}
               {duplicateBasenames.has(node.name) && !inlineRename && (
                 <Copy size={10} title="Appears in multiple folders" style={{ color: "#fbbf24", flexShrink: 0, opacity: 0.75, marginRight: 2 }} />
@@ -2055,6 +2236,14 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               ><ChevronsUpDown size={14} /></button>
             )
           )}
+          <button
+            title={showTitles ? "Show filenames" : "Show titles"}
+            onClick={() => setShowTitles((v) => !v)}
+            className="p-1 rounded-md flex-shrink-0"
+            style={{ color: showTitles ? "#60a5fa" : "rgba(255,255,255,0.35)" }}
+            onMouseEnter={(e) => { if (!showTitles) e.currentTarget.style.color = "#fff"; }}
+            onMouseLeave={(e) => { if (!showTitles) e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}
+          ><Type size={14} /></button>
         </div>
 
         {/* File search */}
@@ -2080,13 +2269,81 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
           </div>
         </div>
 
+        {/* Bulk action bar — shown when 2+ files are selected */}
+        {selectedPaths.size > 0 && (
+          <div className="flex items-center gap-1.5 px-2 py-1.5 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)", backgroundColor: "rgba(96,165,250,0.07)" }}>
+            <span className="text-xs flex-1" style={{ color: "rgba(255,255,255,0.5)" }}>
+              {selectedPaths.size} selected
+            </span>
+            <div className="relative">
+              <button
+                title="Move to folder…"
+                onClick={() => setBulkMoveOpen((v) => !v)}
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs"
+                style={{ color: "#93c5fd", backgroundColor: "rgba(96,165,250,0.12)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.22)")}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.12)")}
+              >
+                <FolderOpen size={11} />Move
+              </button>
+              {bulkMoveOpen && (
+                <div
+                  className="absolute left-0 top-full mt-1 z-50 py-1 rounded-lg shadow-xl"
+                  style={{ minWidth: 160, backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)" }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <button
+                    className="w-full text-left px-3 py-1.5 text-xs"
+                    style={{ color: "rgba(255,255,255,0.6)" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.07)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                    onClick={() => bulkMoveFiles(selectedPaths, "")}
+                  >
+                    / (root)
+                  </button>
+                  {allFolderPaths.map((fp) => (
+                    <button
+                      key={fp}
+                      className="w-full text-left px-3 py-1.5 text-xs truncate"
+                      style={{ color: "rgba(255,255,255,0.6)" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.07)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                      onClick={() => bulkMoveFiles(selectedPaths, fp)}
+                    >
+                      {fp}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              title="Delete selected"
+              onClick={() => bulkDeleteFiles(selectedPaths)}
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs"
+              style={{ color: "#f87171", backgroundColor: "rgba(248,113,113,0.1)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(248,113,113,0.2)")}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgba(248,113,113,0.1)")}
+            >
+              <Trash2 size={11} />Delete
+            </button>
+            <button
+              title="Clear selection"
+              onClick={() => { setSelectedPaths(new Set()); lastClickedPathRef.current = null; }}
+              className="p-0.5 rounded"
+              style={{ color: "rgba(255,255,255,0.3)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+            ><X size={11} /></button>
+          </div>
+        )}
+
         {/* File tree (or flat search results) */}
         <div
           className="flex-1 overflow-y-auto py-1 px-1"
           style={{ outline: dropIndicator?.type === "root" ? "1px solid rgba(96,165,250,0.25)" : "none", outlineOffset: "-2px" }}
-          onDragOver={(e) => { if (!dragItem) return; e.preventDefault(); setDropIndicator({ type: "root" }); }}
+          onDragOver={(e) => { if (!dragItemRef.current) return; e.preventDefault(); setDropIndicator({ type: "root" }); }}
           onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDropIndicator(null); }}
-          onDrop={(e) => { e.preventDefault(); if (dragItem) moveFile(dragItem.path, ""); setDragItem(null); setDropIndicator(null); }}
+          onDrop={(e) => { e.preventDefault(); const di = dragItemRef.current; dragItemRef.current = null; setDragItem(null); setDropIndicator(null); if (!di) return; if (di.paths) { bulkMoveFiles(di.paths, ""); } else { moveFile(di.path, ""); } }}
         >
           {inlineNew?.parentPath === "" && !fileSearchQuery && (
             <div className="py-0.5 px-2">
@@ -2142,6 +2399,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                 const node = graphData.nodes.find((n) => n.id === stemId);
                 return (node?.tags || []).filter((t) => t.includes(tagQ));
               })() : [];
+              const title = showTitles ? (fileTitleMap.get(f.filename) ?? null) : null;
               return (
                 <button
                   key={f.filename}
@@ -2157,8 +2415,11 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                 >
                   <div className="flex items-center gap-1.5 w-full">
                     <FileText size={12} style={{ flexShrink: 0, opacity: 0.5 }} />
-                    <span className="text-xs truncate">{highlighted}</span>
+                    <span className="text-xs truncate">{title ?? highlighted}</span>
                   </div>
+                  {title && (
+                    <span className="text-[10px] ml-5 truncate" style={{ color: "rgba(255,255,255,0.3)" }}>{basename}</span>
+                  )}
                   {tagHints.length > 0 && (
                     <div className="flex gap-1 mt-0.5 ml-5 flex-wrap">
                       {tagHints.map((t) => (
@@ -2421,13 +2682,104 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                 {openFile.filename.split("/").pop().replace(/\.(md|txt)$/i, "")}
               </p>
             )}
-            {/* File path */}
-            <p className="text-xs mb-1 font-mono" style={{ color: "rgba(255,255,255,0.25)" }}>
-              {openFile.filename}
-              {propagateMsg && (
-                <span style={{ marginLeft: 10, color: "#4ade80" }}>{propagateMsg}</span>
-              )}
-            </p>
+            {/* File path + (i) metadata/connections popup */}
+            <div className="mb-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.25)" }}>
+                  {openFile.filename}
+                </span>
+                {propagateMsg && (
+                  <span className="text-xs" style={{ color: "#4ade80" }}>{propagateMsg}</span>
+                )}
+                {openNode && (
+                  <button
+                    onClick={() => setNodeInfoOpen((v) => !v)}
+                    title="Node metadata & connections"
+                    style={{
+                      color: nodeInfoOpen ? "#60a5fa" : "rgba(255,255,255,0.2)",
+                      background: "none", border: "none", padding: 0,
+                      cursor: "pointer", lineHeight: 1, display: "inline-flex", flexShrink: 0,
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "#60a5fa")}
+                    onMouseLeave={(e) => { if (!nodeInfoOpen) e.currentTarget.style.color = "rgba(255,255,255,0.2)"; }}
+                  >
+                    <Info size={12} />
+                  </button>
+                )}
+              </div>
+              {nodeInfoOpen && openNode && (() => {
+                // Collect immediate neighbors — mirrors the minimap subgraph logic
+                const connections = [];
+                for (const link of graphData.links) {
+                  const src = typeof link.source === "object" ? link.source.id : link.source;
+                  const tgt = typeof link.target === "object" ? link.target.id : link.target;
+                  if (src === openNodeId) {
+                    const neighbor = graphData.nodes.find((n) => n.id === tgt);
+                    if (neighbor) connections.push({ node: neighbor, label: link.label });
+                  } else if (tgt === openNodeId) {
+                    const neighbor = graphData.nodes.find((n) => n.id === src);
+                    if (neighbor) connections.push({ node: neighbor, label: link.label });
+                  }
+                }
+                // JSON lines — exactly the fields the user requested
+                const createdAtFormatted = openNode.createdAt
+                  ? new Date(openNode.createdAt).toLocaleString(undefined, {
+                      year: "numeric", month: "short", day: "numeric",
+                      hour: "2-digit", minute: "2-digit",
+                    })
+                  : null;
+                const jsonText = [
+                  `{`,
+                  `  "id": ${JSON.stringify(openNode.id)},`,
+                  `  "type": ${JSON.stringify(openNode.type)},`,
+                  `  "aliases": ${JSON.stringify(openNode.aliases || [])},`,
+                  `  "tags": ${JSON.stringify(openNode.tags || [])},`,
+                  `  "createdAt": ${openNode.createdAt ?? "null"}${createdAtFormatted ? `  // ${createdAtFormatted}` : ""}`,
+                  `}`,
+                ].join("\n");
+                return (
+                  <div
+                    className="mt-2 rounded-lg text-xs overflow-hidden"
+                    style={{ border: "1px solid rgba(255,255,255,0.1)", backgroundColor: "#090913" }}
+                  >
+                    {/* Metadata JSON */}
+                    <div
+                      className="px-3 py-2.5"
+                      style={{ borderBottom: connections.length ? "1px solid rgba(255,255,255,0.07)" : "none" }}
+                    >
+                      <p className="text-[10px] uppercase tracking-widest mb-1.5 font-semibold" style={{ color: "rgba(255,255,255,0.2)" }}>
+                        metadata
+                      </p>
+                      <pre style={{ color: "rgba(255,255,255,0.6)", fontFamily: "ui-monospace, monospace", lineHeight: 1.8, margin: 0, whiteSpace: "pre" }}>
+                        {jsonText}
+                      </pre>
+                    </div>
+                    {/* Direct connections */}
+                    {connections.length > 0 && (
+                      <div className="px-3 py-2.5">
+                        <p className="text-[10px] uppercase tracking-widest mb-1.5 font-semibold" style={{ color: "rgba(255,255,255,0.2)" }}>
+                          connections · {connections.length}
+                        </p>
+                        <div className="flex flex-col gap-1">
+                          {connections.map((conn, i) => {
+                            const cfg = NODE_TYPE_CONFIG[conn.node.type] || nodeTypeFallback;
+                            return (
+                              <div key={i} className="flex items-center gap-2 min-w-0">
+                                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
+                                <span style={{ color: cfg.color, fontWeight: 500 }}>{conn.node.name}</span>
+                                {conn.label && (
+                                  <span className="truncate" style={{ color: "rgba(255,255,255,0.25)" }}>· {conn.label}</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
             {/* Tags */}
             {openNode && (
               <div className="flex flex-wrap items-center gap-1.5 mb-1 min-h-[22px]">

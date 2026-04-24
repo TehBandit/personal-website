@@ -1,0 +1,18 @@
+{
+  "id": "types_of_ai",
+  "name": "Types of AI",
+  "type": "concept",
+  "excerpt": "Types of AI include assisted, augmented, and autonomous intelligence.",
+  "connections": [
+    {
+      "target": "decision_making",
+      "label": "related to"
+    }
+  ],
+  "notes": "Types of AI in decision making include assisted intelligence, which automates basic tasks; augmented intelligence, which automates more complex tasks; and autonomous intelligence, which involves machine learning for independent decision making.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_19_2020.md",
+  "createdAt": 1776913795006,
+  "updatedAt": 1776913795006,
+  "context_summary": "- Types of AI include assisted, augmented, and autonomous intelligence.\n- Assisted intelligence automates basic tasks.\n- Augmented intelligence automates complex tasks.\n- Autonomous intelligence involves machine learning for independent decisions."
+}

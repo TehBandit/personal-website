@@ -61,6 +61,15 @@ At the very end of your response, on its own line:
 CITED: nodeId_1, nodeId_2, ...
 If no contradictions found: CITED: none`;
 
+const SUMMARIZE_PROMPT = `You are an assistant in StoryGraph, a fiction writing and worldbuilding tool.
+Your task is to write a concise summary of the story note provided in the context.
+Focus on the most important details: who or what the subject is, their key traits, role in the story, and any notable relationships, backstory, or events.
+Keep the summary to 3–5 sentences. Write in a neutral, informative tone.
+Do not invent facts that are not in the notes. Do not use inline citation markers in the body text.
+At the very end of your response, on its own line, write:
+CITED: nodeId_for_the_note
+Use only the node ID from the context heading (e.g. [id: sable_voss]).`;
+
 // ---------------------------------------------------------------------------
 // Workspace metadata — computed from cache chunks, no extra I/O needed
 // ---------------------------------------------------------------------------
@@ -131,8 +140,22 @@ const META_TOOLS = [
   {
     type: "function",
     function: {
+      name: "get_references_from",
+      description: "Find which other notes are referenced or mentioned inside a specific note. Use this when the question asks what a particular note or entity references, links to, mentions, or talks about — i.e. outgoing references FROM a note. Do NOT use this when asking which notes mention a given term (use get_notes_mentioning for that).",
+      parameters: {
+        type: "object",
+        properties: {
+          subject: { type: "string", description: "The name of the note to inspect for outgoing references." },
+        },
+        required: ["subject"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_notes_mentioning",
-      description: "Find notes that mention one or more specific terms, names, or phrases. When multiple terms are given, a note must mention all of them to match.",
+      description: "Find notes that mention one or more specific terms, names, or phrases — i.e. incoming references TO a term. When multiple terms are given, a note must mention all of them to match. Do NOT use this when asking what a particular note itself references or links to (use get_references_from for that). Do NOT use this for tag-based queries (use get_notes_by_tag for that).",
       parameters: {
         type: "object",
         properties: {
@@ -153,6 +176,20 @@ const META_TOOLS = [
           type: { type: "string", description: "The note type to filter by. Omit to list all types." },
         },
         required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_notes_by_tag",
+      description: "Find all notes that have a specific tag applied. Use this for any query asking to list, find, or show nodes/notes with a given tag or label (e.g. 'list all nodes tagged veldmoor', 'show me nodes with the tag important'). Do NOT use get_notes_mentioning for tag-based queries.",
+      parameters: {
+        type: "object",
+        properties: {
+          tag: { type: "string", description: "The tag to filter by (exact match, case-insensitive)." },
+        },
+        required: ["tag"],
       },
     },
   },
@@ -234,6 +271,25 @@ async function resolveMetaQuery(query, meta) {
     return `**${matches.length}** note${matches.length !== 1 ? "s" : ""} ${label}:\n\n${lines.join("\n")}`;
   }
 
+  // ── get_references_from ───────────────────────────────────────────────────
+  if (name === "get_references_from") {
+    const subject = (args.subject || "").toLowerCase().trim();
+    if (!subject) return null;
+    // Find the subject node
+    const subjectNode = nodeList.find((n) => n.name.toLowerCase() === subject)
+      || nodeList.find((n) => n.name.toLowerCase().includes(subject));
+    if (!subjectNode) return `No note named "${args.subject}" was found.`;
+    // Scan the subject note's text for names of other nodes
+    const bodyLower = subjectNode.text.toLowerCase();
+    const referenced = nodeList.filter((n) => {
+      if (n.name.toLowerCase() === subjectNode.name.toLowerCase()) return false;
+      return bodyLower.includes(n.name.toLowerCase());
+    });
+    if (referenced.length === 0) return `**${subjectNode.name}** doesn't appear to reference any other notes by name.`;
+    const names = referenced.map((n) => `**${n.name}** (${n.type})`).join(", ");
+    return `**${subjectNode.name}** references **${referenced.length}** other note${referenced.length !== 1 ? "s" : ""}: ${names}.`;
+  }
+
   // ── get_notes_mentioning ───────────────────────────────────────────────────
   if (name === "get_notes_mentioning") {
     const terms = (args.terms || []).map((t) => t.toLowerCase());
@@ -266,6 +322,16 @@ async function resolveMetaQuery(query, meta) {
         return `**${t}** (${ids.length}): ${names.join(", ")}`;
       });
     return `Notes by type:\n\n${lines.join("\n")}`;
+  }
+
+  // ── get_notes_by_tag ─────────────────────────────────────────────────────
+  if (name === "get_notes_by_tag") {
+    const tag = (args.tag || "").toLowerCase().trim();
+    if (!tag) return null;
+    const matches = nodeList.filter((n) => (n.tags || []).some((t) => t.toLowerCase() === tag));
+    if (matches.length === 0) return `No notes are tagged "${args.tag}".`;
+    const lines = matches.map((n) => `- **${n.name}** (${n.type})`).join("\n");
+    return `**${matches.length}** note${matches.length !== 1 ? "s" : ""} tagged "${args.tag}":\n\n${lines}`;
   }
 
   // ── get_tags ───────────────────────────────────────────────────────────────
@@ -521,6 +587,48 @@ export default async function handler(req, res) {
       }
       const { cleanContent, citedIds } = parseCitedLine(accContent);
       const citations = buildCitations(broadChunks, citedIds);
+      if (cleanContent !== accContent) sseEvent(res, { type: "correction", content: cleanContent });
+      sseEvent(res, { type: "citations", sources: citations });
+      sseEvent(res, { type: "done" });
+      res.end();
+      return;
+    }
+
+    // ── Summarize mode ──────────────────────────────────────────────────────
+    if (mode === "summarize") {
+      let summaryChunks;
+      if (hasPinnedNodes) {
+        const pinnedSet = new Set(pinnedNodeIds);
+        summaryChunks = (cache?.chunks ?? []).filter((c) => pinnedSet.has(c.nodeId));
+      } else {
+        summaryChunks = await retrieve(cache, userQuery);
+      }
+      if (!summaryChunks?.length) {
+        sseEvent(res, { type: "token", content: "I couldn't find any notes to summarize. Try rebuilding the index first." });
+        sseEvent(res, { type: "citations", sources: [] });
+        sseEvent(res, { type: "done" });
+        res.end();
+        return;
+      }
+      const sumContext = buildContext(summaryChunks);
+      const sumSystemContent = `${SUMMARIZE_PROMPT}\n\n---\n## Story Notes\n\n${sumContext}\n---`;
+      const sumStream = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: sumSystemContent },
+          { role: "user", content: userQuery },
+        ],
+        stream: true,
+        temperature: 0.3,
+        max_tokens: 512,
+      });
+      let accContent = "";
+      for await (const chk of sumStream) {
+        const delta = chk.choices[0]?.delta?.content;
+        if (delta) { accContent += delta; sseEvent(res, { type: "token", content: delta }); }
+      }
+      const { cleanContent, citedIds } = parseCitedLine(accContent);
+      const citations = buildCitations(summaryChunks, citedIds);
       if (cleanContent !== accContent) sseEvent(res, { type: "correction", content: cleanContent });
       sseEvent(res, { type: "citations", sources: citations });
       sseEvent(res, { type: "done" });

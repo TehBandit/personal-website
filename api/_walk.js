@@ -12,6 +12,7 @@
  */
 import fs from "fs";
 import path from "path";
+import { extractTitleFromContent as extractSharedTitleFromContent } from "../shared/story-rules.js";
 
 /**
  * Recursively walk `dir` for .md / .txt files.
@@ -106,3 +107,6 @@ export function normalizeSourceFile(sf) {
   if (!sf) return sf;
   return sf.replace(/\.txt$/i, ".md");
 }
+
+export const extractTitleFromContent = extractSharedTitleFromContent;
+

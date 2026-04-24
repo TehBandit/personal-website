@@ -1,0 +1,18 @@
+{
+  "id": "project_planning",
+  "name": "Project Planning",
+  "type": "concept",
+  "excerpt": "Project Planning involves proposing projects by managers and stakeholders.",
+  "connections": [
+    {
+      "target": "project_schedule_management",
+      "label": "guides execution"
+    }
+  ],
+  "notes": "During Project Planning, managers and stakeholders propose different projects, which are then evaluated for alignment with strategic goals and resource availability.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_12_2020.md",
+  "createdAt": 1776286362366,
+  "updatedAt": 1776286407108,
+  "context_summary": "- Proposes projects by managers and stakeholders\n- Evaluates projects for alignment with strategic goals\n- Assesses resource availability"
+}

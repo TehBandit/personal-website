@@ -1,11 +1,15 @@
 {
   "id": "volleyball",
   "name": "volleyball",
-  "type": "character",
+  "type": "artifact",
   "excerpt": "",
   "notes": "",
   "aliases": [],
   "connections": [],
   "sourceFile": "hinata_wiki/volleyball.md",
-  "createdAt": 1775532450697
+  "createdAt": 1775532450697,
+  "updatedAt": 1776825997720,
+  "tags": [
+    "new"
+  ]
 }

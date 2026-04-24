@@ -1,0 +1,18 @@
+{
+  "id": "global_village",
+  "name": "Global Village",
+  "type": "concept",
+  "excerpt": "The Global Village describes the shrinking of time and space due to technological advancements.",
+  "connections": [
+    {
+      "target": "global_management",
+      "label": "appears in"
+    }
+  ],
+  "notes": "The Global Village refers to the shrinking of time and space as air travel and electronic media make it easier to communicate around the globe, effectively making the world smaller.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_6_2020.md",
+  "createdAt": 1776913837256,
+  "updatedAt": 1776913837256,
+  "context_summary": "- The Global Village describes the shrinking of time and space.\n- Technological advancements facilitate global communication.\n- Air travel and electronic media contribute to making the world smaller."
+}

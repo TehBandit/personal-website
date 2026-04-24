@@ -1,0 +1,1 @@
+agent that lives in a workspace and understands how to interact with creating nodes, hierarchies, connections, etc that can be created through a chat menu

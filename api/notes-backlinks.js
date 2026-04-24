@@ -1,8 +1,7 @@
 import fs from "fs";
 import path from "path";
-import { walkRelPaths } from "./_walk.js";
-
-const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
+import { getBacklinksForNode } from "./_backlinks-index.js";
+import { WORKSPACES_DIR } from "./_storygraph-paths.js";
 
 export default function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
@@ -39,29 +38,13 @@ export default function handler(req, res) {
   if (!fs.existsSync(nodeJsonPath)) return res.status(200).json({ backlinks: [] });
 
   const node = JSON.parse(fs.readFileSync(nodeJsonPath, "utf-8"));
-  const names = [node.name, ...(node.aliases || [])].filter(Boolean);
 
-  // Build word-boundary regex patterns for all names/aliases
-  const patterns = names.map((name) => {
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`\\b${escaped}\\b`, "i");
-  });
-
-  // Scan all raw files (.md/.txt) in the workspace (excluding notes/ output dir and any file
-  // whose stem resolves to the same node ID — covers self and all supplemental copies)
-  const allFiles = walkRelPaths(wsDir, wsDir, new Set([path.resolve(notesDir)])).filter((f) => {
-    const fileStem = f.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
-    return fileStem !== nodeId;
-  });
-
-  const backlinks = [];
-  for (const relPath of allFiles) {
-    let content;
-    try { content = fs.readFileSync(path.join(wsDir, relPath), "utf-8"); } catch { continue; }
-    if (patterns.some((re) => re.test(content))) {
-      backlinks.push({ filename: relPath });
-    }
-  }
+  // Fast path: use the backlinks index. If the index is missing/stale, the
+  // loader lazily rebuilds it before returning.
+  const backlinks = getBacklinksForNode(workspace, node.id)
+    // Backlinks excludes the node's own/supplemental files based on stem.
+    .filter((relPath) => relPath.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_") !== nodeId)
+    .map((filename) => ({ filename }));
 
   res.setHeader("Cache-Control", "no-store");
   res.status(200).json({ backlinks });

@@ -1,0 +1,18 @@
+{
+  "id": "polycentric",
+  "name": "Polycentric",
+  "type": "concept",
+  "excerpt": "Polycentric managers prioritize foreign influence in business.",
+  "connections": [
+    {
+      "target": "global_management",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Polycentric managers believe that foreign influence is more important, as native people already know how to run native businesses.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_6_2020.md",
+  "createdAt": 1776913837260,
+  "updatedAt": 1776913837260,
+  "context_summary": "- Polycentric managers prioritize foreign influence in business.\n- They believe native people know how to run local businesses."
+}

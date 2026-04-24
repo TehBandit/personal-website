@@ -1,0 +1,18 @@
+{
+  "id": "edwards_deming",
+  "name": "Edwards Deming",
+  "type": "person",
+  "excerpt": "Edwards Deming influenced the Quality Revolution in Japan.",
+  "connections": [
+    {
+      "target": "management_history",
+      "label": "influenced by"
+    }
+  ],
+  "notes": "Edwards Deming was instrumental in the Quality Revolution, teaching Japanese manufacturers about quality management, which led to Japan's rise in manufacturing quality post-WWII.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_1_28_2020.md",
+  "createdAt": 1776913737792,
+  "updatedAt": 1776913737792,
+  "context_summary": "- Influenced the Quality Revolution in Japan.\n- Taught Japanese manufacturers about quality management.\n- Contributed to Japan's rise in manufacturing quality post-WWII."
+}

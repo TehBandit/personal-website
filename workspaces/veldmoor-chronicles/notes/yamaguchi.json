@@ -19,5 +19,9 @@
       "label": "attends"
     }
   ],
-  "createdAt": 1774273238826
+  "createdAt": 1774273238826,
+  "tags": [
+    "new",
+    "thing"
+  ]
 }

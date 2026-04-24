@@ -1,0 +1,44 @@
+**<u>The Triple Bottom Line</u>**
+
+- *The Triple Bottom Line*
+  - **Triple Bottom Line** - People, planet, profit
+    - Can be measured through a **social audit**
+      - How a company measures up to predefined social goals
+  - **Stakeholders** - All people whose interests are affected by a firm’s actions
+    - **Internal Stakeholders**
+      - Employees, owners, board of directors
+      - Within the firm
+    - **External Stakeholders**
+      - Others affected by the firm’s actions
+      - **The Task Environment**
+        - Customers, competitors, suppliers, distributors, allies, unions, communities, financial institutions, government regulators, interest groups, etc.
+      - **The General Environment** - The macro environment
+        - Economic, technological, sociocultural, demographic, political, and international forces
+  - **Business Ethics**
+    - **Ethics** - A set of moral principles or values that defines right and wrong
+    - **Ethical Dilemma** - A situation that may have benefit but may be unethical or illegal
+      - **Utilitarianism** - Greatest good for greatest amount of people
+      - **Individualism** - Acting in one’s own long term self interest
+        - Hopes that what is good for the one will eventually provide good to all
+      - **Moral-Rights Approach** - Respecting the basic rights of all people
+      - **Justice Approach** - Treating all people the same way
+    - **Insider Trading** - illegal trading of a company's stock based on confidential information not released to the public
+    - **Sarbanes-Oxley Reform Act** - Required proper financial record keeping
+    - **Moral Development**
+      - Theorized by Laurence Kohlberg
+      - Level 1 - **Preconventional**
+        - Follow the rules to avoid negative consequences
+      - Level 2 - **Conventional**
+        - Follow expectations of others to conform to society
+      - Level 3 - **Postconventional**
+        - Set own values and lead others to follow the same values
+    - **Social Responsibility** - Responsibilities to not only benefit the firm, but the greater society as well
+      - **Shareholder View** - Only responsibility is profit
+      - **Stakeholder View** - Responsibility to people, profit, and planet
+      - Be philanthropic
+        - **Philanthropy** - Giving back to the community
+        - **Sustainability** - Conserving natural resources and limiting pollution
+      - Be ethical
+      - Be legal
+      - Be profitable
+    - **Corporate Governance** - The act of running a company such that all stakeholders are protected

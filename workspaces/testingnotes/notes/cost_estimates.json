@@ -1,0 +1,18 @@
+{
+  "id": "cost_estimates",
+  "name": "Cost Estimates",
+  "type": "concept",
+  "excerpt": "Cost Estimates involve predicting the financial resources needed for a project.",
+  "connections": [],
+  "notes": "Cost Estimates include analogous estimates (comparison with similar projects), bottom-up estimates (summing individual activity costs), and parametric modeling (based on material costs). These estimates contribute to cost budgeting and creating a cost baseline.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_26_2020.md",
+  "createdAt": 1776286407104,
+  "updatedAt": 1776286407104,
+  "context_summary": [
+    "- Involve predicting financial resources needed for a project.",
+    "- Include analogous estimates, bottom-up estimates, and parametric modeling.",
+    "- Contribute to cost budgeting.",
+    "- Help create a cost baseline."
+  ]
+}

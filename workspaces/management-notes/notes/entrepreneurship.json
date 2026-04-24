@@ -1,0 +1,18 @@
+{
+  "id": "entrepreneurship",
+  "name": "Entrepreneurship",
+  "type": "concept",
+  "excerpt": "Entrepreneurship involves creating and managing new business ventures.",
+  "connections": [
+    {
+      "target": "managing_change",
+      "label": "essential element of"
+    }
+  ],
+  "notes": "Entrepreneurship is closely linked to innovation and managing change.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_3_24_2020.md",
+  "createdAt": 1776913856068,
+  "updatedAt": 1776913856068,
+  "context_summary": "- Involves creating and managing new business ventures.\n- Closely linked to innovation.\n- Involves managing change."
+}

@@ -1,0 +1,18 @@
+{
+  "id": "implicit_bias",
+  "name": "Implicit Bias",
+  "type": "concept",
+  "excerpt": "Implicit Bias involves subconscious influences on perception and behavior.",
+  "connections": [
+    {
+      "target": "diversity",
+      "label": "affects"
+    }
+  ],
+  "notes": "Implicit Bias is one of the five distortions in perceptions that can affect organizational behavior and employee behavior. It involves subconscious expectations that can direct reality.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_3_31_2020.md",
+  "createdAt": 1776913872950,
+  "updatedAt": 1776913872950,
+  "context_summary": "- Involves subconscious influences on perception\n- Affects organizational behavior\n- Affects employee behavior\n- Directs reality through subconscious expectations"
+}

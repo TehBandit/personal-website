@@ -1,0 +1,18 @@
+{
+  "id": "ledbetter_fair_pay_act",
+  "name": "Ledbetter Fair Pay Act",
+  "type": "concept",
+  "excerpt": "The Ledbetter Fair Pay Act allows lawsuits for pay discrimination within 180 days of each discriminatory paycheck.",
+  "connections": [
+    {
+      "target": "human_resource_management",
+      "label": "appears in"
+    }
+  ],
+  "notes": "The Ledbetter Fair Pay Act was enacted after a woman successfully sued for being paid less than her male counterparts for 19 years. It allows individuals to file a lawsuit for pay discrimination within 180 days of receiving a discriminatory paycheck.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_3_5_2020.md",
+  "createdAt": 1776913889266,
+  "updatedAt": 1776913889266,
+  "context_summary": "- Allows lawsuits for pay discrimination.\n- Lawsuits can be filed within 180 days of receiving a discriminatory paycheck.\n- Enacted after a woman sued for being paid less than male counterparts for 19 years."
+}

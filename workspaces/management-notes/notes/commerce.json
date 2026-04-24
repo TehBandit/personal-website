@@ -1,0 +1,22 @@
+{
+  "id": "commerce",
+  "name": "Commerce",
+  "type": "concept",
+  "excerpt": "Commerce is the exchange of goods and services.",
+  "connections": [
+    {
+      "target": "management",
+      "label": "appears in"
+    },
+    {
+      "target": "global_management",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Commerce involves the exchange of goods and services, which is mutually beneficial for all parties involved. It improves the standard of living through the invisible hand, where individuals specialize in what they do best and provide that to society.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_1_23_2020.md",
+  "createdAt": 1776913717648,
+  "updatedAt": 1776913837265,
+  "context_summary": "- Involves the exchange of goods and services.\n- Mutually beneficial for all parties involved.\n- Improves standard of living through specialization."
+}

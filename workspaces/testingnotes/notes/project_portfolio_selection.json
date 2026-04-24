@@ -1,0 +1,13 @@
+{
+  "id": "project_portfolio_selection",
+  "name": "Project Portfolio Selection",
+  "type": "concept",
+  "excerpt": "Project Portfolio Selection focuses on maximizing business value.",
+  "connections": [],
+  "notes": "Project Portfolio Selection involves selecting projects that provide the most business value, considering factors like venture projects for innovation, growth projects for revenue increase, and core projects for maintaining operations.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_12_2020.md",
+  "createdAt": 1776286362369,
+  "updatedAt": 1776286362369,
+  "context_summary": "- Focuses on maximizing business value\n- Selects projects for innovation, growth, and operations\n- Considers various project types"
+}

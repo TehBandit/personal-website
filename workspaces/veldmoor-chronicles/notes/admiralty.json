@@ -25,5 +25,8 @@
     "- The Cartographic Division is a branch of the Admiralty.",
     "- Operates out of the Admiralty's main building in Tiveck."
   ],
-  "createdAt": 1773692222103
+  "createdAt": 1773692222103,
+  "tags": [
+    "new"
+  ]
 }

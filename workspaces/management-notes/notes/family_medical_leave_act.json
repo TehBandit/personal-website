@@ -1,0 +1,18 @@
+{
+  "id": "family_medical_leave_act",
+  "name": "Family Medical Leave Act",
+  "type": "concept",
+  "excerpt": "The Family Medical Leave Act allows employees to take unpaid leave for family and medical reasons.",
+  "connections": [
+    {
+      "target": "human_resource_management",
+      "label": "appears in"
+    }
+  ],
+  "notes": "The Family Medical Leave Act provides eligible employees with up to 12 weeks of unpaid leave per year for certain family and medical reasons while maintaining job protection.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_3_5_2020.md",
+  "createdAt": 1776913889268,
+  "updatedAt": 1776913889268,
+  "context_summary": "- Allows employees to take unpaid leave for family and medical reasons.\n- Provides up to 12 weeks of unpaid leave per year.\n- Maintains job protection during leave."
+}

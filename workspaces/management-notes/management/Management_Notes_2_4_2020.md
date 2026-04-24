@@ -1,0 +1,27 @@
+**<u>Business Ethics</u>**
+
+- *Ethics*
+  - **Ethics** - A set of moral principles or values that defines right and wrong
+    - *What motivates people to behave unethically?*
+      - **Pressure to meet goals and deadlines**
+    - *Why behave ethically?*
+      - Society demands ethics
+        - Sarbanes-Oxley Act (2002)
+        - US Sentencing Commission Guidelines for Organizations (1991)
+          - Holds managers/directors directly accountable for unethical behavior within company
+      - Influence
+        - People will follow your example
+        - Managers should walk the walk, talk the talk, don’t set employees up to to fail
+    - Critical Thinking Errors
+      - Entitlement
+      - Seemingly Unimportant Decisions (SUD’s)
+      - Rationalization
+      - Situational Ethics
+      - Takeaway
+        - **Beware slippery slope**
+        - **Establish your own moral standards now**
+        - *Would you be proud to see your decision on the front page?*
+  - **Ethical Dilemmas**
+    - Doing the “right thing” vs acting in your own self interest
+    - Choices that affect stakeholders differently
+      - Some decisions will help one group, but harm another

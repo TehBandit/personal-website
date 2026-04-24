@@ -1,0 +1,18 @@
+{
+  "id": "management_history",
+  "name": "Management History",
+  "type": "topic",
+  "excerpt": "Management History traces the evolution of management practices from pre-industrial times to modern approaches.",
+  "notes": "Management History\n\nHistoric Management\n\nPre-Industrial \n\nNo real management\n\nIndustrial Revolution\n\nIntroduction of the factory introduced a need for management\n\nDivision of labor\n\nBreaking up of tasks into individual parts\n\nScientific Management\n\nPioneered by Frederick Taylor\n\nFinding the most efficient way to do a task\n\nTime and Motion Studies\n\nThe Great Depression\n\nHuman Relations Approach\n\nWhat is best for the workers is what’s best for the organization\n\nHawthorne Effect\n\nIncrease in productivity regardless of change in dependent variable, due to the workers knowing they are being observed\n\nTheory X - People are lazy, and will not want to work unless prodded\n\nTheory Y - People will do a good job if they are given the necessary tools\n\nWorld War II\n\nQuantitative Approach\n\nUse of mathematical tools in decision making\n\nCost benefit analysis, optimum inventory levels, etc.\n\nPost-WWII\n\nDecline in American manufacturing\n\nJapan previously was associated with poor quality, then slowly rose to popularity\n\nLearned from Edwards Deming\n\n“If Japan can… why can’t we?”\n\nLead to the Quality Revolution\n\nQuality Management Approach",
+  "connections": [
+    {
+      "target": "management",
+      "label": "related to management practices"
+    }
+  ],
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_1_28_2020.md",
+  "documentNode": true,
+  "createdAt": 1776913728964,
+  "updatedAt": 1776913728964
+}

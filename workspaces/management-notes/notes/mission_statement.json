@@ -1,0 +1,18 @@
+{
+  "id": "mission_statement",
+  "name": "Mission Statement",
+  "type": "concept",
+  "excerpt": "A mission statement expresses a firm's purpose and core values.",
+  "connections": [
+    {
+      "target": "planning_and_strategy",
+      "label": "appears in"
+    }
+  ],
+  "notes": "The mission statement includes major products/services, customer base, technology, and basic beliefs and attitudes. It is part of a firm's values along with the vision statement.\n\nA mission statement provides focus and details a firm's purpose for being.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_10_2020.md",
+  "createdAt": 1776913763514,
+  "updatedAt": 1776913779036,
+  "context_summary": "- Expresses a firm's purpose\n- Includes major products/services and customer base\n- Reflects technology and basic beliefs\n- Provides focus for the firm"
+}

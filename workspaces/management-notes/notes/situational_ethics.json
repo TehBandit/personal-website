@@ -1,0 +1,18 @@
+{
+  "id": "situational_ethics",
+  "name": "Situational Ethics",
+  "type": "concept",
+  "excerpt": "Situational ethics involves making ethical decisions based on context.",
+  "connections": [
+    {
+      "target": "business_ethics",
+      "label": "related to"
+    }
+  ],
+  "notes": "Situational ethics refers to the idea that ethical decisions should be made based on the specific context of a situation, rather than fixed laws or rules. This approach can lead to ethical dilemmas where the 'right' choice is not clear-cut.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_4_2020.md",
+  "createdAt": 1776913811296,
+  "updatedAt": 1776913811296,
+  "context_summary": "- Involves making ethical decisions based on context.\n- Suggests that decisions should not be based on fixed laws.\n- Can lead to ethical dilemmas."
+}

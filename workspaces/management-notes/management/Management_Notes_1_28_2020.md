@@ -1,0 +1,31 @@
+**<u>Management History</u>**
+
+- *Historic Management*
+  - **Pre-Industrial** 
+    - No real management
+  - **Industrial Revolution**
+    - Introduction of the factory introduced a need for management
+    - Division of labor
+      - Breaking up of tasks into individual parts
+    - **Scientific Management**
+      - Pioneered by Frederick Taylor
+      - Finding the most efficient way to do a task
+      - **Time and Motion Studies**
+  - **The Great Depression**
+    - **Human Relations Approach**
+      - What is best for the workers is what’s best for the organization
+    - **Hawthorne Effect**
+      - Increase in productivity regardless of change in dependent variable, due to the workers knowing they are being observed
+    - **Theory X -** People are lazy, and will not want to work unless prodded
+    - **Theory Y -** People will do a good job if they are given the necessary tools
+  - **World War II**
+    - **Quantitative Approach**
+      - Use of mathematical tools in decision making
+        - Cost benefit analysis, optimum inventory levels, etc.
+  - **Post-WWII**
+    - Decline in American manufacturing
+    - Japan previously was associated with poor quality, then slowly rose to popularity
+      - Learned from Edwards Deming
+      - “If Japan can… why can’t we?”
+        - Lead to the **Quality Revolution**
+          - **Quality Management Approach**

@@ -1,0 +1,13 @@
+{
+  "id": "resource_levelling",
+  "name": "Resource Levelling",
+  "type": "concept",
+  "excerpt": "Resource Levelling resolves resource conflicts by delaying tasks.",
+  "connections": [],
+  "notes": "Resource Levelling is a technique in project management used to resolve resource conflicts by delaying tasks to ensure resources are not over-allocated.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_8_3_2020.md",
+  "createdAt": 1776286483060,
+  "updatedAt": 1776286483060,
+  "context_summary": "- Resolves resource conflicts by delaying tasks.\n- Ensures resources are not over-allocated."
+}

@@ -1,0 +1,18 @@
+{
+  "id": "americans_with_disabilities_act",
+  "name": "Americans with Disabilities Act",
+  "type": "concept",
+  "excerpt": "The Americans with Disabilities Act prohibits discrimination based on disability.",
+  "connections": [
+    {
+      "target": "human_resource_management",
+      "label": "appears in"
+    }
+  ],
+  "notes": "The Americans with Disabilities Act ensures that individuals with disabilities are not discriminated against in the workplace and are provided with reasonable accommodations.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_3_5_2020.md",
+  "createdAt": 1776913889267,
+  "updatedAt": 1776913889267,
+  "context_summary": "- Prohibits discrimination based on disability.\n- Ensures reasonable accommodations for individuals with disabilities in the workplace."
+}

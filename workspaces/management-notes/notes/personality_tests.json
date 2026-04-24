@@ -1,0 +1,18 @@
+{
+  "id": "personality_tests",
+  "name": "Personality Tests",
+  "type": "concept",
+  "excerpt": "Personality tests assess traits to predict job performance.",
+  "connections": [
+    {
+      "target": "diversity",
+      "label": "used in"
+    }
+  ],
+  "notes": "Personality tests are used to understand individual differences, such as extraversion, emotional stability, agreeableness, conscientiousness, and openness to experience. They should have high validity and are meant to predict job performance, with high scores correlating with high job performance.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_3_31_2020.md",
+  "createdAt": 1776913872950,
+  "updatedAt": 1776913872950,
+  "context_summary": "- Assess traits to predict job performance\n- Used to understand individual differences\n- Measures traits like extraversion and emotional stability\n- Should have high validity\n- High scores correlate with high job performance"
+}

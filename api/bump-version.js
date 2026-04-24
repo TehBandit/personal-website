@@ -1,8 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { walkBasenameMap, normalizeSourceFile } from "./_walk.js";
-
-const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
+import { WORKSPACES_DIR } from "./_storygraph-paths.js";
 
 /**
  * Write a lightweight version token to workspaces/{workspace}/notes-version.json.
@@ -156,7 +155,7 @@ export function rebuildGraphCache(workspace, notesDir) {
 
     for (const { data } of allData) {
       if (data.__purged) continue;
-      const { id, name, type, excerpt, notes, aliases, tags, disambiguation, context_summary, sourceFile, additionalSourceFiles, createdAt, updatedAt, connections = [] } = data;
+      const { id, name, type, excerpt, notes, aliases, tags, disambiguation, context_summary, sourceFile, originSourceFile, additionalSourceFiles, documentNode, createdAt, updatedAt, connections = [] } = data;
 
       // For nodes that own a dedicated raw file, embed a truncated preview of
       // that file's content (heading stripped) so the graph panel can show it
@@ -194,10 +193,12 @@ export function rebuildGraphCache(workspace, notesDir) {
         notes: notes || "",
         aliases: aliases || [],
         tags: tags || [],
+        ...(originSourceFile ? { originSourceFile } : {}),
         sourceFile: resolvedSourceFile,
         ...(additionalSourceFiles?.length ? { additionalSourceFiles } : {}),
         ...(disambiguation ? { disambiguation } : {}),
         ...(context_summary ? { context_summary } : {}),
+        ...(documentNode ? { documentNode } : {}),
         ...(filePreview !== null ? { filePreview } : {}),
         ...(createdAt ? { createdAt } : {}),
         ...(updatedAt ? { updatedAt } : {}),
@@ -221,4 +222,9 @@ export function rebuildGraphCache(workspace, notesDir) {
   } catch {
     // non-fatal — story-notes.js falls back to the N+1 scan
   }
+}
+
+export function syncWorkspaceAfterWrite(workspace, notesDir) {
+  rebuildGraphCache(workspace, notesDir);
+  bumpWorkspaceVersion(workspace);
 }

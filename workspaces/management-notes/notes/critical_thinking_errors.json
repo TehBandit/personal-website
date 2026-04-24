@@ -1,0 +1,18 @@
+{
+  "id": "critical_thinking_errors",
+  "name": "Critical Thinking Errors",
+  "type": "concept",
+  "excerpt": "Critical thinking errors include entitlement, SUDs, and rationalization.",
+  "connections": [
+    {
+      "target": "business_ethics",
+      "label": "related to"
+    }
+  ],
+  "notes": "Critical thinking errors such as entitlement, seemingly unimportant decisions (SUDs), and rationalization can lead to unethical behavior. These errors highlight the importance of maintaining ethical standards and awareness.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_4_2020.md",
+  "createdAt": 1776913811296,
+  "updatedAt": 1776913811296,
+  "context_summary": "- Includes entitlement, seemingly unimportant decisions (SUDs), and rationalization.\n- Can lead to unethical behavior.\n- Highlights the importance of maintaining ethical standards."
+}

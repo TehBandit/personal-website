@@ -1,0 +1,18 @@
+{
+  "id": "managerial_roles",
+  "name": "Managerial Roles",
+  "type": "concept",
+  "excerpt": "Managerial roles include interpersonal, informational, and decisional functions.",
+  "connections": [
+    {
+      "target": "management",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Managerial roles encompass interpersonal roles (interacting with others), informational roles (handling information for decision-making), and decisional roles (using information to solve problems and seize opportunities).",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_1_23_2020.md",
+  "createdAt": 1776913717649,
+  "updatedAt": 1776913717649,
+  "context_summary": "- Includes interpersonal, informational, and decisional functions.\n- Interpersonal roles involve interacting with others.\n- Informational roles handle information for decision-making.\n- Decisional roles use information to solve problems."
+}

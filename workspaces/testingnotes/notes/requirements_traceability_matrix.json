@@ -1,0 +1,13 @@
+{
+  "id": "requirements_traceability_matrix",
+  "name": "Requirements Traceability Matrix (RTM)",
+  "type": "concept",
+  "excerpt": "RTM lists requirements and tracks their fulfillment.",
+  "connections": [],
+  "notes": "The Requirements Traceability Matrix (RTM) is a table that lists requirements and various attributes, tracking how close the project is to meeting those requirements. It is a tool used in project scope management to ensure all requirements are met and verified.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_19_2020.md",
+  "createdAt": 1776286384672,
+  "updatedAt": 1776286384672,
+  "context_summary": "- Lists requirements and various attributes.\n- Tracks fulfillment of requirements.\n- Ensures all requirements are met and verified."
+}

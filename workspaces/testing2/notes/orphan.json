@@ -1,0 +1,12 @@
+{
+  "id": "orphan",
+  "name": "orphan",
+  "type": "entity",
+  "excerpt": "",
+  "notes": "",
+  "aliases": [],
+  "connections": [],
+  "sourceFile": "test/orphan.md",
+  "createdAt": 1776890596859,
+  "updatedAt": 1776890623465
+}

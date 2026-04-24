@@ -1,0 +1,18 @@
+{
+  "id": "geocentric",
+  "name": "Geocentric",
+  "type": "concept",
+  "excerpt": "Geocentric managers accept differences and benefits of both foreign and local practices.",
+  "connections": [
+    {
+      "target": "global_management",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Geocentric managers accept that there are differences and benefits to both foreign and local practices, promoting a balanced approach.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_6_2020.md",
+  "createdAt": 1776913837261,
+  "updatedAt": 1776913837261,
+  "context_summary": "- Geocentric managers accept differences in foreign and local practices.\n- They promote a balanced approach."
+}

@@ -1,0 +1,50 @@
+**<u>Diversity</u>**
+
+- *Diversity*
+  - Diversity - Anything that makes us different
+    - **Stable Traits** - Relatively constant throughout your life
+      - Cognitive Ability (IQ), Personality, etc...
+      - Can help place employees into the correct jobs
+      - **Personality** - How you typically behave
+        - **Understanding Individual Differences**
+          - Extraversion
+          - Emotional Stability
+          - Agreeableness
+          - Conscientiousness
+          - Openness to Experience
+        - Can be tested for through **personality tests**
+          - Should have high **validity**
+            - Meant to **predict job performance**
+              - High score of predictor should correlate with high job performance
+    - **Dynamic Traits** - Can change throughout life or after a major event
+      - Attitudes, emotions, values, etc…
+      - **Attitude** - Collection of feelings and beliefs about something
+        - Affective - Your feelings toward the thing
+        - Cognitive - What you believe to be true
+        - Behavioral - How you act
+          - Affects **Organizational Behavior**
+            - **Impact on Employee Behavior**
+              - Five distortions in perceptions
+              - Implicit Bias
+              - Self-Fulfilling Prophecies
+                - **Expectations** can subconsciously direct reality
+      - **Emotions** - How people react to external stimuli
+        - It is an **affective** response cause by a **strong feeling** and a **propensity to act**
+        - It’s not about having emotions, it’s how we **manage them**
+        - **Core Emotions**
+          - Happy
+          - Sad
+          - Angry
+          - Surprised
+          - Disgust
+        - **Components of Emotional Intelligence**
+          - **Personal Competence**
+            - Self Awareness
+            - Self Management
+          - **Social Competence**
+            - Social Awareness
+            - Relationship Management
+          - Can be measured **emotional intelligence** *(EI)* or the **emotional quotient** *(EQ)*
+            - Same thing
+            - Can be developed over time with intentional effort
+  - Management by Objectives

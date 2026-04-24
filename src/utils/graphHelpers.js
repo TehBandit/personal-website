@@ -1,3 +1,5 @@
+import { extractTitleFromContent as extractSharedTitleFromContent } from "../../shared/story-rules.js";
+
 /**
  * Compute the set of node IDs that "own" a dedicated file.
  *
@@ -34,7 +36,56 @@ export function computeOwnFileIds(nodes, files) {
   const normalizedIds = new Set(
     files.map((f) => normalizeToId(f.filename.split("/").pop().replace(/\.(md|txt)$/i, "")))
   );
+
+  // Pre-compute which files are already "stem-claimed" by a node whose ID naturally
+  // maps to that filename. Rule 3 must NOT fire for these files, otherwise nodes
+  // extracted FROM another character's file (e.g. "sunken_ledger" extracted from
+  // "fen-caldra.md") would incorrectly inherit that file as their own and show as
+  // coloured on the graph even though no dedicated file exists for them.
+  //
+  // e.g. "fen-caldra.md" → stem "fen_caldra" → nodeIds has "fen_caldra" → stem-claimed.
+  // "BIT_4484_Notes.md" → stem "bit_4484_notes" → no such node → NOT stem-claimed,
+  // so content-title-derived nodes (monitoring_and_controlling_chapter_8) still work.
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  const stemClaimedFiles = new Set();
+  for (const file of files) {
+    const base = file.filename.split("/").pop().toLowerCase().replace(/\.(md|txt)$/i, "");
+    const underVariant = base.replace(/-/g, "_");
+    const hyphenVariant = base.replace(/_/g, "-");
+    const normVariant   = normalizeToId(base);
+    if (nodeIds.has(underVariant) || nodeIds.has(hyphenVariant) || nodeIds.has(normVariant)) {
+      stemClaimedFiles.add(file.filename.toLowerCase());
+    }
+  }
+
   const ids = new Set();
+
+  // Pre-compute which single node "owns" each (non-stem-claimed) sourceFile for Rule 3.
+  // When multiple nodes share a sourceFile (e.g. a document node + extracted entities
+  // that were pulled from that document), ONLY the primary document node should be
+  // coloured. Preference:
+  //   1. documentNode: true  — explicitly flagged by story-extract as the document owner
+  //   2. Longest notes field — document nodes store the full raw text; extracted
+  //      entities have minimal/empty notes. This fallback handles data uploaded before
+  //      the documentNode flag existed.
+  const sourceFileOwners = new Map(); // lowercase sourceFile → owning node
+  for (const node of nodes) {
+    if (!node.sourceFile) continue;
+    const sfKey = node.sourceFile.toLowerCase();
+    // Only consider files that pass the Rule 3 guard (exist + not stem-claimed)
+    if (!fileSet.has(sfKey) || stemClaimedFiles.has(sfKey)) continue;
+    const existing = sourceFileOwners.get(sfKey);
+    if (!existing) {
+      sourceFileOwners.set(sfKey, node);
+    } else if (node.documentNode && !existing.documentNode) {
+      // Explicit document node always wins
+      sourceFileOwners.set(sfKey, node);
+    } else if (!existing.documentNode && !node.documentNode &&
+               (node.notes?.length ?? 0) > (existing.notes?.length ?? 0)) {
+      // Neither flagged — prefer the one with more content (the source document)
+      sourceFileOwners.set(sfKey, node);
+    }
+  }
 
   for (const node of nodes) {
     // 1. Merged nodes: one or more constituent files still exist in the workspace.
@@ -50,6 +101,15 @@ export function computeOwnFileIds(nodes, files) {
       basenames.has(stemUnder  + ".md") || basenames.has(stemUnder  + ".txt") ||
       normalizedIds.has(node.id)
     ) {
+      ids.add(node.id);
+      continue;
+    }
+    // 3. sourceFile match — covers nodes whose ID was derived from the content title
+    //    rather than the filename (e.g. story-extract uploads where the file is
+    //    "BIT_4484_Notes.md" but the node ID is "monitoring_and_controlling_chapter_8").
+    //    Only ONE node per sourceFile may claim ownership here: the documentNode (if
+    //    flagged) or the node with the most notes content (for pre-flag data).
+    if (node.sourceFile && sourceFileOwners.get(node.sourceFile.toLowerCase())?.id === node.id) {
       ids.add(node.id);
     }
   }
@@ -139,3 +199,5 @@ export function resolveNodeFilename(nodeId, basenameMap) {
     null
   );
 }
+
+export const extractTitleFromContent = extractSharedTitleFromContent;

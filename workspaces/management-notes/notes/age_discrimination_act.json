@@ -1,0 +1,18 @@
+{
+  "id": "age_discrimination_act",
+  "name": "Age Discrimination Act",
+  "type": "concept",
+  "excerpt": "The Age Discrimination Act prohibits discrimination against individuals over 40.",
+  "connections": [
+    {
+      "target": "human_resource_management",
+      "label": "appears in"
+    }
+  ],
+  "notes": "The Age Discrimination Act makes it illegal to discriminate against employees or job applicants who are over the age of 40.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_3_5_2020.md",
+  "createdAt": 1776913889267,
+  "updatedAt": 1776913889267,
+  "context_summary": "- Prohibits discrimination against individuals over 40.\n- Applies to employees and job applicants."
+}

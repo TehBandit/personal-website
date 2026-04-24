@@ -1,0 +1,92 @@
+**<u>Global Management</u>**
+
+- *Global Management*
+  - **Globalization** - the trend of the world economy toward becoming a more interdependent system
+    - *“Collapse of time and distance”*
+    - Decline in barriers to trade
+    - **Global Village**
+      - Refers to the shrinking of time and space as air travel and electronic media make it easier to communicate around the globe
+      - The world is becoming smaller
+    - **E-commerce** - Buying and selling products and services online
+    - **The Global Economy**
+      - Refers to the increasing tendency of economies to interact with one another as one market instead of many separate markets
+      - Pros
+        - Speed
+        - Dissemination of information
+        - Competition
+      - Cons
+        - Job loss
+        - Data security
+      - **Expatriates** - A person leaving their home country to work
+        - Success is measured by if they stay for the full length of their assignment
+        - **Host-Country National** - Opening a venture in another country, then hiring a manager from that country to run the business
+    - Mini Firms Worldwide
+      - Small companies can get started easily via the internet
+      - Small companies can change direction faster than large companies
+    - **Challenges of Globalization**
+      - Language
+      - Culture
+      - Legal
+        - Bribery and Corruption
+          - Some places laws are more lenient
+      - Political
+  - **International Management**
+    - People look for people with **cross-cultural awareness**, the ability to adapt and operate in different cultural settings
+    - **Multinational Corporation** - A firm with operations in several countries
+      - **Multinational Organization** - Nonprofit
+    - **Managers**
+      - **Ethnocentric** - Believe that their native country and culture are superior to others
+        - Also called **parochialism**
+      - **Polycentric** - Believe that foreign influence is more important, as native people already know how to run native businesses
+      - **Geocentric** - Accept there are differences and benefits to both foriegn and local practices
+  - **Why Firms Go International**
+    - Availability of supplies
+    - New markets
+    - Low labor costs
+      - **Maquiladoras** - Foreign manufacturing plants allowed to operate in Mexico with special privileges if they employ mexican citizens.
+    - Access to capital
+    - Avoidance of tariffs/quotas
+  - **How Firms Go International**
+    - **Outsourcing** - Using outside suppliers to provide goods and services
+      - **Global outsourcing** - Using suppliers outside the United States
+        - Also called **offshoring**
+    - **Global Trade**
+      - Importing, exporting
+      - **Countertrading** - barterings goods for goods
+    - **Licensing** - Pay a fee to make or distribute the first company’s product or service
+    - **Franchising**
+    - **Joint Ventures**
+    - **Wholly Owned Subsidiary**
+      - Greenfield Venture - A foreign subsidiary that the owning organization has built from scratch
+  - **International Trade**
+    - **Free Trade** - the movement of goods and service among nations without political or economic obstruction
+    - **Trade Protectionism** - The use of regulation to limit imports
+      - Protect domestic industries
+      - Tariffs - Trade barrier in the form of a tax on imports
+      - Sanctions - Prohibition on certain types of products
+    - **Trading Blocs** - An economic community that have agreed to remove trade barriers with one another
+      - NAFTA, EU
+      - **Most Favored Nation** trading allows favorable trading treatment like reduction of import duties
+      - BRICS
+        - Brazil, Russia, India, China, S Africa
+  - **Culture**
+    - **Hofstede Model of Four Cultural Dimensions**
+      - **Individualism / Collectivism**
+        - How much people are expected to look after one another
+        - How closely people feel ties to those in their community
+      - **Power Distance**
+        - Degree to which people accept inequality
+      - **Uncertainty Avoidance**
+        - Tolerance for risk or ambiguity
+      - **Masculinity / Femininity**
+        - Gender equality
+      - Good managers should know how to operate in more than just the culture they come from
+    - **GLOBE Cultural Dimensions**
+      - Power Distance
+      - Uncertainty Avoidance
+      - **Institutional Collectivism** - How much leaders should reward loyalty to the social unit
+      - **In-group Collectivism** - How much pride one should have for their family, friends, or group
+      - **Gender Egalitarianism** - How much gender differences should be minimized
+      - Assertiveness
+      - **Performance Orientation** - How much people should be rewarded for good performance
+      - Humane Orientation - How good people ought to be

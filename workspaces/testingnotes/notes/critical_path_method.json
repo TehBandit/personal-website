@@ -1,0 +1,18 @@
+{
+  "id": "critical_path_method",
+  "name": "Critical Path Method",
+  "type": "concept",
+  "excerpt": "The Critical Path Method determines the shortest time to complete a project.",
+  "connections": [],
+  "notes": "The Critical Path Method involves identifying critical activities with zero slack, which cannot be delayed without affecting the project timeline. It uses a two-pass process (forward and backward) to determine the shortest project duration.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_26_2020.md",
+  "createdAt": 1776286407103,
+  "updatedAt": 1776286407103,
+  "context_summary": [
+    "- Determines the shortest time to complete a project.",
+    "- Identifies critical activities with zero slack.",
+    "- Uses a two-pass process: forward and backward.",
+    "- Critical activities cannot be delayed without affecting the timeline."
+  ]
+}

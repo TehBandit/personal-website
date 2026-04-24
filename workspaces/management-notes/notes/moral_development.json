@@ -1,0 +1,18 @@
+{
+  "id": "moral_development",
+  "name": "Moral Development",
+  "type": "concept",
+  "excerpt": "Moral development involves stages of ethical reasoning theorized by Laurence Kohlberg.",
+  "connections": [
+    {
+      "target": "the_triple_bottom_line",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Moral development, theorized by Laurence Kohlberg, includes three levels: preconventional, conventional, and postconventional. Each level represents a stage of ethical reasoning, from following rules to avoid consequences to setting personal values.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_1_29_2020.md",
+  "createdAt": 1776913750245,
+  "updatedAt": 1776913750245,
+  "context_summary": "- Involves stages of ethical reasoning.\n- Theorized by Laurence Kohlberg.\n- Includes three levels: preconventional, conventional, and postconventional."
+}

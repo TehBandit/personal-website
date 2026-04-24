@@ -1,0 +1,17 @@
+{
+  "id": "pareto_chart",
+  "name": "Pareto Chart",
+  "type": "concept",
+  "excerpt": "Pareto Chart is a bar chart with a cumulative percentage line, used to identify major causes of problems.",
+  "connections": [],
+  "notes": "The Pareto Chart is based on the 80/20 rule, suggesting that 80% of problems come from 20% of causes. It helps prioritize issues in project management.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1776286504791,
+  "updatedAt": 1776286504791,
+  "context_summary": [
+    "- A bar chart with a cumulative percentage line.",
+    "- Used to identify major causes of problems.",
+    "- Based on the 80/20 rule."
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "sarbanes_oxley_reform_act",
+  "name": "Sarbanes-Oxley Reform Act",
+  "type": "concept",
+  "excerpt": "The Sarbanes-Oxley Reform Act mandates proper financial record keeping.",
+  "connections": [
+    {
+      "target": "the_triple_bottom_line",
+      "label": "appears in"
+    },
+    {
+      "target": "business_ethics",
+      "label": "related to"
+    }
+  ],
+  "notes": "The Sarbanes-Oxley Reform Act was enacted to require proper financial record keeping and to prevent insider trading, which is the illegal trading of a company's stock based on confidential information.\n\nThe Sarbanes-Oxley Act (2002) emphasizes accountability for unethical behavior, holding managers and directors responsible for ensuring ethical practices within their organizations.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_1_29_2020.md",
+  "createdAt": 1776913750245,
+  "updatedAt": 1776913811299,
+  "context_summary": "- Mandates proper financial record keeping.\n- Aims to prevent insider trading.\n- Emphasizes accountability for unethical behavior."
+}

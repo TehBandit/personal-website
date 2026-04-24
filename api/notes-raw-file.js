@@ -1,10 +1,12 @@
 import fs from "fs";
 import path from "path";
 import { findDuplicate } from "./dedup-nodes.js";
-import { bumpWorkspaceVersion, rebuildGraphCache } from "./bump-version.js";
-import { walkRelPaths, walkAbsPaths, walkNodeIds, normalizeSourceFile } from "./_walk.js";
-
-const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
+import { syncWorkspaceAfterWrite } from "./bump-version.js";
+import { updateBacklinksIndexForFiles } from "./_backlinks-index.js";
+import { walkRelPaths, walkAbsPaths, walkNodeIds, normalizeSourceFile, extractTitleFromContent } from "./_walk.js";
+import { buildWordBoundaryPattern, collectGreedyMatches } from "../shared/story-rules.js";
+import { resolveWorkspaceDirs, WORKSPACES_DIR } from "./_storygraph-paths.js";
+import { ensureDir } from "./_storygraph-io.js";
 
 /** Collect relative paths of .md/.txt files, skipping excludeDir. */
 function scanRawFiles(dir, baseDir, excludeDir) {
@@ -12,12 +14,41 @@ function scanRawFiles(dir, baseDir, excludeDir) {
 }
 
 function resolveDirs(workspace) {
-  if (!workspace || !/^[a-z0-9-]+$/.test(workspace)) return null;
-  const wsDir = path.join(WORKSPACES_DIR, workspace);
+  const dirs = resolveWorkspaceDirs(workspace);
+  if (!dirs) return null;
   return {
-    dir: wsDir,
-    notesDir: path.join(wsDir, "notes"),
+    dir: dirs.wsDir,
+    notesDir: dirs.notesDir,
   };
+}
+
+/**
+ * Detect mentioned node IDs via greedy non-overlapping phrase matching.
+ * Longer names/aliases claim spans first so shorter substrings cannot steal
+ * matches inside those spans (e.g. "management" inside "management history").
+ */
+function collectGreedyMentionedNodeIds(content, nodeMap, sourceId) {
+  const candidates = [];
+  for (const [id, { terms }] of nodeMap) {
+    if (id === sourceId) continue;
+    for (const term of terms) {
+      candidates.push({
+        nodeId: id,
+        term,
+        patternSource: buildWordBoundaryPattern(term),
+      });
+    }
+  }
+
+  candidates.sort((a, b) => b.term.length - a.term.length || a.term.localeCompare(b.term));
+
+  const mentionedIds = new Set();
+  const matches = collectGreedyMatches(content, candidates);
+  for (const { item } of matches) {
+    mentionedIds.add(item.nodeId);
+  }
+
+  return mentionedIds;
 }
 
 /**
@@ -41,7 +72,7 @@ function getDefaultNodeType(workspace) {
  */
 function syncConnectionsForFile(filename, content, sourceId, notesDir) {
   if (!fs.existsSync(notesDir)) return;
-  const jsonFiles = fs.readdirSync(notesDir).filter((f) => f.endsWith(".json"));
+  const jsonFiles = fs.readdirSync(notesDir).filter((f) => f.endsWith(".json")).sort();
 
   // Build lookup: id → { data, path, patterns }
   const nodeMap = new Map();
@@ -50,22 +81,24 @@ function syncConnectionsForFile(filename, content, sourceId, notesDir) {
     let data;
     try { data = JSON.parse(fs.readFileSync(jPath, "utf-8")); } catch { continue; }
     if (!data.id || !data.name) continue;
-    const names = [data.name, ...(data.aliases || [])];
-    const patterns = names.map((n) => {
-      const esc = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return new RegExp(`\\b${esc}\\b`, "i");
-    });
-    nodeMap.set(data.id, { data, path: jPath, patterns });
+    const seenTerms = new Set();
+    const terms = [];
+    for (const value of [data.name, ...(data.aliases || [])]) {
+      if (typeof value !== "string") continue;
+      const term = value.trim();
+      if (!term) continue;
+      const key = term.toLowerCase();
+      if (seenTerms.has(key)) continue;
+      seenTerms.add(key);
+      terms.push(term);
+    }
+    nodeMap.set(data.id, { data, path: jPath, terms });
   }
 
   if (!nodeMap.has(sourceId)) return;
 
   // Determine which nodes are mentioned in content (excluding self)
-  const mentionedIds = new Set();
-  for (const [id, { patterns }] of nodeMap) {
-    if (id === sourceId) continue;
-    if (patterns.some((p) => p.test(content))) mentionedIds.add(id);
-  }
+  const mentionedIds = collectGreedyMentionedNodeIds(content, nodeMap, sourceId);
 
   // Update source node: set connections to exactly the mentioned set, preserving labels
   const { data: srcData, path: srcPath } = nodeMap.get(sourceId);
@@ -136,26 +169,32 @@ export default function handler(req, res) {
   if (req.method === "POST") {
     if (isFolder) {
       if (fs.existsSync(filePath)) return res.status(409).json({ error: "Folder already exists" });
-      fs.mkdirSync(filePath, { recursive: true });
+      ensureDir(filePath);
       return res.status(201).json({ path: filename });
     }
     if (fs.existsSync(filePath)) return res.status(409).json({ error: "File already exists" });
     const parentDir = path.dirname(filePath);
-    if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
+    ensureDir(parentDir);
     fs.writeFileSync(filePath, req.body?.content ?? "", "utf-8");
 
     // If a name is provided, create or attach the corresponding node JSON in notes/.
     // Importantly, dedupe against existing nodes first so adding a raw file for a grey
     // node does not spawn a second JSON for the same character/faction.
-    const { name: nodeName } = req.body || {};
-    if (nodeName && typeof nodeName === "string" && nodeName.trim()) {
-      const trimmedName = nodeName.trim().substring(0, 120);
+    const { name: nodeName, content: bodyContent } = req.body || {};
+    // If the file content has a detectable title (heading or styled first line),
+    // prefer it over the filename-derived name — but only when content is non-empty.
+    const contentTitle = (typeof bodyContent === "string" && bodyContent.trim())
+      ? extractTitleFromContent(bodyContent)
+      : null;
+    const effectiveName = contentTitle || nodeName;
+    if (effectiveName && typeof effectiveName === "string" && effectiveName.trim()) {
+      const trimmedName = effectiveName.trim().substring(0, 120);
       const requestedId = path.basename(filename)
         .replace(/\.(md|txt)$/i, "")
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "_")
         .replace(/^_|_$/g, "");
-      if (!fs.existsSync(notesDir)) fs.mkdirSync(notesDir, { recursive: true });
+      ensureDir(notesDir);
 
       const existingNodes = fs.readdirSync(notesDir)
         .filter((f) => f.endsWith(".json"))
@@ -200,10 +239,15 @@ export default function handler(req, res) {
           notes: "",
           aliases: [],
           connections: [],
+          originSourceFile: filename,
           sourceFile: "",
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
+      }
+
+      if (!nodeData.originSourceFile) {
+        nodeData.originSourceFile = nodeData.sourceFile || filename;
       }
 
       const aliasSet = new Set((nodeData.aliases || []).map((a) => a.toLowerCase()));
@@ -211,7 +255,8 @@ export default function handler(req, res) {
         nodeData.aliases = [...(nodeData.aliases || []), trimmedName];
       }
       const allSourceFiles = [nodeData.sourceFile, ...(nodeData.additionalSourceFiles || []), filename].filter(Boolean);
-      const primarySourceFile = nodeData.sourceFile || filename;
+      // The just-created file is the active editable file for this node.
+      const primarySourceFile = filename;
       nodeData.sourceFile = primarySourceFile;
       const extraSourceFiles = [...new Set(allSourceFiles.filter((f) => f !== primarySourceFile))];
       if (extraSourceFiles.length > 0) nodeData.additionalSourceFiles = extraSourceFiles;
@@ -219,33 +264,28 @@ export default function handler(req, res) {
       nodeData.updatedAt = Date.now();
       fs.writeFileSync(nodeJsonPath, JSON.stringify(nodeData, null, 2), "utf-8");
 
-      // Seed connections: scan all raw files for mentions of the node's name.
-      const escaped = trimmedName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const namePattern = new RegExp(`\\b${escaped}\\b`, "i");
+      // Seed/refresh connections by syncing each raw file through the same
+      // greedy matcher used on normal saves, so longer phrases always win.
       const allRawFiles = scanRawFiles(dir, dir, notesDir);
 
       for (const relPath of allRawFiles) {
-        if (relPath === filename) continue; // skip the new file itself
-        let rawContent;
-        try { rawContent = fs.readFileSync(path.join(dir, relPath), "utf-8"); } catch { continue; }
-        if (!namePattern.test(rawContent)) continue;
-
         const mentionerStem = relPath.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
         const mentionerJsonPath = path.join(notesDir, `${mentionerStem}.json`);
         if (!fs.existsSync(mentionerJsonPath)) continue;
 
-        let mentionerData;
-        try { mentionerData = JSON.parse(fs.readFileSync(mentionerJsonPath, "utf-8")); } catch { continue; }
-        const alreadyLinked = (mentionerData.connections || []).some((c) => c.target === nodeId);
-        if (!alreadyLinked) {
-          mentionerData.connections = [...(mentionerData.connections || []), { target: nodeId, label: "references" }];
-          mentionerData.updatedAt = Date.now();
-          fs.writeFileSync(mentionerJsonPath, JSON.stringify(mentionerData, null, 2), "utf-8");
-        }
+        let rawContent;
+        try { rawContent = fs.readFileSync(path.join(dir, relPath), "utf-8"); } catch { continue; }
+        syncConnectionsForFile(relPath, rawContent, mentionerStem, notesDir);
       }
 
-      rebuildGraphCache(req.query.workspace, notesDir);
-      bumpWorkspaceVersion(req.query.workspace);
+      syncWorkspaceAfterWrite(req.query.workspace, notesDir);
+    }
+
+    // Keep backlinks index in sync for newly created raw files.
+    try {
+      updateBacklinksIndexForFiles(req.query.workspace, { upsertFiles: [filename] });
+    } catch {
+      // non-fatal
     }
 
     return res.status(201).json({ filename });
@@ -261,10 +301,12 @@ export default function handler(req, res) {
     if (fs.existsSync(rawNodeJsonPath)) {
       try {
         syncConnectionsForFile(filename, content, rawStem, notesDir);
-        rebuildGraphCache(req.query.workspace, notesDir);
-        bumpWorkspaceVersion(req.query.workspace);
+        syncWorkspaceAfterWrite(req.query.workspace, notesDir);
       } catch { /* non-fatal */ }
     }
+    try {
+      updateBacklinksIndexForFiles(req.query.workspace, { upsertFiles: [filename] });
+    } catch { /* non-fatal */ }
     return res.status(200).json({ filename });
   }
 
@@ -319,13 +361,7 @@ export default function handler(req, res) {
           });
 
           // Build replacement patterns: full name first, then standalone changed tokens
-          const patterns = [
-            { regex: new RegExp(escapeRegex(oldName), "g"), replacement: data.name },
-            ...changedPairs.map((p) => ({
-              regex: new RegExp(`\\b${escapeRegex(p.old)}\\b`, "g"),
-              replacement: p.new,
-            })),
-          ];
+          const patterns = buildNamePropagationPatterns(oldName, data.name, changedPairs);
 
           // Scope replacements to only files known to mention the old name.
           // The client passes `affectedFiles` (from its backlinks cache);
@@ -368,8 +404,12 @@ export default function handler(req, res) {
 
     data.updatedAt = Date.now();
     fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2), "utf-8");
-    rebuildGraphCache(req.query.workspace, dirs.notesDir);
-    bumpWorkspaceVersion(req.query.workspace);
+    syncWorkspaceAfterWrite(req.query.workspace, dirs.notesDir);
+    if (filesUpdated.length > 0) {
+      try {
+        updateBacklinksIndexForFiles(req.query.workspace, { upsertFiles: filesUpdated });
+      } catch { /* non-fatal */ }
+    }
     return res.status(200).json({ aliases: data.aliases, tags: data.tags, name: data.name, type: data.type, filesUpdated });
   }
 
@@ -378,6 +418,7 @@ export default function handler(req, res) {
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: "Not found" });
     if (req.query.isFolder === "true") {
       if (req.query.recursive === "true") {
+        const removedRawFiles = scanRawFiles(filePath, dir, notesDir);
         // Collect node IDs both by filename-stem and by sourceFile reference
         const stemIds = collectNodeIds(filePath);
         const folderRel = path.relative(dir, filePath).replace(/\\/g, "/");
@@ -386,12 +427,15 @@ export default function handler(req, res) {
         try { fs.rmSync(filePath, { recursive: true, force: true }); } catch { /* ignore */ }
         if (deletedIds.length) {
           purgeNodes(notesDir, deletedIds);
-          rebuildGraphCache(req.query.workspace, notesDir);
-          bumpWorkspaceVersion(req.query.workspace);
+          syncWorkspaceAfterWrite(req.query.workspace, notesDir);
         } else {
           // Still bump so the graph refreshes even if no nodes were tracked
-          rebuildGraphCache(req.query.workspace, notesDir);
-          bumpWorkspaceVersion(req.query.workspace);
+          syncWorkspaceAfterWrite(req.query.workspace, notesDir);
+        }
+        if (removedRawFiles.length > 0) {
+          try {
+            updateBacklinksIndexForFiles(req.query.workspace, { removedFiles: removedRawFiles });
+          } catch { /* non-fatal */ }
         }
       } else {
         // Non-recursive: only removes if already empty (safe for "move files first" flow)
@@ -405,8 +449,10 @@ export default function handler(req, res) {
     const sourceFileIds = findNodesBySourceFile(notesDir, filename);
     const allIds = [...new Set([stemId, ...sourceFileIds])];
     purgeNodes(notesDir, allIds);
-    rebuildGraphCache(req.query.workspace, notesDir);
-    bumpWorkspaceVersion(req.query.workspace);
+    syncWorkspaceAfterWrite(req.query.workspace, notesDir);
+    try {
+      updateBacklinksIndexForFiles(req.query.workspace, { removedFiles: [filename] });
+    } catch { /* non-fatal */ }
     return res.status(200).json({ filename });
   }
 
@@ -418,6 +464,20 @@ export default function handler(req, res) {
  */
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildEdgeBoundedRegex(term) {
+  return new RegExp(`(?<![A-Za-z0-9_])${escapeRegex(term)}(?![A-Za-z0-9_])`, "g");
+}
+
+export function buildNamePropagationPatterns(oldName, newName, changedPairs) {
+  return [
+    { regex: buildEdgeBoundedRegex(oldName), replacement: newName },
+    ...changedPairs.map((p) => ({
+      regex: buildEdgeBoundedRegex(p.old),
+      replacement: p.new,
+    })),
+  ];
 }
 
 /** Collect absolute paths of .md/.txt files, skipping notesDir. */

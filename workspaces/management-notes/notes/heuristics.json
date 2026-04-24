@@ -1,0 +1,18 @@
+{
+  "id": "heuristics",
+  "name": "Heuristics",
+  "type": "concept",
+  "excerpt": "Heuristics are strategies to simplify decision making.",
+  "connections": [
+    {
+      "target": "decision_making",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Heuristics are mental shortcuts or rules of thumb that simplify the decision-making process. They help individuals make quick decisions but can also lead to biases and errors.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_19_2020.md",
+  "createdAt": 1776913795006,
+  "updatedAt": 1776913795006,
+  "context_summary": "- Strategies that simplify decision making.\n- Mental shortcuts or rules of thumb.\n- Help make quick decisions but can lead to biases."
+}

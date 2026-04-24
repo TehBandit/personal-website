@@ -1,0 +1,24 @@
+{
+  "id": "organizational_culture",
+  "name": "Organizational Culture",
+  "type": "concept",
+  "excerpt": "Organizational Culture is a shared set of expectations and norms influencing group behavior.",
+  "connections": [
+    {
+      "target": "organizing",
+      "label": "central to"
+    }
+  ],
+  "notes": "Organizational Culture consists of shared expectations and norms that influence how members of a group behave. It includes rituals, values, and traditions that define a group. Strong culture is deeply held and widely shared, while toxic culture is negative for business.",
+  "aliases": [],
+  "sourceFile": "management/Managements_Notes_2_25_2020.md",
+  "createdAt": 1776913914210,
+  "updatedAt": 1776913914210,
+  "context_summary": [
+    "- Consists of shared expectations and norms.",
+    "- Influences group behavior.",
+    "- Includes rituals, values, and traditions.",
+    "- Strong culture is deeply held and widely shared.",
+    "- Toxic culture is negative for business."
+  ]
+}

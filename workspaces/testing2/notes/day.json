@@ -9,9 +9,13 @@
     {
       "target": "hours",
       "label": "references"
+    },
+    {
+      "target": "myfirstnote",
+      "label": "references"
     }
   ],
   "sourceFile": "day.md",
   "createdAt": 1776266403378,
-  "updatedAt": 1776266418592
+  "updatedAt": 1776890775396
 }

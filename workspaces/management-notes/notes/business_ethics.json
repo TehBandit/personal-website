@@ -1,0 +1,27 @@
+{
+  "id": "business_ethics",
+  "name": "Business Ethics",
+  "type": "concept",
+  "excerpt": "Business Ethics involves moral principles guiding behavior in business.",
+  "connections": [
+    {
+      "target": "the_triple_bottom_line",
+      "label": "appears in"
+    },
+    {
+      "target": "sarbanes_oxley_reform_act",
+      "label": "related to legal accountability"
+    },
+    {
+      "target": "social_responsibility",
+      "label": "overlaps with ethical obligations"
+    }
+  ],
+  "notes": "Business ethics is a set of moral principles or values that defines right and wrong in the business context. It includes concepts like ethical dilemmas, utilitarianism, individualism, moral-rights approach, and justice approach.\n\nBusiness Ethics\n\nEthics\n\nEthics - A set of moral principles or values that defines right and wrong\n\nWhat motivates people to behave unethically?\n\nPressure to meet goals and deadlines\n\nWhy behave ethically?\n\nSociety demands ethics\n\nSarbanes-Oxley Act (2002)\n\nUS Sentencing Commission Guidelines for Organizations (1991)\n\nHolds managers/directors directly accountable for unethical behavior within company\n\nInfluence\n\nPeople will follow your example\n\nManagers should walk the walk, talk the talk, don’t set employees up to to fail\n\nCritical Thinking Errors\n\nEntitlement\n\nSeemingly Unimportant Decisions (SUD’s)\n\nRationalization\n\nSituational Ethics\n\nTakeaway\n\nBeware slippery slope\n\nEstablish your own moral standards now\n\nWould you be proud to see your decision on the front page?\n\nEthical Dilemmas\n\nDoing the “right thing” vs acting in your own self interest\n\nChoices that affect stakeholders differently\n\nSome decisions will help one group, but harm another",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_4_2020.md",
+  "createdAt": 1776913750244,
+  "updatedAt": 1776913804321,
+  "context_summary": "- Involves moral principles defining right and wrong in business.\n- Includes concepts like ethical dilemmas and utilitarianism.\n- Encompasses individualism, moral-rights approach, and justice approach.",
+  "documentNode": true
+}

@@ -1,0 +1,20 @@
+{
+  "id": "project_procurement_management",
+  "name": "Project Procurement Management",
+  "type": "concept",
+  "excerpt": "Project Procurement Management handles acquiring goods and services for a project.",
+  "connections": [],
+  "notes": "Project Procurement Management involves acquiring goods and services for a project. It includes Make-or-Buy Analysis, various contract types (Fixed Price, Cost Reimbursable, Time and Material), and procurement documents like RFPs and RFQs. The Supplier Evaluation Matrix helps in selecting suppliers.\n\nSource Selection involves approaching one supplier, a few suppliers, or advertising to many sellers, and preparing a best-and-final offer.\n\nConstructive Change Orders are oral or written requests made by someone with authority, impacting procurement processes.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_8_2_2020.md",
+  "createdAt": 1776286454039,
+  "updatedAt": 1776286504796,
+  "context_summary": [
+    "- Handles acquiring goods and services.",
+    "- Includes Make-or-Buy Analysis.",
+    "- Involves various contract types.",
+    "- Uses procurement documents like RFPs and RFQs.",
+    "- Employs Supplier Evaluation Matrix for selection.",
+    "- Involves Source Selection processes."
+  ]
+}

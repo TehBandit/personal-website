@@ -3,9 +3,11 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import mammoth from "mammoth";
-import { bumpWorkspaceVersion, rebuildGraphCache } from "./bump-version.js";
+import { syncWorkspaceAfterWrite } from "./bump-version.js";
+import { WORKSPACES_DIR } from "./_storygraph-paths.js";
+import { ensureDir } from "./_storygraph-io.js";
 
-const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
+const DERIVE_META_VERSION = 2;
 
 function safeSlug(name) {
   return name
@@ -24,6 +26,97 @@ function uniqueSlug(base, usedSlugs) {
   return slug;
 }
 
+function safeInputFilename(filename) {
+  const raw = path.basename((filename || "").trim() || `derive-${Date.now()}.md`);
+  return raw
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .replace(/\.(txt|docx)$/i, ".md");
+}
+
+function loadDeriveIndex(indexPath) {
+  if (!fs.existsSync(indexPath)) return { version: DERIVE_META_VERSION, items: [] };
+  try {
+    const parsed = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+    if (!Array.isArray(parsed.items)) return { version: DERIVE_META_VERSION, items: [] };
+    return { version: DERIVE_META_VERSION, items: parsed.items };
+  } catch {
+    return { version: DERIVE_META_VERSION, items: [] };
+  }
+}
+
+function saveDeriveIndex(indexPath, index) {
+  fs.writeFileSync(indexPath, JSON.stringify(index, null, 2), "utf-8");
+}
+
+function relinkDerivedNodesToPath({ notesDir, wsDir, nodeIds, newFolderSlug }) {
+  const relinkedNodeIds = [];
+  const newFolderAbs = path.join(wsDir, newFolderSlug);
+  ensureDir(newFolderAbs);
+
+  for (const nodeId of nodeIds || []) {
+    const jsonPath = path.join(notesDir, `${nodeId}.json`);
+    if (!fs.existsSync(jsonPath)) continue;
+
+    let data;
+    try { data = JSON.parse(fs.readFileSync(jsonPath, "utf-8")); }
+    catch { continue; }
+
+    const nextPrimary = `${newFolderSlug}/${nodeId}.md`;
+    const prevPrimary = data.sourceFile || "";
+    if (prevPrimary === nextPrimary) {
+      relinkedNodeIds.push(nodeId);
+      continue;
+    }
+
+    const allFiles = [prevPrimary, ...(data.additionalSourceFiles || [])].filter(Boolean);
+    const prevCandidates = [...new Set([
+      prevPrimary,
+      ...allFiles,
+      `${nodeId}.md`,
+      `${nodeId}.txt`,
+      ...(prevPrimary ? [prevPrimary.replace(/\.md$/i, ".txt"), prevPrimary.replace(/\.txt$/i, ".md")] : []),
+    ].filter(Boolean))];
+
+    const nextAbs = path.join(wsDir, nextPrimary);
+    let moved = false;
+    for (const rel of prevCandidates) {
+      const abs = path.join(wsDir, rel);
+      if (!fs.existsSync(abs)) continue;
+      if (abs === nextAbs) { moved = true; break; }
+      const nextDir = path.dirname(nextAbs);
+      ensureDir(nextDir);
+      try {
+        fs.renameSync(abs, nextAbs);
+        moved = true;
+        break;
+      } catch {
+        // keep searching candidates
+      }
+    }
+
+    if (!moved && !fs.existsSync(nextAbs)) {
+      const fallback = `${(data.name || nodeId).toUpperCase()} — ${data.type || "character"} notes\n\n${data.notes || ""}`;
+      try { fs.writeFileSync(nextAbs, fallback, "utf-8"); } catch { /* non-fatal */ }
+    }
+
+    if (!data.originSourceFile) data.originSourceFile = prevPrimary || nextPrimary;
+    data.sourceFile = nextPrimary;
+    const extras = [...new Set(allFiles.filter((f) => f && f !== nextPrimary))];
+    if (extras.length) data.additionalSourceFiles = extras;
+    else delete data.additionalSourceFiles;
+    data.updatedAt = Date.now();
+
+    try {
+      fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2), "utf-8");
+      relinkedNodeIds.push(nodeId);
+    } catch {
+      // non-fatal
+    }
+  }
+
+  return relinkedNodeIds;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -31,7 +124,7 @@ export default async function handler(req, res) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return res.status(500).json({ error: "Server misconfiguration" });
 
-    const { text, base64, type, workspace, folderName } = req.body;
+    const { text, base64, type, workspace, folderName, filename } = req.body;
 
     // ── Validate workspace ────────────────────────────────────────────────────
     if (!workspace || !/^[a-z0-9-]+$/.test(workspace)) {
@@ -58,21 +151,57 @@ export default async function handler(req, res) {
     const wsDir = path.join(WORKSPACES_DIR, workspace);
     const notesDir = path.join(wsDir, "notes");
     const folderSlug = safeSlug(folderName);
+    const safeFilename = safeInputFilename(filename);
+    const inputPath = `${folderSlug}/${safeFilename}`;
     const rawFolder = path.join(wsDir, folderSlug);
     const metaPath = path.join(rawFolder, "_meta.json");
+    const deriveIndexPath = path.join(wsDir, "derive-meta.json");
 
-    // ── Hash check for re-derivation ─────────────────────────────────────────
-    if (fs.existsSync(metaPath)) {
-      const meta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
-      if (meta.sourceHash === contentHash) {
-        return res.status(200).json({
-          alreadyDerived: true,
-          folder: folderSlug,
-          derivedAt: meta.derivedAt,
-          nodes: meta.nodes || [],
-        });
-      }
-      // Different content — will overwrite, caller confirmed
+    // ── Path+hash dedupe / relink policy ─────────────────────────────────────
+    const deriveIndex = loadDeriveIndex(deriveIndexPath);
+    const pathMatch = deriveIndex.items.find((i) => i.inputPath === inputPath);
+    if (pathMatch && pathMatch.sourceHash === contentHash) {
+      return res.status(200).json({
+        alreadyDerived: true,
+        folder: folderSlug,
+        derivedAt: pathMatch.derivedAt,
+        nodes: pathMatch.nodeIds || [],
+      });
+    }
+
+    const hashMatch = deriveIndex.items.find((i) => i.sourceHash === contentHash);
+    if ((!pathMatch || pathMatch.sourceHash !== contentHash) && hashMatch && hashMatch.inputPath !== inputPath) {
+      ensureDir(notesDir);
+      const relinkedNodeIds = relinkDerivedNodesToPath({
+        notesDir,
+        wsDir,
+        nodeIds: hashMatch.nodeIds || [],
+        newFolderSlug: folderSlug,
+      });
+
+      deriveIndex.items = deriveIndex.items.filter((i) => i.sourceHash !== contentHash && i.inputPath !== inputPath);
+      const relinkEntry = {
+        inputPath,
+        folderName,
+        folderSlug,
+        sourceHash: contentHash,
+        derivedAt: new Date().toISOString(),
+        nodeIds: relinkedNodeIds,
+      };
+      deriveIndex.items.push(relinkEntry);
+      saveDeriveIndex(deriveIndexPath, deriveIndex);
+      ensureDir(rawFolder);
+      fs.writeFileSync(metaPath, JSON.stringify(relinkEntry, null, 2), "utf-8");
+
+      syncWorkspaceAfterWrite(workspace, notesDir);
+
+      return res.status(200).json({
+        alreadyDerived: true,
+        relinked: true,
+        folder: folderSlug,
+        derivedAt: relinkEntry.derivedAt,
+        nodes: relinkedNodeIds,
+      });
     }
 
     // ── Load existing graph nodes from cache (single read) with N+1 fallback ─
@@ -226,8 +355,8 @@ Other rules:
     for (const m of mentionsWithIds) nameToId.set(m.name.toLowerCase(), m.id);
 
     // ── Write files ───────────────────────────────────────────────────────────
-    if (!fs.existsSync(rawFolder)) fs.mkdirSync(rawFolder, { recursive: true });
-    if (!fs.existsSync(notesDir)) fs.mkdirSync(notesDir, { recursive: true });
+    ensureDir(rawFolder);
+    ensureDir(notesDir);
 
     const createdNodes = [];
     const updatedNodes = [];
@@ -278,6 +407,10 @@ Other rules:
         try { existingData = JSON.parse(fs.readFileSync(jsonPath, "utf-8")); }
         catch { continue; } // can't patch what we can't read
 
+        if (!existingData.originSourceFile) {
+          existingData.originSourceFile = existingData.sourceFile || `${folderSlug}/${entity.id}.md`;
+        }
+
         // Append new notes (avoid duplicate content)
         if (entity.notes && entity.notes.trim() && !existingData.notes.includes(entity.notes.trim())) {
           existingData.notes = existingData.notes
@@ -310,6 +443,7 @@ Other rules:
           notes: entity.notes || "",
           aliases: (entity.aliases || []).filter((a) => typeof a === "string" && a.trim()),
           connections,
+          originSourceFile: sourceFile,
           sourceFile,
         };
         fs.writeFileSync(
@@ -348,6 +482,7 @@ Other rules:
 
     // ── Write _meta.json ─────────────────────────────────────────────────────
     const meta = {
+      inputPath,
       sourceHash: contentHash,
       folderName,
       derivedAt: new Date().toISOString(),
@@ -357,9 +492,20 @@ Other rules:
     };
     fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), "utf-8");
 
+    // Keep a workspace-level dedupe index keyed by input path + hash.
+    deriveIndex.items = deriveIndex.items.filter((i) => i.inputPath !== inputPath && i.sourceHash !== contentHash);
+    deriveIndex.items.push({
+      inputPath,
+      folderName,
+      folderSlug,
+      sourceHash: contentHash,
+      derivedAt: meta.derivedAt,
+      nodeIds: createdNodes.map((n) => n.id),
+    });
+    saveDeriveIndex(deriveIndexPath, deriveIndex);
+
     // ── Rebuild graph cache ───────────────────────────────────────────────────
-    rebuildGraphCache(workspace, notesDir);
-    bumpWorkspaceVersion(workspace);
+    syncWorkspaceAfterWrite(workspace, notesDir);
 
     return res.status(200).json({
       folder: folderSlug,

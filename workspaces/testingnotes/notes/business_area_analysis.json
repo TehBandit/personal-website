@@ -1,0 +1,13 @@
+{
+  "id": "business_area_analysis",
+  "name": "Business Area Analysis",
+  "type": "concept",
+  "excerpt": "Business Area Analysis applies vision to specific departments.",
+  "connections": [],
+  "notes": "Business Area Analysis is conducted by department heads to apply the organization's vision to specific departments, ensuring alignment with strategic goals.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_12_2020.md",
+  "createdAt": 1776286362366,
+  "updatedAt": 1776286362366,
+  "context_summary": "- Applies vision to specific departments\n- Conducted by department heads\n- Ensures alignment with strategic goals"
+}

@@ -1,0 +1,22 @@
+{
+  "id": "corporate_governance",
+  "name": "Corporate Governance",
+  "type": "concept",
+  "excerpt": "Corporate governance ensures protection of all stakeholders in a company.",
+  "connections": [
+    {
+      "target": "the_triple_bottom_line",
+      "label": "appears in"
+    },
+    {
+      "target": "chapter_6_strategic_management_how_exceptional_managers_realize_a_grant_design",
+      "label": "related to corporate strategy"
+    }
+  ],
+  "notes": "Corporate governance involves the act of running a company in a way that protects all stakeholders. It includes ensuring ethical, legal, and profitable operations while maintaining transparency and accountability.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_1_29_2020.md",
+  "createdAt": 1776913750246,
+  "updatedAt": 1776913779039,
+  "context_summary": "- Ensures protection of all stakeholders in a company.\n- Involves ethical, legal, and profitable operations.\n- Maintains transparency and accountability."
+}

@@ -36,5 +36,9 @@
     }
   ],
   "sourceFile": "five_plus_one/kageyama.md",
-  "createdAt": 1774316840312
+  "createdAt": 1774316840312,
+  "tags": [
+    "new",
+    "thing"
+  ]
 }

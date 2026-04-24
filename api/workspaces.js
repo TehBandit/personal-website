@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
-
-const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
+import { WORKSPACES_DIR } from "./_storygraph-paths.js";
 
 // Only allow lowercase letters, numbers, and hyphens — prevents path traversal
 function validSlug(slug) {
@@ -130,7 +129,10 @@ export default function handler(req, res) {
       return res.status(400).json({ error: "type key must be lowercase letters, digits or underscores" });
     }
     const trimmedKey = key.trim();
-    if (!meta.nodeTypes) meta.nodeTypes = {};
+    // If nodeTypes was never written (legacy workspace), seed from the narrative
+    // preset so existing nodes (character, location, faction, artifact) are not
+    // silently discarded when the first custom type is added.
+    if (!meta.nodeTypes) meta.nodeTypes = { ...WORKSPACE_PRESETS.narrative };
     if (meta.nodeTypes[trimmedKey]) {
       return res.status(409).json({ error: "Type already exists" });
     }

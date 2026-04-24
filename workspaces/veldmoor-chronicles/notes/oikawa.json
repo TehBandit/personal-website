@@ -20,5 +20,9 @@
     }
   ],
   "sourceFile": "five_plus_one/oikawa.md",
-  "createdAt": 1774872785547
+  "createdAt": 1774872785547,
+  "tags": [
+    "new",
+    "thing"
+  ]
 }

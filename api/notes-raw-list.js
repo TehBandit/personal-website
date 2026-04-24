@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
-
-const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
+import { WORKSPACES_DIR } from "./_storygraph-paths.js";
 
 async function scanDir(dir, baseDir, skipDirs = new Set()) {
   const entries = (await fs.promises.readdir(dir, { withFileTypes: true })).sort((a, b) => {

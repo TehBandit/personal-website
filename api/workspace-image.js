@@ -6,8 +6,7 @@
  */
 import fs from "fs";
 import path from "path";
-
-const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
+import { WORKSPACES_DIR } from "./_storygraph-paths.js";
 
 const ALLOWED_EXT = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp"]);
 const MIME = {

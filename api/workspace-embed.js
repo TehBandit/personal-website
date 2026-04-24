@@ -11,10 +11,10 @@
 import OpenAI from "openai";
 import fs from "fs";
 import path from "path";
+import { WORKSPACES_DIR } from "./_storygraph-paths.js";
 
 const CACHE_VERSION = "1";
 const EMBED_MODEL = "text-embedding-3-small";
-const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
 
 const openai = new OpenAI();
 
@@ -28,6 +28,7 @@ function getWorkspacePaths(workspace) {
   return {
     wsDir,
     notesDir: path.join(wsDir, "notes"),
+    // Legacy fallback root for older workspaces that stored sourceFile under notes-raw.
     rawDir: path.join(wsDir, "notes-raw"),
     cacheFile: path.join(wsDir, "embedding-cache.json"),
   };
@@ -53,7 +54,71 @@ function loadNotes(notesDir) {
  * We produce up to three chunks per node: notes prose, excerpt, and context_summary.
  * Each chunk carries enough metadata to reconstruct a citation.
  */
-function buildChunksForNode(node, rawDir) {
+function toAltExtension(relPath) {
+  if (typeof relPath !== "string") return null;
+  if (/\.txt$/i.test(relPath)) return relPath.replace(/\.txt$/i, ".md");
+  if (/\.md$/i.test(relPath)) return relPath.replace(/\.md$/i, ".txt");
+  return null;
+}
+
+function safeJoinUnder(baseDir, relPath) {
+  const base = path.resolve(baseDir);
+  const full = path.resolve(baseDir, relPath);
+  if (full === base || full.startsWith(base + path.sep)) return full;
+  return null;
+}
+
+/**
+ * Resolve node.sourceFile to text content.
+ * Primary lookup is workspace-root relative path, with notes-raw fallback for
+ * legacy data. Returns diagnostic details when the file is missing or invalid.
+ */
+export function resolveNodeSourceText(node, wsDir, rawDir) {
+  if (!node?.sourceFile || typeof node.sourceFile !== "string") {
+    return { text: "", diagnostic: null };
+  }
+
+  const sourceFile = node.sourceFile.replace(/\\/g, "/").replace(/^\/+/, "").trim();
+  if (!sourceFile) return { text: "", diagnostic: null };
+
+  const candidates = [];
+  const addCandidate = (baseDir, relPath) => {
+    const joined = safeJoinUnder(baseDir, relPath);
+    if (!joined) return;
+    if (!candidates.includes(joined)) candidates.push(joined);
+  };
+
+  const alt = toAltExtension(sourceFile);
+
+  // Primary: sourceFile is workspace-root relative.
+  addCandidate(wsDir, sourceFile);
+  if (alt) addCandidate(wsDir, alt);
+
+  // Legacy fallback: older caches occasionally resolved under notes-raw.
+  addCandidate(rawDir, sourceFile);
+  if (alt) addCandidate(rawDir, alt);
+
+  for (const filePath of candidates) {
+    if (!fs.existsSync(filePath)) continue;
+    try {
+      return { text: fs.readFileSync(filePath, "utf-8"), diagnostic: null };
+    } catch {
+      // Keep trying remaining candidates.
+    }
+  }
+
+  return {
+    text: "",
+    diagnostic: {
+      nodeId: node.id,
+      nodeName: node.name,
+      sourceFile,
+      candidates,
+    },
+  };
+}
+
+function buildChunksForNode(node, wsDir, rawDir, diagnostics) {
   const chunks = [];
   const base = {
     nodeId: node.id,
@@ -66,18 +131,11 @@ function buildChunksForNode(node, rawDir) {
   // Raw prose file takes priority for "notes" chunk
   let notesText = "";
   if (node.sourceFile) {
-    let rawPath = path.join(rawDir, node.sourceFile);
-    // Try alternate extension (.txt ↔ .md) in case sourceFile was stored
-    // before extension normalization
-    if (!fs.existsSync(rawPath)) {
-      const alt = /\.txt$/i.test(node.sourceFile)
-        ? node.sourceFile.replace(/\.txt$/i, ".md")
-        : node.sourceFile.replace(/\.md$/i, ".txt");
-      const altPath = path.join(rawDir, alt);
-      if (fs.existsSync(altPath)) rawPath = altPath;
-    }
-    if (fs.existsSync(rawPath)) {
-      notesText = stripMarkdown(fs.readFileSync(rawPath, "utf-8").trim());
+    const { text, diagnostic } = resolveNodeSourceText(node, wsDir, rawDir);
+    if (text) {
+      notesText = stripMarkdown(text.trim());
+    } else if (diagnostic) {
+      diagnostics.push(diagnostic);
     }
   }
   if (!notesText && typeof node.notes === "string") {
@@ -236,9 +294,10 @@ export async function getEmbeddingCache(workspace) {
 }
 
 async function buildCache(paths, notes) {
+  const diagnostics = [];
   const allChunks = [];
   for (const node of notes) {
-    allChunks.push(...buildChunksForNode(node, paths.rawDir));
+    allChunks.push(...buildChunksForNode(node, paths.wsDir, paths.rawDir, diagnostics));
   }
 
   if (allChunks.length === 0) return { version: CACHE_VERSION, chunks: [] };
@@ -255,7 +314,28 @@ async function buildCache(paths, notes) {
     try { nodeMtimes[f] = fs.statSync(path.join(paths.notesDir, f)).mtimeMs; } catch { /* skip */ }
   }
 
-  const cache = { version: CACHE_VERSION, builtAt: new Date().toISOString(), nodeMtimes, chunks };
+  const cache = {
+    version: CACHE_VERSION,
+    builtAt: new Date().toISOString(),
+    nodeMtimes,
+    chunks,
+    diagnostics: {
+      missingSourceFiles: diagnostics,
+      missingSourceFileCount: diagnostics.length,
+    },
+  };
+
+  if (diagnostics.length > 0) {
+    console.warn(
+      `[workspace-embed] Missing source files for ${diagnostics.length} node(s) in workspace ${path.basename(paths.wsDir)}.`
+    );
+    for (const d of diagnostics.slice(0, 20)) {
+      console.warn(
+        `[workspace-embed] node=${d.nodeId} sourceFile=${d.sourceFile} candidates=${d.candidates.join(" | ")}`
+      );
+    }
+  }
+
   fs.writeFileSync(paths.cacheFile, JSON.stringify(cache), "utf-8");
   return cache;
 }
@@ -272,9 +352,10 @@ async function incrementalUpdate(paths, notes, cached, changedNodeIds, removedNo
 
   // Build new chunks for changed/added nodes
   const newChunks = [];
+  const diagnostics = [];
   for (const node of notes) {
     if (changedNodeIds.has(node.id)) {
-      newChunks.push(...buildChunksForNode(node, paths.rawDir));
+      newChunks.push(...buildChunksForNode(node, paths.wsDir, paths.rawDir, diagnostics));
     }
   }
 
@@ -292,7 +373,18 @@ async function incrementalUpdate(paths, notes, cached, changedNodeIds, removedNo
     builtAt: new Date().toISOString(),
     nodeMtimes: currentMtimes,
     chunks: allChunks,
+    diagnostics: {
+      missingSourceFiles: diagnostics,
+      missingSourceFileCount: diagnostics.length,
+    },
   };
+
+  if (diagnostics.length > 0) {
+    console.warn(
+      `[workspace-embed] Incremental update found ${diagnostics.length} node(s) with missing source files in workspace ${path.basename(paths.wsDir)}.`
+    );
+  }
+
   fs.writeFileSync(paths.cacheFile, JSON.stringify(cache), "utf-8");
   return cache;
 }

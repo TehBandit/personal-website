@@ -1,0 +1,18 @@
+{
+  "id": "multinational_corporation",
+  "name": "Multinational Corporation",
+  "type": "concept",
+  "excerpt": "A Multinational Corporation operates in several countries.",
+  "connections": [
+    {
+      "target": "global_management",
+      "label": "appears in"
+    }
+  ],
+  "notes": "A Multinational Corporation is a firm with operations in several countries, often requiring management to have cross-cultural awareness.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_6_2020.md",
+  "createdAt": 1776913837258,
+  "updatedAt": 1776913837258,
+  "context_summary": "- A Multinational Corporation operates in several countries.\n- Management requires cross-cultural awareness."
+}

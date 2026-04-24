@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
-
-const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
+import { WORKSPACES_DIR } from "./_storygraph-paths.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -9,7 +8,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { workspace } = req.query;
+    const { workspace, summary } = req.query;
+    const summaryMode = summary === "1" || summary === "true";
     if (!workspace || !/^[a-z0-9-]+$/.test(workspace)) {
       return res.status(400).json({ error: "Invalid workspace" });
     }
@@ -30,6 +30,20 @@ export default async function handler(req, res) {
     if (fs.existsSync(cacheFile)) {
       try {
         const cached = JSON.parse(fs.readFileSync(cacheFile, "utf-8"));
+        if (summaryMode) {
+          const nodes = (cached.nodes || []).map((n) => ({
+            id: n.id,
+            name: n.name,
+            type: n.type,
+            sourceFile: n.sourceFile,
+            additionalSourceFiles: n.additionalSourceFiles || [],
+            filePreview: n.filePreview,
+            createdAt: n.createdAt,
+            updatedAt: n.updatedAt,
+          }));
+          const links = cached.links || [];
+          return res.status(200).json({ nodes, links, disallowedAliases });
+        }
         return res.status(200).json({ ...cached, disallowedAliases });
       } catch {
         // fall through to N+1 scan
@@ -63,7 +77,20 @@ export default async function handler(req, res) {
       const { id, name, type, excerpt, notes, aliases, connections = [] } = data;
       if (!id || !name) continue;
 
-      nodes.push({ id, name, type: type || "character", excerpt: excerpt || "", notes: notes || "", aliases: aliases || [] });
+      nodes.push(
+        summaryMode
+          ? {
+              id,
+              name,
+              type: type || "character",
+              sourceFile: data.sourceFile || "",
+              additionalSourceFiles: data.additionalSourceFiles || [],
+              filePreview: data.filePreview,
+              createdAt: data.createdAt,
+              updatedAt: data.updatedAt,
+            }
+          : { id, name, type: type || "character", excerpt: excerpt || "", notes: notes || "", aliases: aliases || [] }
+      );
 
       for (const conn of connections) {
         if (!conn.target) continue;

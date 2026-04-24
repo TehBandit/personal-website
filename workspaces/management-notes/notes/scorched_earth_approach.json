@@ -1,0 +1,25 @@
+{
+  "id": "scorched_earth_approach",
+  "name": "Scorched Earth Approach",
+  "type": "concept",
+  "excerpt": "The Scorched Earth Approach involves starting from scratch to change a culture.",
+  "connections": [
+    {
+      "target": "organizational_culture",
+      "label": "method to change"
+    },
+    {
+      "target": "organizing",
+      "label": "featured in"
+    }
+  ],
+  "notes": "The Scorched Earth Approach is a method of changing a culture by essentially starting from scratch. It is used to overhaul organizational culture.",
+  "aliases": [],
+  "sourceFile": "management/Managements_Notes_2_25_2020.md",
+  "createdAt": 1776913914211,
+  "updatedAt": 1776913914211,
+  "context_summary": [
+    "- Involves starting from scratch to change a culture.",
+    "- Used to overhaul organizational culture."
+  ]
+}

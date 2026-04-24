@@ -1,0 +1,13 @@
+{
+  "id": "issue_log",
+  "name": "Issue Log",
+  "type": "concept",
+  "excerpt": "An Issue Log records issues that could impede project success.",
+  "connections": [],
+  "notes": "An Issue Log is a tool used in project management to document and track issues that could impede project success. It helps in identifying, analyzing, and resolving issues.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_8_3_2020.md",
+  "createdAt": 1776286483055,
+  "updatedAt": 1776286483055,
+  "context_summary": "- Records issues that could impede project success.\n- Used in project management.\n- Helps identify, analyze, and resolve issues."
+}

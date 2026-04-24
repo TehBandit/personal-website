@@ -1,0 +1,17 @@
+{
+  "id": "control_charts",
+  "name": "Control Charts",
+  "type": "concept",
+  "excerpt": "Control Charts illustrate results of a process over time to identify variations.",
+  "connections": [],
+  "notes": "Control Charts are used in project management to track process performance and identify any variations that may indicate problems. They are part of the monitoring and controlling processes.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1776286504791,
+  "updatedAt": 1776286504791,
+  "context_summary": [
+    "- Illustrate results of a process over time.",
+    "- Identify variations in process performance.",
+    "- Used in monitoring and controlling processes."
+  ]
+}

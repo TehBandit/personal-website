@@ -1,0 +1,13 @@
+{
+  "id": "resource_loading",
+  "name": "Resource Loading",
+  "type": "concept",
+  "excerpt": "Resource Loading measures the amount of resources a schedule requires.",
+  "connections": [],
+  "notes": "Resource Loading in project management is the process of assigning resources to a project schedule, indicating the amount of resources required during specific time periods.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_8_3_2020.md",
+  "createdAt": 1776286483060,
+  "updatedAt": 1776286483060,
+  "context_summary": "- Measures the amount of resources a schedule requires.\n- Involves assigning resources to a project schedule."
+}

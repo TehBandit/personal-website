@@ -1,0 +1,30 @@
+{
+  "id": "effective_leaders",
+  "name": "Effective Leaders",
+  "type": "concept",
+  "excerpt": "Effective leaders inspire others through integrity, humility, and a strong work ethic.",
+  "connections": [
+    {
+      "target": "leadership",
+      "label": "central to"
+    }
+  ],
+  "notes": "Effective leaders are those whom people would follow even without a formal title. They possess a positive outlook, humility, and a strong work ethic. Their behavior makes others feel important, and they focus on delivering results, holding people accountable, making difficult decisions, and overcoming obstacles. Effective leaders demonstrate integrity by doing the right thing when nobody's looking and do not command authority but guide others by example.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_4_21_2020.md",
+  "createdAt": 1776913899967,
+  "updatedAt": 1776913899967,
+  "context_summary": [
+    "- Effective leaders inspire others.",
+    "- They possess integrity and humility.",
+    "- They have a strong work ethic.",
+    "- People would follow them without a title.",
+    "- They make others feel important.",
+    "- They focus on delivering results.",
+    "- They hold people accountable.",
+    "- They make difficult decisions.",
+    "- They overcome obstacles.",
+    "- They do the right thing when nobody's looking.",
+    "- They guide others by example."
+  ]
+}

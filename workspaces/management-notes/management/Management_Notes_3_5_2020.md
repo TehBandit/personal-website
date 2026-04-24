@@ -1,0 +1,46 @@
+**<u>Human Resource Management</u>**
+
+- *Human Resources*
+  - **Discrimination**
+    - **Disparate Treatment** - Intentional, explicit
+    - **Adverse Impact** - Unintentional
+      - **⅘ Rule** - ⅘ of Decision rate must be applied to minority classes
+      - **Modern Day**
+        - Pay Gap
+        - Glass Ceiling
+        - **BFOQ** - Bona Fide Occupational Qualification
+          - Reasonably necessary discrimination for the normal operation of a business
+            - Can NEVER be applied to race
+        - **Affirmative Action** - Provide equity to employment opportunity to all people
+          - Must actively recruit from gender and race categories
+        - **Equal Pay for Equal Work**
+          - Applies specifically to gender differences
+          - **Ledbetter Fair Pay Act** - Woman sues after retirement after finding out she had been paid less than male counterparts for 19 years. She wins
+            - 180 days to sue after each discriminatory paycheck
+        - **Sexual Harassment**
+          - **Quid Pro Quo** - ‘This for That’
+            - Soliciting sexual favors for workplace benefits
+            - **Economic Injury** - Suffer economic loss if you do not comply
+          - **Hostile Environment** - Offensive, obscene or unwelcome environment
+        - Age Discrimination Act
+          - Can't discriminate based on age IF they are over 40
+        - Americans with Disabilities Act
+        - Family Medical Leave Act
+          - Pregnancy
+        - OSHA
+          - Safe and environmentally friendly workplace
+    - **Complying With Laws**
+      - Provide training
+      - Business reason
+      - Effective performance management
+  - **Labor Unions**
+    - More public than private today
+    - Purpose - Give employees power
+      - Give **authority**, right to command, to all members
+    - **Collective Bargaining** - Negotiations between union and employer
+      - **Legally binding**
+      - **Grievance Process** - Spells out steps that must be taken to resolve disagreement
+        - **Arbitration** - Neutral third party makes a legally binding decision on what is fair
+    - **National Labor Relations Act** (1935) - Employers can not fire employees for attempting to unionize
+    - **Labor Management Relations Act** (Taft-Hartley Act) (1947) - Limited some power of unions
+    - **Strikes** - Right to withhold labor to place pressure on firm

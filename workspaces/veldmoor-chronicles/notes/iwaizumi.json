@@ -11,5 +11,9 @@
       "label": "playful dynamic"
     }
   ],
-  "createdAt": 1775125410692
+  "createdAt": 1775125410692,
+  "tags": [
+    "new",
+    "thing"
+  ]
 }

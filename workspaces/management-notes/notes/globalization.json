@@ -1,0 +1,18 @@
+{
+  "id": "globalization",
+  "name": "Globalization",
+  "type": "concept",
+  "excerpt": "Globalization is the trend toward a more interdependent world economy.",
+  "connections": [
+    {
+      "target": "global_management",
+      "label": "central to"
+    }
+  ],
+  "notes": "Globalization refers to the trend of the world economy becoming a more interdependent system, characterized by the collapse of time and distance and the decline in barriers to trade.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_6_2020.md",
+  "createdAt": 1776913837255,
+  "updatedAt": 1776913837255,
+  "context_summary": "- Globalization is a trend toward a more interdependent world economy.\n- It is characterized by the collapse of time and distance.\n- There is a decline in barriers to trade."
+}

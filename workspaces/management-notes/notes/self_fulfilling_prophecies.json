@@ -1,0 +1,18 @@
+{
+  "id": "self_fulfilling_prophecies",
+  "name": "Self-Fulfilling Prophecies",
+  "type": "concept",
+  "excerpt": "Self-Fulfilling Prophecies are expectations that subconsciously influence reality.",
+  "connections": [
+    {
+      "target": "diversity",
+      "label": "affects"
+    }
+  ],
+  "notes": "Self-Fulfilling Prophecies are one of the five distortions in perceptions. They involve expectations that can subconsciously direct reality, impacting organizational and employee behavior.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_3_31_2020.md",
+  "createdAt": 1776913872951,
+  "updatedAt": 1776913872951,
+  "context_summary": "- Involves expectations that influence reality\n- Affects organizational behavior\n- Affects employee behavior\n- Directs reality subconsciously"
+}

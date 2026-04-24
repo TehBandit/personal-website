@@ -1,0 +1,18 @@
+{
+  "id": "global_economy",
+  "name": "Global Economy",
+  "type": "concept",
+  "excerpt": "The Global Economy is the interaction of economies as one market.",
+  "connections": [
+    {
+      "target": "global_management",
+      "label": "central to"
+    }
+  ],
+  "notes": "The Global Economy refers to the increasing tendency of economies to interact with one another as one market instead of many separate markets, with pros like speed and competition, and cons like job loss and data security.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_6_2020.md",
+  "createdAt": 1776913837257,
+  "updatedAt": 1776913837257,
+  "context_summary": "- The Global Economy refers to economies interacting as one market.\n- It contrasts with many separate markets.\n- Pros include speed and competition.\n- Cons include job loss and data security issues."
+}

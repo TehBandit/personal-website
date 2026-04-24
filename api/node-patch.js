@@ -6,9 +6,8 @@
  */
 import fs from "fs";
 import path from "path";
-import { bumpWorkspaceVersion, rebuildGraphCache } from "./bump-version.js";
-
-const WORKSPACES_DIR = path.join(process.cwd(), "workspaces");
+import { syncWorkspaceAfterWrite } from "./bump-version.js";
+import { WORKSPACES_DIR } from "./_storygraph-paths.js";
 
 // Allowlist of fields this endpoint may write — prevents arbitrary JSON mutation.
 const PATCHABLE_FIELDS = new Set(["disambiguation"]);
@@ -68,8 +67,7 @@ export default function handler(req, res) {
     return res.status(500).json({ error: "Failed to write node file" });
   }
 
-  rebuildGraphCache(workspace, notesDir);
-  bumpWorkspaceVersion(workspace);
+  syncWorkspaceAfterWrite(workspace, notesDir);
 
   return res.status(200).json({ ok: true, id, ...updates });
 }

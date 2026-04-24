@@ -1,0 +1,18 @@
+{
+  "id": "scope_creep",
+  "name": "Scope Creep",
+  "type": "concept",
+  "excerpt": "Scope Creep is the expansion of project scope over time.",
+  "connections": [
+    {
+      "target": "wasa_video",
+      "label": "illustrated by"
+    }
+  ],
+  "notes": "Scope Creep refers to the phenomenon where the scope of a project becomes larger as the project continues. It can lead to project delays and budget overruns if not managed properly. Strategies to avoid scope creep include knowing the project well, documenting requirements, and implementing change control processes.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_19_2020.md",
+  "createdAt": 1776286384673,
+  "updatedAt": 1776286504797,
+  "context_summary": "- Refers to expansion of project scope over time.\n- Can lead to project delays and budget overruns.\n- Strategies to avoid include documenting requirements.\n- Requires implementation of change control processes."
+}

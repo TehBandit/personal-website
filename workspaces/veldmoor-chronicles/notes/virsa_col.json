@@ -31,5 +31,9 @@
   ],
   "notes": "Virsa Col, in her late 50s, worked as a part-time records archivist at the Admiralty's records depot in Tiveck for eleven years before retiring. She is known for her preference for quiet and meticulous record-keeping. Sixteen years ago, she misfiled cargo inspection reports at the request of Orris Vane, which she has since regretted. Maren Ashveil is close to discovering her involvement. Virsa lives alone, enjoys gardening, and reads extensively. She is quiet, careful, and has a strong sense of morality, though she struggles with past decisions.",
   "sourceFile": "notes-test/virsa-col.md",
-  "createdAt": 1773150034407
+  "createdAt": 1773150034407,
+  "tags": [
+    "new",
+    "thing"
+  ]
 }

@@ -4,7 +4,9 @@ import path from "path";
 import mammoth from "mammoth";
 import { htmlToMarkdown, MAMMOTH_OPTIONS } from "./_docx-md.js";
 import { deduplicateNodes, remapConnections } from "./dedup-nodes.js";
-import { bumpWorkspaceVersion, rebuildGraphCache } from "./bump-version.js";
+import { syncWorkspaceAfterWrite } from "./bump-version.js";
+import { extractTitleFromContent } from "./_walk.js";
+import { ensureDir } from "./_storygraph-io.js";
 
 // ── File helpers ──────────────────────────────────────────────────────────────
 
@@ -154,6 +156,13 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "File too large — please split into sections under 100 KB." });
     }
 
+    // If the file content has a detectable title line, prefer it over the
+    // filename-derived title the client sent.
+    const contentTitle = extractTitleFromContent(rawText);
+    if (contentTitle && req.body.title) {
+      req.body.title = contentTitle;
+    }
+
     // --- Load existing nodes as context so the AI doesn't duplicate them ---
     const workspace = req.body.workspace;
     if (!workspace || !/^[a-z0-9-]+$/.test(workspace)) {
@@ -215,6 +224,17 @@ export default async function handler(req, res) {
     }
     const existingIdSet = new Set(existingNodes.map((n) => n.id));
 
+    // --- Compute upload filename and folder path early so both the focused node
+    //     and the later per-entity nodes share the same sourceFile value. ---
+    const _uploadFilename = req.body.filename || `upload-${Date.now()}.md`;
+    const _rawBasename = path.basename(_uploadFilename).replace(/[^a-zA-Z0-9._-]/g, "_");
+    const safeUploadFilename = _rawBasename.replace(/\.(txt|docx)$/i, ".md");
+    const _folderName = (req.body.folderName || "").trim();
+    const _safeFolder = _folderName
+      ? _folderName.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").substring(0, 60)
+      : "";
+    const uploadSourceFile = _safeFolder ? `${_safeFolder}/${safeUploadFilename}` : safeUploadFilename;
+
     // --- Prompt OpenAI with JSON mode ---
     const openai = new OpenAI({ apiKey });
 
@@ -229,15 +249,13 @@ export default async function handler(req, res) {
     let focusedId = null;
     let focusedTitle = null;
     let focusedType = null;
-    let focusedIsNew = false;
     if (req.body.title && req.body.title.trim()) {
       focusedTitle = req.body.title.trim();
       focusedId = focusedTitle.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 
-      const _fnFocused = req.body.filename || `upload-${Date.now()}.md`;
-      const _bnFocused = path.basename(_fnFocused).replace(/[^a-zA-Z0-9._-]/g, "_");
-      const _safeFocusedFilename = _bnFocused.replace(/\.(txt|docx)$/i, ".md");
-      const focusedSourceFile = _safeFocusedFilename;
+      // Use the already-computed uploadSourceFile so folder uploads place the
+      // focused node under the correct subfolder, not at workspace root.
+      const focusedSourceFile = uploadSourceFile;
 
       // Ask gpt-4o-mini for a one-sentence excerpt, a type, and any connections
       // to nodes already in the graph.  Characters found in this pass are NOT
@@ -284,13 +302,27 @@ ${rawText}`;
         ? focusedResult.connections.filter((c) => c.target && existingIdSet.has(c.target))
         : [];
 
-      if (!fs.existsSync(notesDir)) fs.mkdirSync(notesDir, { recursive: true });
+      ensureDir(notesDir);
       const existingFocused = loadNodeFile(notesDir, focusedId);
-      focusedIsNew = !existingFocused;
 
       if (existingFocused) {
         patchNodeContent(notesDir, focusedId, rawText, focusedResult.excerpt || "");
         if (focusedConns.length > 0) patchNodeConnections(notesDir, focusedId, focusedConns);
+        // Always stamp documentNode + update sourceFile so this node is recognised
+        // as the file owner even when it previously existed as a grey extracted node
+        // (e.g. extracted from an earlier upload) with no documentNode flag.
+        const reloaded = loadNodeFile(notesDir, focusedId);
+        if (reloaded && (!reloaded.documentNode || reloaded.sourceFile !== focusedSourceFile)) {
+          reloaded.documentNode = true;
+          reloaded.sourceFile = focusedSourceFile;
+          if (!reloaded.originSourceFile) reloaded.originSourceFile = focusedSourceFile;
+          reloaded.updatedAt = Date.now();
+          fs.writeFileSync(path.join(notesDir, `${focusedId}.json`), JSON.stringify(reloaded, null, 2), "utf-8");
+        } else if (reloaded && !reloaded.originSourceFile) {
+          reloaded.originSourceFile = reloaded.sourceFile || focusedSourceFile;
+          reloaded.updatedAt = Date.now();
+          fs.writeFileSync(path.join(notesDir, `${focusedId}.json`), JSON.stringify(reloaded, null, 2), "utf-8");
+        }
       } else {
         const focusedNode = {
           id: focusedId,
@@ -300,7 +332,9 @@ ${rawText}`;
           notes: rawText,
           connections: focusedConns,
           aliases: [],
+          originSourceFile: focusedSourceFile,
           sourceFile: focusedSourceFile,
+          documentNode: true,
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
@@ -325,8 +359,9 @@ ${rawText}`;
 
       // Save the raw file NOW so rebuildGraphCache (called at the end of the
       // main extraction) finds the sourceFile on disk and does not purge this node.
-      if (!fs.existsSync(wsDir)) fs.mkdirSync(wsDir, { recursive: true });
-      fs.writeFileSync(path.join(wsDir, _safeFocusedFilename), markdownContent ?? rawText, "utf-8");
+      const _focusedWriteDir = _safeFolder ? path.join(wsDir, _safeFolder) : wsDir;
+      ensureDir(_focusedWriteDir);
+      fs.writeFileSync(path.join(_focusedWriteDir, safeUploadFilename), markdownContent ?? rawText, "utf-8");
 
       // Fall through to the full multi-entity extraction ↓
     }
@@ -464,21 +499,10 @@ ${rawText}`;
       }
     }
 
-    // --- Compute the uploads path early so nodes get the correct sourceFile ---
-    // safeFilename matches what will actually be written to disk below.
-    const _uploadFilename = req.body.filename || `upload-${Date.now()}.md`;
-    const _rawBasename = path.basename(_uploadFilename).replace(/[^a-zA-Z0-9._-]/g, "_");
-    const safeUploadFilename = _rawBasename.replace(/\.(txt|docx)$/i, ".md");
-
-    // If the caller supplied a folderName, save into that folder; otherwise save at workspace root.
-    const _folderName = (req.body.folderName || "").trim();
-    const _safeFolder = _folderName
-      ? _folderName.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").substring(0, 60)
-      : "";
-    const uploadSourceFile = _safeFolder ? `${_safeFolder}/${safeUploadFilename}` : safeUploadFilename;
+    // uploadSourceFile / _safeFolder / safeUploadFilename were computed above (before the focused-note block).
 
     // --- Save each genuinely new node ---
-    if (!fs.existsSync(notesDir)) fs.mkdirSync(notesDir, { recursive: true });
+    ensureDir(notesDir);
 
     const savedNodes = [];
     const nodesForSummary = []; // collect for concurrent context_summary generation
@@ -494,6 +518,7 @@ ${rawText}`;
         connections: node.connections || [],
         notes: node.notes || "",
         aliases: node.aliases || [],
+        originSourceFile: uploadSourceFile,
         sourceFile: uploadSourceFile,
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -517,6 +542,16 @@ ${rawText}`;
         update.excerpt || ""
       );
       if (patched) {
+        const existingNode = loadNodeFile(notesDir, canonicalId);
+        if (existingNode && !existingNode.originSourceFile) {
+          existingNode.originSourceFile = existingNode.sourceFile || uploadSourceFile;
+          existingNode.updatedAt = Date.now();
+          fs.writeFileSync(
+            path.join(notesDir, `${canonicalId}.json`),
+            JSON.stringify(existingNode, null, 2),
+            "utf-8"
+          );
+        }
         updatedNodeCount++;
         updatedNodeIds.push(canonicalId);
       }
@@ -581,17 +616,13 @@ ${rawText}`;
 
     // Rebuild the graph cache from all node JSONs so story-notes.js can serve
     // the next graph load with a single file read instead of N+1 readFileSync calls.
-    rebuildGraphCache(workspace, notesDir);
-
-    // Bump the lightweight version token so the 2-second poller detects this change
-    // with a single file read instead of stat-ing every node JSON.
-    bumpWorkspaceVersion(workspace);
+    syncWorkspaceAfterWrite(workspace, notesDir);
 
     // --- Save source file to workspace folder for record-keeping ---
     const uploadsDir = _safeFolder
-      ? path.join(process.cwd(), "workspaces", workspace, _safeFolder)
-      : path.join(process.cwd(), "workspaces", workspace);
-    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+      ? path.join(wsDir, _safeFolder)
+      : wsDir;
+    ensureDir(uploadsDir);
     fs.writeFileSync(path.join(uploadsDir, safeUploadFilename), markdownContent ?? rawText, "utf-8");
 
     // Prepend the focused/title node to the response so the upload-complete

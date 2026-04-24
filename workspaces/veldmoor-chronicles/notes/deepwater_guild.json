@@ -43,5 +43,8 @@
     "- Has a complex relationship with the Cartographic Division.",
     "- Challenges survey data affecting operational reach."
   ],
-  "createdAt": 1774910784960
+  "createdAt": 1774910784960,
+  "tags": [
+    "new"
+  ]
 }

@@ -1,0 +1,25 @@
+{
+  "id": "rites_of_passage_and_enhancement",
+  "name": "Rites of Passage and Enhancement",
+  "type": "concept",
+  "excerpt": "Rites of Passage and Enhancement are formal events signifying importance within an organization.",
+  "connections": [
+    {
+      "target": "organizational_socialization",
+      "label": "part of"
+    },
+    {
+      "target": "organizing",
+      "label": "featured in"
+    }
+  ],
+  "notes": "Rites of Passage are formal ways in which one enters the organization, while Rites of Enhancement are ceremonies to commemorate those who exhibit company values exceptionally.",
+  "aliases": [],
+  "sourceFile": "management/Managements_Notes_2_25_2020.md",
+  "createdAt": 1776913914211,
+  "updatedAt": 1776913914211,
+  "context_summary": [
+    "- Rites of Passage signify entry into the organization.",
+    "- Rites of Enhancement commemorate exceptional company values."
+  ]
+}

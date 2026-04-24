@@ -1,0 +1,18 @@
+{
+  "id": "lewins_change_model",
+  "name": "Lewin's Change Model",
+  "type": "concept",
+  "excerpt": "Lewin's Change Model outlines stages for implementing change effectively.",
+  "connections": [
+    {
+      "target": "managing_change",
+      "label": "central to"
+    }
+  ],
+  "notes": "Lewin's Change Model includes three stages: Unfreezing, Change Intervention, and Refreezing. Unfreezing involves getting people to recognize the necessity of change and delivering the need for change with a message of hope. Change Intervention provides the tools and support needed for change. Refreezing focuses on sustaining the change and making it stick.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_3_24_2020.md",
+  "createdAt": 1776913856066,
+  "updatedAt": 1776913856066,
+  "context_summary": "- Outlines stages for implementing change effectively.\n- Includes three stages: Unfreezing, Change Intervention, and Refreezing.\n- Unfreezing involves recognizing the necessity of change.\n- Delivers the need for change with a message of hope.\n- Change Intervention provides tools and support for change.\n- Refreezing focuses on sustaining the change."
+}

@@ -1,0 +1,23 @@
+{
+  "id": "organizational_socialization",
+  "name": "Organizational Socialization",
+  "type": "concept",
+  "excerpt": "Organizational Socialization is how managers teach employees the company's culture.",
+  "connections": [
+    {
+      "target": "organizing",
+      "label": "central to"
+    }
+  ],
+  "notes": "Organizational Socialization involves the process by which managers teach employees the culture of the company. It includes stories, heroes, rites of passage, and rites of enhancement.",
+  "aliases": [],
+  "sourceFile": "management/Managements_Notes_2_25_2020.md",
+  "createdAt": 1776913914210,
+  "updatedAt": 1776913914210,
+  "context_summary": [
+    "- Managers teach employees the company's culture.",
+    "- Involves stories and heroes.",
+    "- Includes rites of passage.",
+    "- Includes rites of enhancement."
+  ]
+}

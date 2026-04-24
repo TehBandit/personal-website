@@ -1,0 +1,18 @@
+{
+  "id": "vision_statement",
+  "name": "Vision Statement",
+  "type": "concept",
+  "excerpt": "A vision statement expresses where a firm wants to go.",
+  "connections": [
+    {
+      "target": "planning_and_strategy",
+      "label": "appears in"
+    }
+  ],
+  "notes": "The vision statement is part of a firm's values and works alongside the mission statement to guide strategic planning.\n\nA vision statement provides a picture of the future and what the firm wants to become.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_10_2020.md",
+  "createdAt": 1776913763514,
+  "updatedAt": 1776913779037,
+  "context_summary": "- Expresses where a firm wants to go\n- Guides strategic planning\n- Provides a picture of the future"
+}

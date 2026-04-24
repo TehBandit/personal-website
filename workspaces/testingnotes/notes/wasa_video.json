@@ -1,0 +1,23 @@
+{
+  "id": "wasa_video",
+  "name": "Wasa Video",
+  "type": "source",
+  "excerpt": "The Wasa Video illustrates the consequences of project changes and scope creep.",
+  "connections": [
+    {
+      "target": "scope_creep",
+      "label": "illustrates"
+    }
+  ],
+  "notes": "The Wasa Video discusses the historical example of the Wasa warship, which underwent numerous changes leading to its sinking. It highlights the impact of scope changes and the need for careful project management.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_8_9_2020.md",
+  "createdAt": 1776286504790,
+  "updatedAt": 1776286504790,
+  "context_summary": [
+    "- Illustrates consequences of project changes.",
+    "- Discusses the Wasa warship historical example.",
+    "- Highlights impact of scope changes.",
+    "- Emphasizes need for careful project management."
+  ]
+}

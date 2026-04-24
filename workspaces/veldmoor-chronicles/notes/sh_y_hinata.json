@@ -87,5 +87,9 @@
     "five_plus_one/hinata.md",
     "dads/shouyou.md"
   ],
-  "createdAt": 1773479343366
+  "createdAt": 1773479343366,
+  "tags": [
+    "new",
+    "thing"
+  ]
 }

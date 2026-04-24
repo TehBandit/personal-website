@@ -1,0 +1,18 @@
+{
+  "id": "osha",
+  "name": "OSHA",
+  "type": "concept",
+  "excerpt": "OSHA ensures safe and healthful working conditions.",
+  "connections": [
+    {
+      "target": "human_resource_management",
+      "label": "appears in"
+    }
+  ],
+  "notes": "The Occupational Safety and Health Administration (OSHA) is responsible for ensuring safe and healthful working conditions by setting and enforcing standards and providing training, outreach, education, and assistance.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_3_5_2020.md",
+  "createdAt": 1776913889268,
+  "updatedAt": 1776913889268,
+  "context_summary": "- Ensures safe and healthful working conditions.\n- Sets and enforces safety standards.\n- Provides training, outreach, education, and assistance."
+}

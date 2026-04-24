@@ -1,0 +1,18 @@
+{
+  "id": "us_sentencing_commission_guidelines",
+  "name": "US Sentencing Commission Guidelines for Organizations",
+  "type": "concept",
+  "excerpt": "The US Sentencing Commission Guidelines hold managers accountable for unethical behavior.",
+  "connections": [
+    {
+      "target": "business_ethics",
+      "label": "related to"
+    }
+  ],
+  "notes": "Established in 1991, these guidelines hold managers and directors directly accountable for unethical behavior within a company, emphasizing the importance of ethical leadership.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_4_2020.md",
+  "createdAt": 1776913811295,
+  "updatedAt": 1776913811295,
+  "context_summary": "- Established in 1991.\n- Holds managers accountable for unethical behavior.\n- Emphasizes the importance of ethical leadership."
+}

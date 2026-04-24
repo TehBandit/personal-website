@@ -1,0 +1,18 @@
+{
+  "id": "bounded_rationality",
+  "name": "Bounded Rationality",
+  "type": "concept",
+  "excerpt": "Bounded Rationality limits the ability to be fully rational due to constraints.",
+  "connections": [
+    {
+      "target": "decision_making",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Bounded Rationality refers to the limitations on decision making due to constraints such as time, information, and cognitive capacity. It suggests that while individuals aim to make rational decisions, their ability to do so is limited, leading to satisficing rather than optimizing.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_19_2020.md",
+  "createdAt": 1776913795004,
+  "updatedAt": 1776913795004,
+  "context_summary": "- Limits decision-making ability due to constraints.\n- Constraints include time, information, and cognitive capacity.\n- Individuals aim for rational decisions but often satisfice."
+}

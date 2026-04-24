@@ -1,0 +1,13 @@
+{
+  "id": "portfolio_management",
+  "name": "Portfolio Management",
+  "type": "concept",
+  "excerpt": "Portfolio Management involves grouping and managing projects and programs.",
+  "connections": [],
+  "notes": "Portfolio Management is concerned with grouping projects and programs and choosing the right projects to undertake, generally done by higher-level employees.",
+  "aliases": [],
+  "sourceFile": "notes/BIT_4484_Notes_7_8_2020.md",
+  "createdAt": 1776286433656,
+  "updatedAt": 1776286433656,
+  "context_summary": "- Involves grouping and managing projects and programs.\n- Focuses on choosing the right projects to undertake."
+}

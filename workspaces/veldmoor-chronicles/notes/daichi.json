@@ -20,5 +20,9 @@
     }
   ],
   "sourceFile": "five_plus_one/daichi.md",
-  "createdAt": 1775374321095
+  "createdAt": 1775374321095,
+  "tags": [
+    "new",
+    "thing"
+  ]
 }

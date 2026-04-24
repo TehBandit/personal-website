@@ -1,0 +1,18 @@
+{
+  "id": "maquiladoras",
+  "name": "Maquiladoras",
+  "type": "concept",
+  "excerpt": "Maquiladoras are foreign manufacturing plants in Mexico with special privileges.",
+  "connections": [
+    {
+      "target": "global_management",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Maquiladoras are foreign manufacturing plants allowed to operate in Mexico with special privileges if they employ Mexican citizens.",
+  "aliases": [],
+  "sourceFile": "management/Management_Notes_2_6_2020.md",
+  "createdAt": 1776913837261,
+  "updatedAt": 1776913837261,
+  "context_summary": "- Maquiladoras are foreign manufacturing plants in Mexico.\n- They have special privileges if they employ Mexican citizens."
+}

@@ -9,20 +9,13 @@
     {
       "target": "bokuto",
       "label": "photography project subject"
-    },
-    {
-      "target": "kageyama",
-      "label": "father"
-    },
-    {
-      "target": "sh_y_hinata",
-      "label": "acquaintance"
-    },
-    {
-      "target": "volleyball",
-      "label": "references"
     }
   ],
   "sourceFile": "tea_stained_polaroids/akaashi.md",
-  "createdAt": 1774318399808
+  "createdAt": 1774318399808,
+  "tags": [
+    "new",
+    "thing"
+  ],
+  "updatedAt": 1776827320292
 }
