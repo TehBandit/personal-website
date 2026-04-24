@@ -1,0 +1,17 @@
+{
+  "id": "kronos",
+  "name": "Kronos",
+  "type": "character",
+  "excerpt": "Kronos is a Titan who ate his children in Greek mythology.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "zeus",
+      "label": "references"
+    }
+  ],
+  "originSourceFile": "kronos.md",
+  "sourceFile": "kronos.md",
+  "updatedAt": 1776993803948
+}

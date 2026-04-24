@@ -10,11 +10,14 @@ import { Github, Linkedin, Twitter, Mail, Swords } from "lucide-react";
 
 function Home() {
   // Youtube API Setup
-  const [latestVideoId, setLatestVideoId] = useState("nothing");
+  const [latestVideoId, setLatestVideoId] = useState("");
+  const [isLoadingVideo, setIsLoadingVideo] = useState(true);
   const [error, setError] = useState("");
   const CHANNEL_ID = "UCX-JpAVGwDuXLFF_RnJXWqA";
 
   const fetchLatestVideo = async () => {
+    setIsLoadingVideo(true);
+    setError("");
     try {
       const res = await fetch(
         `/api/youtube-search?channelId=${CHANNEL_ID}&maxResults=1`
@@ -38,7 +41,10 @@ function Home() {
       setLatestVideoId(videoId);
     } catch (err) {
       console.error(err);
+      setLatestVideoId("");
       setError(err.message || "Unexpected error fetching video.");
+    } finally {
+      setIsLoadingVideo(false);
     }
   };
 
@@ -114,15 +120,22 @@ function Home() {
             <div className="responsive_card_title">YouTube</div>
             <div className="responsive_card_content_container">
               {error && <p className="text-sm text-red-500 px-2 py-1">{error}</p>}
-              <iframe
-                src={`https://www.youtube.com/embed/${latestVideoId}?si=Wsy9vkV0vV9nhTvn`}
-                title="YouTube video player"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                referrerPolicy="strict-origin-when-cross-origin"
-                allowFullScreen
-                className="responsive_card_content"
-              ></iframe>
+              {!error && isLoadingVideo && (
+                <div className="responsive_card_content flex items-center justify-center text-sm text-gray-500">
+                  loading latest video...
+                </div>
+              )}
+              {!error && !isLoadingVideo && latestVideoId && (
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${latestVideoId}`}
+                  title="YouTube video player"
+                  frameBorder="0"
+                  loading="lazy"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                  className="responsive_card_content"
+                ></iframe>
+              )}
             </div>
           </div>
           {/* TODO: THIS IS HARD-CODED BECAUSE I DO NOT WANT TO INTERACT WITH THE INSTAGRAM API RN */}

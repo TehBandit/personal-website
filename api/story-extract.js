@@ -5,7 +5,7 @@ import mammoth from "mammoth";
 import { htmlToMarkdown, MAMMOTH_OPTIONS } from "./_docx-md.js";
 import { deduplicateNodes, remapConnections } from "./dedup-nodes.js";
 import { syncWorkspaceAfterWrite } from "./bump-version.js";
-import { extractTitleFromContent } from "./_walk.js";
+import { extractTitleFromContent, normalizeWrappedProse } from "./_walk.js";
 import { ensureDir } from "./_storygraph-io.js";
 
 // ── File helpers ──────────────────────────────────────────────────────────────
@@ -145,10 +145,10 @@ export default async function handler(req, res) {
         mammoth.convertToHtml({ buffer }, MAMMOTH_OPTIONS),
       ]);
       rawText = rawResult.value;
-      markdownContent = htmlToMarkdown(htmlResult.value);
+      markdownContent = normalizeWrappedProse(htmlToMarkdown(htmlResult.value));
     }
 
-    rawText = rawText.trim();
+    rawText = normalizeWrappedProse(rawText.trim());
     if (!rawText) {
       return res.status(400).json({ error: "No text content found in the file." });
     }

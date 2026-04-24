@@ -29,6 +29,10 @@
     {
       "target": "volleyball",
       "label": "references"
+    },
+    {
+      "target": "rella_corse",
+      "label": "references"
     }
   ],
   "sourceFile": "tea_stained_polaroids/bokuto.md",
@@ -36,5 +40,6 @@
   "tags": [
     "new",
     "thing"
-  ]
+  ],
+  "updatedAt": 1776993163186
 }

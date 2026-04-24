@@ -1,7 +1,8 @@
-**Management**
+## **Mana**gement
 
 - *Management*
   - **Management** - Getting work done **effectively and efficiently** through other people through planning, organizing, leading, and controlling the organization’s resources
+  - We love management
     - **Effectiveness** - Ability to reach goal
       - The *ends*
       - Top priority
@@ -16,7 +17,7 @@
       - *Profit = Revenue - Expenses*
   - **Commerce** - the exchange of goods and services
     - Mutually beneficial for both parties
-      - Improves standard of living for all by the **invisible hand**
+      - Improves standard of living for all by the **invisible** **hand**
         - Everyone specializes in what they are best at, and provides that thing to society
   - Managers have a **multiplier effect** where a good manager creates multiple good employees
   - **Principal Functions of Management**
@@ -58,4 +59,3 @@
     - **Managing for Globalization -** Ensuring that the business can function globally and fit into global cultures
     - **Managing for Ethical Standards**
     - **Managing for Sustainability**
-    - **Managing for Happiness and Meaningfulness**

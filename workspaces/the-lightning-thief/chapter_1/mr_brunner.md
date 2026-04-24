@@ -1,0 +1,3 @@
+MR. BRUNNER — character notes
+
+Mr. Brunner is Percy's Latin teacher at Yancy Academy, known for his engaging teaching style and his collection of Roman armor and weapons. He is a middle-aged man who uses a motorized wheelchair and is described as having intense brown eyes. Mr. Brunner has high expectations for Percy, pushing him to excel despite his learning difficulties. He plays a significant role in the story, as he seems to be aware of Percy's true nature and the mythical world that Percy is a part of. His sudden appearance during Percy's confrontation with Mrs. Dodds and his possession of a magical pen that turns into a sword suggest he is more than just a teacher.

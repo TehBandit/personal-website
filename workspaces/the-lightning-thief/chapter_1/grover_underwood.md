@@ -1,0 +1,3 @@
+GROVER UNDERWOOD — character notes
+
+Grover Underwood is Percy's best friend at Yancy Academy. He is described as scrawny, with acne and a wispy beard, suggesting he is older than the other sixth graders. Grover has a muscular disease that affects his legs, excusing him from physical education, but he is surprisingly fast when motivated. He is supportive of Percy, often trying to calm him down and even attempting to take the blame for Percy's actions to protect him. Grover's behavior and reactions suggest he knows more about the strange events surrounding Percy than he lets on.

@@ -11,28 +11,16 @@
       "label": "former navigator"
     },
     {
-      "target": "harwick_ossel",
-      "label": "filed complaint against"
-    },
-    {
-      "target": "dovan_strake",
-      "label": "complex relationship"
-    },
-    {
-      "target": "salt_warren",
-      "label": "former residence"
+      "target": "tide_compact",
+      "label": "logistics manager"
     },
     {
       "target": "14th_lowland",
       "label": "current residence near"
     },
     {
-      "target": "deepwater_guild",
-      "label": "seen near archive corridor"
-    },
-    {
-      "target": "tide_compact",
-      "label": "logistics manager"
+      "target": "bokuto",
+      "label": "references"
     }
   ],
   "sourceFile": "bulk_test/rella_corse.md",
@@ -40,5 +28,6 @@
   "tags": [
     "new",
     "thing"
-  ]
+  ],
+  "updatedAt": 1776993163157
 }

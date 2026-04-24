@@ -1,0 +1,21 @@
+{
+  "inputPath": "chapter_1/tlt_ch1.md",
+  "sourceHash": "0dfa7ca82019d4de504f3c380ce8828457835c44da90c900eef1077780479408",
+  "folderName": "Chapter 1",
+  "derivedAt": "2026-04-24T01:21:30.831Z",
+  "nodes": [
+    "percy_jackson",
+    "grover_underwood",
+    "mr_brunner",
+    "mrs_dodds",
+    "nancy_bobofit",
+    "yancy_academy"
+  ],
+  "updated": [],
+  "mentions": [
+    "metropolitan_museum_of_art",
+    "kronos",
+    "zeus",
+    "tartarus"
+  ]
+}

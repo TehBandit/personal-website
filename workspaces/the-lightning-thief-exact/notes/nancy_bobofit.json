@@ -1,0 +1,23 @@
+{
+  "id": "nancy_bobofit",
+  "name": "Nancy Bobofit",
+  "type": "character",
+  "excerpt": "Nancy Bobofit is a freckly, redheaded kleptomaniac girl who antagonizes Percy.",
+  "connections": [
+    {
+      "target": "tlt_ch1",
+      "label": "appears in"
+    },
+    {
+      "target": "percy_jackson",
+      "label": "antagonizes"
+    }
+  ],
+  "notes": "Nancy Bobofit is a student at Yancy Academy who frequently causes trouble for Percy Jackson. She is described as having freckles, red hair, and a tendency to steal. She often targets Percy's friend Grover with her antics and seems to enjoy getting Percy into trouble.",
+  "aliases": [],
+  "originSourceFile": "tlt_ch1.md",
+  "sourceFile": "tlt_ch1.md",
+  "createdAt": 1776994542032,
+  "updatedAt": 1776994542032,
+  "context_summary": "- Nancy Bobofit is a student at Yancy Academy.\n- She has freckles and red hair.\n- She is a kleptomaniac.\n- She frequently antagonizes Percy and Grover."
+}

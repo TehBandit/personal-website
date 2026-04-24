@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ForceGraph2D from "react-force-graph-2d";
-import { useEditor, EditorContent } from "@tiptap/react";
-import { Extension } from "@tiptap/core";
+import { useEditor, EditorContent, ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
+import { Extension, Node as TiptapNode } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { sinkListItem, liftListItem } from "@tiptap/pm/schema-list";
 import StarterKit from "@tiptap/starter-kit";
+import { TextStyle } from "@tiptap/extension-text-style";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import { Markdown } from "tiptap-markdown";
@@ -20,10 +21,10 @@ import {
   Folder, FolderOpen, FolderPlus, FilePlus, MoreHorizontal,
   Bold, Italic, Underline, List, ListOrdered,
   Heading1, Heading2, Heading3,
-  Quote, Code, Minus, Undo, Redo,
+  Quote, Code, Minus, Undo, Redo, Eraser, Lock,
   CheckCircle, AlertCircle, Loader, ArrowLeftRight,
   ChevronsDownUp, ChevronsUpDown, Copy, GitMerge, Scissors, Clipboard, Search, Upload,
-  Download, Pencil, ChevronDown, Sparkles, WandSparkles, Type, Info,
+  Download, Pencil, ChevronDown, Sparkles, WandSparkles, Type, Info, Palette, Highlighter,
 } from "lucide-react";
 import { TYPE_PRESETS } from "../constants/nodeTypes.js";
 import { useNodeTypeConfig } from "../contexts/NodeTypeContext.jsx";
@@ -32,6 +33,125 @@ import { computeOwnFileIds, normalizeToId, extractTitleFromContent } from "../ut
 import { buildWordBoundaryPattern, collectGreedyMatches } from "../../shared/story-rules.js";
 import { requestJson } from "../utils/storygraphApi.js";
 const MINIMAP_BG = "#0f0f1a";
+const DEFAULT_FONT_SIZE_PX = 16;
+const MIN_FONT_SIZE_PX = 10;
+const MAX_FONT_SIZE_PX = 72;
+const DOODLE_PEN_COLOR = "#111827";
+const DOODLE_PEN_SIZE = 3;
+const DOODLE_ERASER_SIZE = 10;
+const DOODLE_CANVAS_WIDTH = 960;
+const DOODLE_CANVAS_HEIGHT = 360;
+const FONT_FAMILY_OPTIONS = [
+  { label: "Roboto", family: '"Roboto", sans-serif', match: ["roboto"] },
+  { label: "Open Sans", family: '"Open Sans", sans-serif', match: ["open sans"] },
+  { label: "Ubuntu", family: '"Ubuntu", sans-serif', match: ["ubuntu"] },
+  { label: "Inter", family: '"Inter", sans-serif', match: ["inter"] },
+  { label: "Montserrat", family: '"Montserrat", sans-serif', match: ["montserrat"] },
+  { label: "Lato", family: '"Lato", sans-serif', match: ["lato"] },
+  { label: "Arimo", family: '"Arimo", sans-serif', match: ["arimo"] },
+  { label: "Noto Sans", family: '"Noto Sans", sans-serif', match: ["noto sans"] },
+  { label: "Playfair Display", family: '"Playfair Display", serif', match: ["playfair display"] },
+  { label: "Arial", family: "Arial, sans-serif", match: ["arial"] },
+  { label: "Times New Roman", family: '"Times New Roman", Times, serif', match: ["times new roman"] },
+];
+
+const TEXT_COLOR_OPTIONS = [
+  { label: "Default", value: "", swatch: "" },
+  { label: "Black", value: "#111111", swatch: "#111111" },
+  { label: "Slate", value: "#e2e8f0", swatch: "#e2e8f0" },
+  { label: "Blue", value: "#60a5fa", swatch: "#60a5fa" },
+  { label: "Green", value: "#4ade80", swatch: "#4ade80" },
+  { label: "Amber", value: "#fbbf24", swatch: "#fbbf24" },
+  { label: "Rose", value: "#fb7185", swatch: "#fb7185" },
+  { label: "Purple", value: "#c084fc", swatch: "#c084fc" },
+];
+
+const HIGHLIGHT_COLOR_OPTIONS = [
+  { label: "None", value: "", swatch: "" },
+  { label: "Yellow", value: "rgba(254, 240, 138, 0.42)", swatch: "rgba(254, 240, 138, 0.42)" },
+  { label: "Mint", value: "rgba(187, 247, 208, 0.42)", swatch: "rgba(187, 247, 208, 0.42)" },
+  { label: "Sky", value: "rgba(191, 219, 254, 0.42)", swatch: "rgba(191, 219, 254, 0.42)" },
+  { label: "Peach", value: "rgba(254, 215, 170, 0.42)", swatch: "rgba(254, 215, 170, 0.42)" },
+  { label: "Pink", value: "rgba(251, 207, 232, 0.42)", swatch: "rgba(251, 207, 232, 0.42)" },
+];
+
+function normalizeCssColorValue(value) {
+  return String(value || "").toLowerCase().replace(/\s+/g, "");
+}
+
+function hexToRgbColor(hex) {
+  const cleaned = String(hex || "").replace("#", "").trim();
+  if (!/^[0-9a-f]{3}([0-9a-f]{3})?$/i.test(cleaned)) return null;
+  const full = cleaned.length === 3 ? cleaned.split("").map((c) => c + c).join("") : cleaned;
+  const int = Number.parseInt(full, 16);
+  const r = (int >> 16) & 255;
+  const g = (int >> 8) & 255;
+  const b = int & 255;
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function findMatchingColorValue(rawValue, options) {
+  const rawSig = normalizeCssColorValue(rawValue);
+  if (!rawSig) return "";
+  for (const option of options) {
+    if (!option.value) continue;
+    const optionSig = normalizeCssColorValue(option.value);
+    if (rawSig === optionSig) return option.value;
+    if (option.value.startsWith("#")) {
+      const rgb = hexToRgbColor(option.value);
+      if (rgb && rawSig === normalizeCssColorValue(rgb)) return option.value;
+    }
+  }
+  return "";
+}
+
+function shiftHexTone(hex, amount) {
+  const cleaned = String(hex || "").replace("#", "").trim();
+  if (!/^[0-9a-f]{3}([0-9a-f]{3})?$/i.test(cleaned)) return hex;
+  const full = cleaned.length === 3 ? cleaned.split("").map((c) => c + c).join("") : cleaned;
+  const int = Number.parseInt(full, 16);
+  const r = (int >> 16) & 255;
+  const g = (int >> 8) & 255;
+  const b = int & 255;
+  const blend = (channel) => {
+    if (amount >= 0) return Math.round(channel + (255 - channel) * amount);
+    return Math.round(channel * (1 + amount));
+  };
+  const toHex = (n) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, "0");
+  return `#${toHex(blend(r))}${toHex(blend(g))}${toHex(blend(b))}`;
+}
+
+function getTextColorTints(baseColor) {
+  if (!baseColor) return [];
+  if (!String(baseColor).startsWith("#")) {
+    return [{ label: "Default", value: baseColor }];
+  }
+  return [
+    { label: "Lighter 3", value: shiftHexTone(baseColor, 0.52) },
+    { label: "Lighter 2", value: shiftHexTone(baseColor, 0.36) },
+    { label: "Lighter 1", value: shiftHexTone(baseColor, 0.2) },
+    { label: "Default", value: baseColor },
+    { label: "Darker 1", value: shiftHexTone(baseColor, -0.16) },
+    { label: "Darker 2", value: shiftHexTone(baseColor, -0.3) },
+    { label: "Darker 3", value: shiftHexTone(baseColor, -0.44) },
+  ];
+}
+
+function swatchBackground(value) {
+  if (!value) {
+    return "rgba(255,255,255,0.18)";
+  }
+  return value;
+}
+
+function findFontFamilyOption(fontFamily) {
+  const signature = String(fontFamily || "")
+    .toLowerCase()
+    .replace(/["']/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return FONT_FAMILY_OPTIONS.find((option) => option.match.some((token) => signature.includes(token)));
+}
 
 /**
  * Greedy non-overlapping matcher for entity names.
@@ -489,6 +609,639 @@ function buildAutocompleteExtension(dataRef) {
   });
 }
 
+const FontSize = Extension.create({
+  name: "fontSize",
+
+  addOptions() {
+    return {
+      types: ["textStyle"],
+    };
+  },
+
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: (element) => element.style.fontSize || null,
+            renderHTML: (attributes) => {
+              if (!attributes.fontSize) return {};
+              return { style: `font-size: ${attributes.fontSize}` };
+            },
+          },
+        },
+      },
+    ];
+  },
+
+  addCommands() {
+    return {
+      setFontSize:
+        (fontSize) =>
+        ({ chain }) =>
+          chain().setMark("textStyle", { fontSize }).run(),
+      unsetFontSize:
+        () =>
+        ({ chain }) =>
+          chain().setMark("textStyle", { fontSize: null }).removeEmptyTextStyle().run(),
+    };
+  },
+});
+
+const FontFamily = Extension.create({
+  name: "fontFamily",
+
+  addOptions() {
+    return {
+      types: ["textStyle"],
+    };
+  },
+
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          fontFamily: {
+            default: null,
+            parseHTML: (element) => element.style.fontFamily || null,
+            renderHTML: (attributes) => {
+              if (!attributes.fontFamily) return {};
+              return { style: `font-family: ${attributes.fontFamily}` };
+            },
+          },
+        },
+      },
+    ];
+  },
+
+  addCommands() {
+    return {
+      setFontFamily:
+        (fontFamily) =>
+        ({ chain }) =>
+          chain().setMark("textStyle", { fontFamily }).run(),
+      unsetFontFamily:
+        () =>
+        ({ chain }) =>
+          chain().setMark("textStyle", { fontFamily: null }).removeEmptyTextStyle().run(),
+    };
+  },
+});
+
+const TextColor = Extension.create({
+  name: "textColor",
+
+  addOptions() {
+    return {
+      types: ["textStyle"],
+    };
+  },
+
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          color: {
+            default: null,
+            parseHTML: (element) => element.style.color || null,
+            renderHTML: (attributes) => {
+              if (!attributes.color) return {};
+              return { style: `color: ${attributes.color}` };
+            },
+          },
+        },
+      },
+    ];
+  },
+
+  addCommands() {
+    return {
+      setTextColor:
+        (color) =>
+        ({ chain }) =>
+          chain().setMark("textStyle", { color }).run(),
+      unsetTextColor:
+        () =>
+        ({ chain }) =>
+          chain().setMark("textStyle", { color: null }).removeEmptyTextStyle().run(),
+    };
+  },
+});
+
+const TextHighlight = Extension.create({
+  name: "textHighlight",
+
+  addOptions() {
+    return {
+      types: ["textStyle"],
+    };
+  },
+
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          backgroundColor: {
+            default: null,
+            parseHTML: (element) => element.style.backgroundColor || null,
+            renderHTML: (attributes) => {
+              if (!attributes.backgroundColor) return {};
+              return { style: `background-color: ${attributes.backgroundColor}` };
+            },
+          },
+        },
+      },
+    ];
+  },
+
+  addCommands() {
+    return {
+      setTextHighlight:
+        (backgroundColor) =>
+        ({ chain }) =>
+          chain().setMark("textStyle", { backgroundColor }).run(),
+      unsetTextHighlight:
+        () =>
+        ({ chain }) =>
+          chain().setMark("textStyle", { backgroundColor: null }).removeEmptyTextStyle().run(),
+    };
+  },
+});
+
+function DoodleNodeView({ node, updateAttributes, selected }) {
+  const canvasRef = useRef(null);
+  const isDrawingRef = useRef(false);
+  const lastPointRef = useRef(null);
+  const [tool, setTool] = useState("pen"); // pen | eraser
+  const isFrozen = Boolean(node.attrs.frozen);
+  const [showDoodleControls, setShowDoodleControls] = useState(false);
+  const [eraserPreview, setEraserPreview] = useState({ x: 0, y: 0, size: DOODLE_ERASER_SIZE, visible: false });
+
+  const ensureCanvasSize = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const width = Math.max(240, Number(node.attrs.width) || DOODLE_CANVAS_WIDTH);
+    const height = Math.max(120, Number(node.attrs.height) || DOODLE_CANVAS_HEIGHT);
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
+  }, [node.attrs.width, node.attrs.height]);
+
+  const paintWhiteBackground = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
+  }, []);
+
+  const loadFromDataUrl = useCallback((dataUrl) => {
+    ensureCanvasSize();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    if (!dataUrl) {
+      paintWhiteBackground();
+      return;
+    }
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    if (typeof window === "undefined" || typeof window.Image !== "function") {
+      paintWhiteBackground();
+      return;
+    }
+    const img = new window.Image();
+    img.onload = () => {
+      paintWhiteBackground();
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    };
+    img.onerror = () => paintWhiteBackground();
+    img.src = dataUrl;
+  }, [ensureCanvasSize, paintWhiteBackground]);
+
+  useEffect(() => {
+    loadFromDataUrl(node.attrs.dataUrl || "");
+  }, [node.attrs.dataUrl, node.attrs.width, node.attrs.height, loadFromDataUrl]);
+
+  useEffect(() => {
+    if (tool !== "eraser") {
+      setEraserPreview((prev) => ({ ...prev, visible: false }));
+    }
+  }, [tool]);
+
+  useEffect(() => {
+    if (!isFrozen) return;
+    isDrawingRef.current = false;
+    lastPointRef.current = null;
+    setShowDoodleControls(false);
+    setEraserPreview((prev) => ({ ...prev, visible: false }));
+  }, [isFrozen]);
+
+  const getCanvasPoint = useCallback((event) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const viewX = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
+    const viewY = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+    return {
+      x: viewX * scaleX,
+      y: viewY * scaleY,
+      viewX,
+      viewY,
+      scale: rect.width / canvas.width,
+    };
+  }, []);
+
+  const drawSegment = useCallback((from, to, activeTool) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.strokeStyle = activeTool === "eraser" ? "#ffffff" : DOODLE_PEN_COLOR;
+    ctx.lineWidth = activeTool === "eraser" ? DOODLE_ERASER_SIZE : DOODLE_PEN_SIZE;
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+    ctx.restore();
+  }, []);
+
+  const commitDoodle = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    updateAttributes({ dataUrl: canvas.toDataURL("image/png") });
+  }, [updateAttributes]);
+
+  const stopDrawing = useCallback((commit = true) => {
+    if (!isDrawingRef.current) return;
+    isDrawingRef.current = false;
+    lastPointRef.current = null;
+    if (commit) commitDoodle();
+  }, [commitDoodle]);
+
+  const handleMouseDown = useCallback((event) => {
+    if (isFrozen) return;
+    if (event.button !== 0) return;
+    const point = getCanvasPoint(event);
+    if (!point) return;
+    event.preventDefault();
+    setShowDoodleControls(true);
+    isDrawingRef.current = true;
+    lastPointRef.current = point;
+    drawSegment(point, point, tool);
+    if (tool === "eraser") {
+      setEraserPreview({
+        x: point.viewX,
+        y: point.viewY,
+        size: DOODLE_ERASER_SIZE * point.scale,
+        visible: true,
+      });
+    }
+  }, [getCanvasPoint, drawSegment, tool, isFrozen]);
+
+  const handleMouseMove = useCallback((event) => {
+    if (isFrozen) return;
+    const point = getCanvasPoint(event);
+    if (!point) return;
+    if (tool === "eraser") {
+      setEraserPreview({
+        x: point.viewX,
+        y: point.viewY,
+        size: DOODLE_ERASER_SIZE * point.scale,
+        visible: true,
+      });
+    }
+    if (!isDrawingRef.current || !lastPointRef.current) return;
+    event.preventDefault();
+    drawSegment(lastPointRef.current, point, tool);
+    lastPointRef.current = point;
+  }, [getCanvasPoint, drawSegment, tool, isFrozen]);
+
+  const handleMouseEnter = useCallback((event) => {
+    if (isFrozen) return;
+    setShowDoodleControls(true);
+    if (tool !== "eraser") return;
+    const point = getCanvasPoint(event);
+    if (!point) return;
+    setEraserPreview({
+      x: point.viewX,
+      y: point.viewY,
+      size: DOODLE_ERASER_SIZE * point.scale,
+      visible: true,
+    });
+  }, [tool, getCanvasPoint, isFrozen]);
+
+  const handleMouseLeave = useCallback(() => {
+    setShowDoodleControls(false);
+    setEraserPreview((prev) => ({ ...prev, visible: false }));
+    stopDrawing(true);
+  }, [stopDrawing]);
+
+  return (
+    <NodeViewWrapper as="div" className="my-3">
+      <div style={{ paddingLeft: 8, paddingRight: 8 }}>
+        <div
+          style={{
+            position: "relative",
+            borderRadius: 10,
+            border: selected ? "1px solid rgba(96,165,250,0.45)" : "1px solid rgba(255,255,255,0.16)",
+            backgroundColor: "rgba(255,255,255,0.02)",
+            padding: 10,
+          }}
+        >
+          <div
+            style={{ position: "relative" }}
+            onMouseEnter={() => setShowDoodleControls(true)}
+            onMouseLeave={handleMouseLeave}
+          >
+            <div
+              className="absolute top-3 left-3 z-10 flex items-center gap-1 rounded-md px-1.5 py-1 transition-opacity duration-150"
+              style={{
+                backgroundColor: "rgba(15,15,26,0.78)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                opacity: showDoodleControls ? 1 : 0,
+                pointerEvents: showDoodleControls ? "auto" : "none",
+              }}
+            >
+              <button
+                type="button"
+                title="Pen"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  if (isFrozen) return;
+                  setTool("pen");
+                  setShowDoodleControls(true);
+                }}
+                className="p-1 rounded"
+                style={{
+                  color: isFrozen ? "rgba(255,255,255,0.34)" : tool === "pen" ? "#93c5fd" : "rgba(255,255,255,0.62)",
+                  backgroundColor: tool === "pen" && !isFrozen ? "rgba(96,165,250,0.2)" : "transparent",
+                  cursor: isFrozen ? "not-allowed" : "pointer",
+                }}
+              >
+                <Pencil size={12} />
+              </button>
+              <button
+                type="button"
+                title="Eraser"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  if (isFrozen) return;
+                  setTool("eraser");
+                  setShowDoodleControls(true);
+                }}
+                className="p-1 rounded"
+                style={{
+                  color: isFrozen ? "rgba(255,255,255,0.34)" : tool === "eraser" ? "#93c5fd" : "rgba(255,255,255,0.62)",
+                  backgroundColor: tool === "eraser" && !isFrozen ? "rgba(96,165,250,0.2)" : "transparent",
+                  cursor: isFrozen ? "not-allowed" : "pointer",
+                }}
+              >
+                <Eraser size={12} />
+              </button>
+            </div>
+
+            {isFrozen && (
+              <div
+                className="absolute top-3 right-3 z-10 px-1.5 py-1 rounded text-[10px] font-semibold"
+                style={{
+                  backgroundColor: "rgba(17,24,39,0.72)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  color: "rgba(255,255,255,0.72)",
+                  pointerEvents: "none",
+                }}
+              >
+                <Lock size={12} />
+              </div>
+            )}
+
+            <canvas
+              ref={canvasRef}
+              width={Number(node.attrs.width) || DOODLE_CANVAS_WIDTH}
+              height={Number(node.attrs.height) || DOODLE_CANVAS_HEIGHT}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={() => stopDrawing(true)}
+              onMouseEnter={handleMouseEnter}
+              style={{
+                width: "100%",
+                height: "auto",
+                display: "block",
+                backgroundColor: "#ffffff",
+                borderRadius: 8,
+                cursor: isFrozen ? "not-allowed" : tool === "eraser" ? "none" : "crosshair",
+                userSelect: "none",
+              }}
+            />
+
+            {tool === "eraser" && eraserPreview.visible && (
+              <div
+                style={{
+                  position: "absolute",
+                  left: eraserPreview.x,
+                  top: eraserPreview.y,
+                  width: eraserPreview.size,
+                  height: eraserPreview.size,
+                  transform: "translate(-50%, -50%)",
+                  borderRadius: "50%",
+                  border: "1px solid rgba(17,24,39,0.55)",
+                  backgroundColor: "rgba(255,255,255,0.18)",
+                  pointerEvents: "none",
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    </NodeViewWrapper>
+  );
+}
+
+const DoodleBlock = TiptapNode.create({
+  name: "doodleBlock",
+  group: "block",
+  atom: true,
+  selectable: true,
+  isolating: true,
+
+  addAttributes() {
+    return {
+      dataUrl: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-url") || "",
+        renderHTML: (attributes) => ({ "data-url": attributes.dataUrl || "" }),
+      },
+      width: {
+        default: DOODLE_CANVAS_WIDTH,
+        parseHTML: (element) => Number.parseInt(element.getAttribute("data-width") || String(DOODLE_CANVAS_WIDTH), 10) || DOODLE_CANVAS_WIDTH,
+        renderHTML: (attributes) => ({ "data-width": attributes.width || DOODLE_CANVAS_WIDTH }),
+      },
+      height: {
+        default: DOODLE_CANVAS_HEIGHT,
+        parseHTML: (element) => Number.parseInt(element.getAttribute("data-height") || String(DOODLE_CANVAS_HEIGHT), 10) || DOODLE_CANVAS_HEIGHT,
+        renderHTML: (attributes) => ({ "data-height": attributes.height || DOODLE_CANVAS_HEIGHT }),
+      },
+      frozen: {
+        default: false,
+        parseHTML: (element) => element.getAttribute("data-frozen") === "true",
+        renderHTML: (attributes) => ({ "data-frozen": attributes.frozen ? "true" : "false" }),
+      },
+    };
+  },
+
+  parseHTML() {
+    return [{ tag: 'div[data-doodle="true"]' }];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ["div", { ...HTMLAttributes, "data-doodle": "true" }];
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(DoodleNodeView);
+  },
+
+  addCommands() {
+    return {
+      insertDoodleBlock:
+        () =>
+        ({ commands }) =>
+          commands.insertContent({
+            type: this.name,
+            attrs: {
+              dataUrl: "",
+              width: DOODLE_CANVAS_WIDTH,
+              height: DOODLE_CANVAS_HEIGHT,
+              frozen: false,
+            },
+          }),
+    };
+  },
+
+  addStorage() {
+    return {
+      markdown: {
+        serialize(state, node) {
+          const escapeAttr = (value) => String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/\"/g, "&quot;");
+          const attrs = node?.attrs || {};
+          state.write(
+            `\n<div data-doodle="true" data-url="${escapeAttr(attrs.dataUrl || "")}" data-width="${escapeAttr(attrs.width || DOODLE_CANVAS_WIDTH)}" data-height="${escapeAttr(attrs.height || DOODLE_CANVAS_HEIGHT)}" data-frozen="${attrs.frozen ? "true" : "false"}"></div>\n`
+          );
+        },
+      },
+    };
+  },
+});
+
+function findDoodleNodeAtPos(doc, pos) {
+  if (!doc || typeof pos !== "number") return null;
+  const candidatePositions = [pos, Math.max(0, pos - 1), Math.min(doc.content.size, pos + 1)];
+  for (const probePos of candidatePositions) {
+    const direct = doc.nodeAt(probePos);
+    if (direct?.type?.name === "doodleBlock") {
+      return { pos: probePos, node: direct };
+    }
+  }
+
+  let found = null;
+  const from = Math.max(0, pos - 1);
+  const to = Math.min(doc.content.size, pos + 1);
+  doc.nodesBetween(from, to, (node, nodePos) => {
+    if (node.type?.name === "doodleBlock") {
+      found = { pos: nodePos, node };
+      return false;
+    }
+    return true;
+  });
+  return found;
+}
+
+function findImageNodeAtPos(doc, pos) {
+  if (!doc || typeof pos !== "number") return null;
+  const candidatePositions = [pos, Math.max(0, pos - 1), Math.min(doc.content.size, pos + 1)];
+  for (const probePos of candidatePositions) {
+    const direct = doc.nodeAt(probePos);
+    if (direct?.type?.name === "image") {
+      return { pos: probePos, node: direct };
+    }
+  }
+
+  let found = null;
+  const from = Math.max(0, pos - 1);
+  const to = Math.min(doc.content.size, pos + 1);
+  doc.nodesBetween(from, to, (node, nodePos) => {
+    if (node.type?.name === "image") {
+      found = { pos: nodePos, node };
+      return false;
+    }
+    return true;
+  });
+  return found;
+}
+
+function sanitizeDownloadStem(stem) {
+  return String(stem || "image")
+    .replace(/[^a-z0-9-_]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase() || "image";
+}
+
+function triggerDownload(href, fileName) {
+  if (typeof document === "undefined") return;
+  const link = document.createElement("a");
+  link.href = href;
+  link.download = fileName;
+  link.rel = "noopener noreferrer";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+function downloadImageSourceAsPng(src, fileNameBase) {
+  if (!src || typeof window === "undefined") return;
+
+  // Data URLs from local uploads and doodles can be downloaded directly.
+  if (src.startsWith("data:image/")) {
+    triggerDownload(src, `${fileNameBase}.png`);
+    return;
+  }
+
+  const img = new window.Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    if (typeof document === "undefined") return;
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth || img.width;
+    canvas.height = img.naturalHeight || img.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(img, 0, 0);
+    try {
+      triggerDownload(canvas.toDataURL("image/png"), `${fileNameBase}.png`);
+    } catch {
+      triggerDownload(src, `${fileNameBase}.png`);
+    }
+  };
+  img.onerror = () => triggerDownload(src, `${fileNameBase}.png`);
+  img.src = src;
+}
+
 function ToolbarBtn({ onClick, active, disabled, title, children }) {
   return (
     <button
@@ -510,7 +1263,13 @@ function ToolbarBtn({ onClick, active, disabled, title, children }) {
 }
 
 function ToolbarDivider() {
-  return <div className="w-px h-5 mx-1 self-center" style={{ backgroundColor: "rgba(255,255,255,0.1)" }} />;
+  return (
+    <span
+      className="mx-1 h-4 w-px"
+      style={{ backgroundColor: "rgba(255,255,255,0.14)" }}
+      aria-hidden="true"
+    />
+  );
 }
 
 // ── Tree helpers (pure, used for optimistic move updates) ─────────────────────
@@ -574,10 +1333,39 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
   // ── File menu (toolbar) ───────────────────────────────────────────────────────
   const [fileMenuToolbarOpen, setFileMenuToolbarOpen] = useState(false);
+  const [viewMenuToolbarOpen, setViewMenuToolbarOpen] = useState(false);
+  const [insertMenuToolbarOpen, setInsertMenuToolbarOpen] = useState(false);
+  const [insertTableSubmenuOpen, setInsertTableSubmenuOpen] = useState(false);
+  const [insertTableRows, setInsertTableRows] = useState(3);
+  const [insertTableCols, setInsertTableCols] = useState(3);
+  const [insertTableWithHeaderRow, setInsertTableWithHeaderRow] = useState(true);
   const [fileMenuRename, setFileMenuRename] = useState(null); // { value } | null
   const [nodeInfoOpen, setNodeInfoOpen] = useState(false);   // (i) metadata popup
   const fileMenuToolbarRef = useRef(null);
+  const viewMenuToolbarRef = useRef(null);
+  const insertMenuToolbarRef = useRef(null);
+  const insertTableSubmenuCloseTimerRef = useRef(null);
   const fileMenuRenameInputRef = useRef(null);
+
+  const cancelInsertTableSubmenuClose = useCallback(() => {
+    if (insertTableSubmenuCloseTimerRef.current) {
+      clearTimeout(insertTableSubmenuCloseTimerRef.current);
+      insertTableSubmenuCloseTimerRef.current = null;
+    }
+  }, []);
+
+  const openInsertTableSubmenu = useCallback(() => {
+    cancelInsertTableSubmenuClose();
+    setInsertTableSubmenuOpen(true);
+  }, [cancelInsertTableSubmenuClose]);
+
+  const queueCloseInsertTableSubmenu = useCallback(() => {
+    cancelInsertTableSubmenuClose();
+    insertTableSubmenuCloseTimerRef.current = setTimeout(() => {
+      setInsertTableSubmenuOpen(false);
+      insertTableSubmenuCloseTimerRef.current = null;
+    }, 170);
+  }, [cancelInsertTableSubmenuClose]);
 
   useEffect(() => {
     if (!fileMenuToolbarOpen) return;
@@ -589,6 +1377,39 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [fileMenuToolbarOpen]);
+
+  useEffect(() => {
+    if (!viewMenuToolbarOpen) return;
+    const handler = (e) => {
+      if (viewMenuToolbarRef.current && !viewMenuToolbarRef.current.contains(e.target)) {
+        setViewMenuToolbarOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [viewMenuToolbarOpen]);
+
+  useEffect(() => {
+    if (!insertMenuToolbarOpen) return;
+    const handler = (e) => {
+      if (insertMenuToolbarRef.current && !insertMenuToolbarRef.current.contains(e.target)) {
+        cancelInsertTableSubmenuClose();
+        setInsertMenuToolbarOpen(false);
+        setInsertTableSubmenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [insertMenuToolbarOpen, cancelInsertTableSubmenuClose]);
+
+  useEffect(() => {
+    if (!insertMenuToolbarOpen) {
+      cancelInsertTableSubmenuClose();
+      setInsertTableSubmenuOpen(false);
+    }
+  }, [insertMenuToolbarOpen, cancelInsertTableSubmenuClose]);
+
+  useEffect(() => () => cancelInsertTableSubmenuClose(), [cancelInsertTableSubmenuClose]);
 
   useEffect(() => {
     if (fileMenuRename) fileMenuRenameInputRef.current?.select();
@@ -640,6 +1461,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
   // ── Docx import (ref + state only — handler defined after loadFiles/openFileByName)
   const docxImportRef = useRef(null);
+  const insertImageInputRef = useRef(null);
   const [docxImporting, setDocxImporting] = useState(false);
 
   // ── Resizable sidebar ─────────────────────────────────────────────────────────
@@ -666,13 +1488,29 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   const fileSearchRef = useRef(null);
 
   // ── Show titles toggle ────────────────────────────────────────────────────────
-  const [showTitles, setShowTitles] = useState(false);
+  const [showTitles, setShowTitles] = useState(true);
+  const [spellCheckEnabled, setSpellCheckEnabled] = useState(false);
+  const [showLineNumbers, setShowLineNumbers] = useState(false);
+  const [visualLineTops, setVisualLineTops] = useState([0]);
+  const [lineNumberGutterHeight, setLineNumberGutterHeight] = useState(0);
+  const editorContentWrapRef = useRef(null);
+  const [fontSizeInput, setFontSizeInput] = useState(String(DEFAULT_FONT_SIZE_PX));
+  const [fontFamilyMenuOpen, setFontFamilyMenuOpen] = useState(false);
+  const [activeFontFamilyLabel, setActiveFontFamilyLabel] = useState("Open Sans");
+  const [activeTextColor, setActiveTextColor] = useState("");
+  const [activeHighlightColor, setActiveHighlightColor] = useState("");
+  const [textColorMenuOpen, setTextColorMenuOpen] = useState(false);
+  const [highlightColorMenuOpen, setHighlightColorMenuOpen] = useState(false);
+  const [textColorTintBase, setTextColorTintBase] = useState("");
+  const fontFamilyMenuRef = useRef(null);
+  const textColorMenuRef = useRef(null);
+  const highlightColorMenuRef = useRef(null);
 
   // ── Entity hover preview tooltip ─────────────────────────────────────────────
   const [entityTooltip, setEntityTooltip] = useState(null); // { node, x, y } | null
 
-  // ── Editor context menu (right-click on selection) ───────────────────────────
-  const [editorContextMenu, setEditorContextMenu] = useState(null); // { x, y, selectedText } | null
+  // ── Editor context menu (right-click in editor) ──────────────────────────────
+  const [editorContextMenu, setEditorContextMenu] = useState(null); // { x, y, selectedText, hasAnySelection, inTable, inDoodle, doodlePos, doodleFrozen, doodleDataUrl, inImage, imagePos, imageSrc } | null
   const [acDropdown, setAcDropdown] = useState(null);              // { x, y, items, selectedIndex } | null
 
   // ── AI writing assistant ─────────────────────────────────────────────────────
@@ -708,6 +1546,32 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [typeDropdownOpen]);
+
+  useEffect(() => {
+    if (!fontFamilyMenuOpen) return;
+    const handler = (e) => {
+      if (fontFamilyMenuRef.current && !fontFamilyMenuRef.current.contains(e.target)) {
+        setFontFamilyMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [fontFamilyMenuOpen]);
+
+  useEffect(() => {
+    if (!textColorMenuOpen && !highlightColorMenuOpen) return;
+    const handler = (e) => {
+      if (textColorMenuOpen && textColorMenuRef.current && !textColorMenuRef.current.contains(e.target)) {
+        setTextColorMenuOpen(false);
+        setTextColorTintBase("");
+      }
+      if (highlightColorMenuOpen && highlightColorMenuRef.current && !highlightColorMenuRef.current.contains(e.target)) {
+        setHighlightColorMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [textColorMenuOpen, highlightColorMenuOpen]);
 
   // ── Backlinks ─────────────────────────────────────────────────────────────────
   const [backlinks, setBacklinks] = useState([]); // [{ filename }]
@@ -1077,6 +1941,11 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
   const editor = useEditor({
     extensions: [
+      TextStyle,
+      FontSize,
+      FontFamily,
+      TextColor,
+      TextHighlight,
       StarterKit.configure({ codeBlock: { languageClassPrefix: "" }, underline: false }),
       Markdown.configure({ html: true, tightLists: true }),
       UnderlineWithMd,
@@ -1084,6 +1953,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       CharacterCount,
       entityLinksExtension,
       autocompleteExtension,
+      DoodleBlock,
       Image.configure({ inline: true, allowBase64: true }),
       Table.configure({ resizable: false }),
       TableRow,
@@ -1094,7 +1964,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     editorProps: {
       attributes: {
         class: "notes-editor prose prose-invert focus:outline-none max-w-none",
-        spellcheck: "true",
+        spellcheck: spellCheckEnabled ? "true" : "false",
       },
       handleKeyDown(view, event) {
         if (event.key !== "Tab") return false;
@@ -1143,6 +2013,217 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     },
   });
 
+  const getSelectionFontSizePx = useCallback(() => {
+    if (!editor) return DEFAULT_FONT_SIZE_PX;
+    const raw = editor.getAttributes("textStyle")?.fontSize;
+    const parsed = Number.parseInt(typeof raw === "string" ? raw : "", 10);
+    return Number.isFinite(parsed) ? parsed : DEFAULT_FONT_SIZE_PX;
+  }, [editor]);
+
+  const applyFontSizePx = useCallback((nextRaw) => {
+    if (!editor || !openFile) return;
+    const parsed = Number.parseInt(String(nextRaw).replace(/[^0-9]/g, ""), 10);
+    if (!Number.isFinite(parsed)) {
+      setFontSizeInput(String(getSelectionFontSizePx()));
+      return;
+    }
+    const next = Math.max(MIN_FONT_SIZE_PX, Math.min(MAX_FONT_SIZE_PX, parsed));
+    if (next === DEFAULT_FONT_SIZE_PX) {
+      editor.chain().focus().unsetFontSize().run();
+    } else {
+      editor.chain().focus().setFontSize(`${next}px`).run();
+    }
+    setFontSizeInput(String(next));
+  }, [editor, openFile, getSelectionFontSizePx]);
+
+  const increaseFontSize = useCallback(() => {
+    applyFontSizePx(getSelectionFontSizePx() + 1);
+  }, [applyFontSizePx, getSelectionFontSizePx]);
+
+  const decreaseFontSize = useCallback(() => {
+    applyFontSizePx(getSelectionFontSizePx() - 1);
+  }, [applyFontSizePx, getSelectionFontSizePx]);
+
+  const getSelectionFontFamilyLabel = useCallback(() => {
+    if (!editor) return "Open Sans";
+    const raw = editor.getAttributes("textStyle")?.fontFamily;
+    if (!raw) return "Open Sans";
+    return findFontFamilyOption(raw)?.label ?? "Custom";
+  }, [editor]);
+
+  const applyFontFamily = useCallback((fontFamily) => {
+    if (!editor || !openFile || !fontFamily) return;
+    editor.chain().focus().setFontFamily(fontFamily).run();
+    setActiveFontFamilyLabel(findFontFamilyOption(fontFamily)?.label ?? "Custom");
+    setFontFamilyMenuOpen(false);
+  }, [editor, openFile]);
+
+  const getSelectionTextColor = useCallback(() => {
+    if (!editor) return "";
+    const raw = editor.getAttributes("textStyle")?.color;
+    if (!raw) return "";
+    const matched = findMatchingColorValue(raw, TEXT_COLOR_OPTIONS);
+    return matched || String(raw).trim();
+  }, [editor]);
+
+  const getSelectionHighlightColor = useCallback(() => {
+    if (!editor) return "";
+    const raw = editor.getAttributes("textStyle")?.backgroundColor;
+    if (!raw) return "";
+    return findMatchingColorValue(raw, HIGHLIGHT_COLOR_OPTIONS);
+  }, [editor]);
+
+  const applyTextColor = useCallback((nextColor) => {
+    if (!editor || !openFile) return;
+    if (!nextColor) {
+      editor.chain().focus().unsetTextColor().run();
+      setActiveTextColor("");
+      setTextColorMenuOpen(false);
+      setTextColorTintBase("");
+      return;
+    }
+    editor.chain().focus().setTextColor(nextColor).run();
+    setActiveTextColor(nextColor);
+    setTextColorMenuOpen(false);
+    setTextColorTintBase("");
+  }, [editor, openFile]);
+
+  const applyHighlightColor = useCallback((nextColor) => {
+    if (!editor || !openFile) return;
+    if (!nextColor) {
+      editor.chain().focus().unsetTextHighlight().run();
+      setActiveHighlightColor("");
+      setHighlightColorMenuOpen(false);
+      return;
+    }
+    editor.chain().focus().setTextHighlight(nextColor).run();
+    setActiveHighlightColor(nextColor);
+    setHighlightColorMenuOpen(false);
+  }, [editor, openFile]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const syncFontSizeInput = () => setFontSizeInput(String(getSelectionFontSizePx()));
+    syncFontSizeInput();
+    editor.on("selectionUpdate", syncFontSizeInput);
+    editor.on("focus", syncFontSizeInput);
+    return () => {
+      editor.off("selectionUpdate", syncFontSizeInput);
+      editor.off("focus", syncFontSizeInput);
+    };
+  }, [editor, getSelectionFontSizePx]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const syncFontFamilyLabel = () => setActiveFontFamilyLabel(getSelectionFontFamilyLabel());
+    syncFontFamilyLabel();
+    editor.on("selectionUpdate", syncFontFamilyLabel);
+    editor.on("focus", syncFontFamilyLabel);
+    return () => {
+      editor.off("selectionUpdate", syncFontFamilyLabel);
+      editor.off("focus", syncFontFamilyLabel);
+    };
+  }, [editor, getSelectionFontFamilyLabel]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const syncTextColor = () => setActiveTextColor(getSelectionTextColor());
+    syncTextColor();
+    editor.on("selectionUpdate", syncTextColor);
+    editor.on("focus", syncTextColor);
+    return () => {
+      editor.off("selectionUpdate", syncTextColor);
+      editor.off("focus", syncTextColor);
+    };
+  }, [editor, getSelectionTextColor]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const syncHighlightColor = () => setActiveHighlightColor(getSelectionHighlightColor());
+    syncHighlightColor();
+    editor.on("selectionUpdate", syncHighlightColor);
+    editor.on("focus", syncHighlightColor);
+    return () => {
+      editor.off("selectionUpdate", syncHighlightColor);
+      editor.off("focus", syncHighlightColor);
+    };
+  }, [editor, getSelectionHighlightColor]);
+
+  useEffect(() => {
+    if (!editor?.view?.dom) return;
+    editor.view.dom.setAttribute("spellcheck", spellCheckEnabled ? "true" : "false");
+  }, [editor, spellCheckEnabled]);
+
+  useEffect(() => {
+    if (!editor || !showLineNumbers) return;
+
+    const syncVisualLines = () => {
+      const dom = editor.view?.dom;
+      if (!dom) {
+        setVisualLineTops([0]);
+        setLineNumberGutterHeight(0);
+        return;
+      }
+
+      const rootRect = dom.getBoundingClientRect();
+      if (rootRect.height <= 0) {
+        setVisualLineTops([0]);
+        setLineNumberGutterHeight(0);
+        return;
+      }
+
+      const topSet = new Set();
+      const addTop = (rawTop) => {
+        const rounded = Math.max(0, Math.round(rawTop));
+        topSet.add(rounded);
+      };
+
+      // Track every rendered text fragment so wrapped lines get their own number.
+      const walker = document.createTreeWalker(dom, NodeFilter.SHOW_TEXT);
+      let textNode = walker.nextNode();
+      while (textNode) {
+        if ((textNode.textContent || "").trim().length > 0) {
+          const range = document.createRange();
+          range.selectNodeContents(textNode);
+          const rects = Array.from(range.getClientRects());
+          rects.forEach((rect) => {
+            if (rect.height > 0) addTop(rect.top - rootRect.top);
+          });
+        }
+        textNode = walker.nextNode();
+      }
+
+      // Empty paragraphs don't have text nodes, so include their visual line top.
+      dom.querySelectorAll("p, li").forEach((node) => {
+        if ((node.textContent || "").trim().length === 0) {
+          const rect = node.getBoundingClientRect();
+          if (rect.height > 0) addTop(rect.top - rootRect.top);
+        }
+      });
+
+      const sorted = Array.from(topSet).sort((a, b) => a - b);
+      setVisualLineTops(sorted.length > 0 ? sorted : [0]);
+      setLineNumberGutterHeight(Math.max(rootRect.height, dom.scrollHeight));
+    };
+
+    syncVisualLines();
+    editor.on("update", syncVisualLines);
+    editor.on("selectionUpdate", syncVisualLines);
+
+    const resizeObserver = new ResizeObserver(syncVisualLines);
+    resizeObserver.observe(editor.view.dom);
+    if (editorContentWrapRef.current) resizeObserver.observe(editorContentWrapRef.current);
+
+    window.addEventListener("resize", syncVisualLines);
+
+    return () => {
+      editor.off("update", syncVisualLines);
+      editor.off("selectionUpdate", syncVisualLines);
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", syncVisualLines);
+    };
+  }, [editor, showLineNumbers, openFile]);
+
   const indentSelection = useCallback(() => {
     if (!editor) return;
     if (editor.isActive("listItem") && editor.chain().focus().sinkListItem("listItem").run()) return;
@@ -1156,6 +2237,66 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     const range = getOutdentRange(editor.state);
     if (range) editor.chain().focus().deleteRange(range).run();
   }, [editor]);
+
+  const clearFormatting = useCallback(() => {
+    if (!editor || !openFile) return;
+
+    // First clear mark-based formatting (bold/italic/underline/code/colors/fonts).
+    editor.chain().focus().unsetAllMarks().unsetFontSize().unsetFontFamily().unsetTextColor().unsetTextHighlight().run();
+
+    // Then flatten list nesting as much as possible for the current selection/cursor.
+    for (let i = 0; i < 12; i++) {
+      if (!editor.isActive("listItem")) break;
+      const lifted = editor.chain().focus().liftListItem("listItem").run();
+      if (!lifted) break;
+    }
+
+    // Finally normalize blocks back to default paragraphs/plain text containers.
+    editor.chain().focus().clearNodes().run();
+  }, [editor, openFile]);
+
+  const insertTableAtCursor = useCallback((presetRows, presetCols) => {
+    if (!editor || !openFile) return;
+    const rowsRaw = presetRows ?? insertTableRows;
+    const colsRaw = presetCols ?? insertTableCols;
+    const rows = Math.max(1, Math.min(20, Number.parseInt(String(rowsRaw), 10) || 3));
+    const cols = Math.max(1, Math.min(12, Number.parseInt(String(colsRaw), 10) || 3));
+
+    editor
+      .chain()
+      .focus()
+      .insertTable({ rows, cols, withHeaderRow: insertTableWithHeaderRow })
+      .run();
+
+    setInsertTableRows(rows);
+    setInsertTableCols(cols);
+    cancelInsertTableSubmenuClose();
+    setInsertMenuToolbarOpen(false);
+    setInsertTableSubmenuOpen(false);
+  }, [editor, openFile, insertTableRows, insertTableCols, insertTableWithHeaderRow, cancelInsertTableSubmenuClose]);
+
+  const quickDownloadPng = useCallback((src, kind = "image") => {
+    if (!src) return;
+    const rawStem = openFile?.filename?.split("/").pop()?.replace(/\.(md|txt)$/i, "") || kind;
+    const fileStem = sanitizeDownloadStem(`${rawStem}-${kind}`);
+    downloadImageSourceAsPng(src, fileStem);
+  }, [openFile]);
+
+  const handleInsertImageFromDevice = useCallback((file) => {
+    if (!editor || !openFile || !file) return;
+    if (!file.type?.startsWith("image/")) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const src = typeof reader.result === "string" ? reader.result : "";
+      if (!src) return;
+      editor.chain().focus().setImage({ src, alt: file.name || "uploaded image" }).run();
+      cancelInsertTableSubmenuClose();
+      setInsertMenuToolbarOpen(false);
+      setInsertTableSubmenuOpen(false);
+    };
+    reader.readAsDataURL(file);
+  }, [editor, openFile, cancelInsertTableSubmenuClose]);
 
   // ── Load file list ───────────────────────────────────────────────────────────
   const loadFiles = useCallback(() => {
@@ -2236,14 +3377,6 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               ><ChevronsUpDown size={14} /></button>
             )
           )}
-          <button
-            title={showTitles ? "Show filenames" : "Show titles"}
-            onClick={() => setShowTitles((v) => !v)}
-            className="p-1 rounded-md flex-shrink-0"
-            style={{ color: showTitles ? "#60a5fa" : "rgba(255,255,255,0.35)" }}
-            onMouseEnter={(e) => { if (!showTitles) e.currentTarget.style.color = "#fff"; }}
-            onMouseLeave={(e) => { if (!showTitles) e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}
-          ><Type size={14} /></button>
         </div>
 
         {/* File search */}
@@ -2266,6 +3399,46 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                 <X size={11} />
               </button>
             )}
+          </div>
+        </div>
+
+        {/* Explorer display menu */}
+        <div className="px-2 py-1 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+          <div className="flex items-center justify-between" style={{ fontSize: 11 }}>
+            <span style={{ color: "rgba(255,255,255,0.45)" }}>Display</span>
+            <div className="flex items-center gap-1.5">
+              <span style={{ color: !showTitles ? "rgba(255,255,255,0.82)" : "rgba(255,255,255,0.45)" }}>Filenames</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={showTitles}
+                aria-label={showTitles ? "Switch to filenames" : "Switch to titles"}
+                title={showTitles ? "Showing titles" : "Showing filenames"}
+                onClick={() => setShowTitles((v) => !v)}
+                className="relative"
+                style={{
+                  width: 30,
+                  height: 16,
+                  borderRadius: 999,
+                  backgroundColor: showTitles ? "#60a5fa" : "rgba(255,255,255,0.25)",
+                  transition: "background-color 120ms ease",
+                }}
+              >
+                <span
+                  style={{
+                    position: "absolute",
+                    top: 2,
+                    left: showTitles ? 16 : 2,
+                    width: 12,
+                    height: 12,
+                    borderRadius: 999,
+                    backgroundColor: "#ffffff",
+                    transition: "left 120ms ease",
+                  }}
+                />
+              </button>
+              <span style={{ color: showTitles ? "rgba(255,255,255,0.82)" : "rgba(255,255,255,0.45)" }}>Titles</span>
+            </div>
           </div>
         </div>
 
@@ -2459,7 +3632,13 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
           {/* File menu */}
           <div className="relative" ref={fileMenuToolbarRef}>
             <button
-              onClick={() => setFileMenuToolbarOpen((v) => !v)}
+              onClick={() => {
+                setViewMenuToolbarOpen(false);
+                setInsertMenuToolbarOpen(false);
+                cancelInsertTableSubmenuClose();
+                setInsertTableSubmenuOpen(false);
+                setFileMenuToolbarOpen((v) => !v);
+              }}
               disabled={!openFile}
               className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors"
               style={{
@@ -2556,6 +3735,261 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               </div>
             )}
           </div>
+
+          {/* View menu */}
+          <div className="relative" ref={viewMenuToolbarRef}>
+            <button
+              onClick={() => {
+                setFileMenuToolbarOpen(false);
+                setInsertMenuToolbarOpen(false);
+                cancelInsertTableSubmenuClose();
+                setInsertTableSubmenuOpen(false);
+                setViewMenuToolbarOpen((v) => !v);
+              }}
+              disabled={!openFile}
+              className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors"
+              style={{
+                color: openFile ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.2)",
+                backgroundColor: viewMenuToolbarOpen ? "rgba(255,255,255,0.08)" : "transparent",
+              }}
+              onMouseEnter={(e) => { if (openFile) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = viewMenuToolbarOpen ? "rgba(255,255,255,0.08)" : "transparent"; }}
+            >
+              View
+              <ChevronDown size={11} style={{ opacity: 0.5, transform: viewMenuToolbarOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+            </button>
+
+            {viewMenuToolbarOpen && openFile && (
+              <div
+                className="absolute left-0 top-full mt-1 z-50 rounded-xl py-1 shadow-2xl"
+                style={{ backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)", minWidth: "190px" }}
+              >
+                <button
+                  className="w-full flex items-center justify-between gap-2.5 px-3 py-2 text-left text-xs"
+                  style={{ color: "rgba(255,255,255,0.7)" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                  onClick={() => setSpellCheckEnabled((v) => !v)}
+                >
+                  <span>Spell check</span>
+                  <span style={{ color: spellCheckEnabled ? "#34d399" : "rgba(255,255,255,0.35)" }}>
+                    {spellCheckEnabled ? "On" : "Off"}
+                  </span>
+                </button>
+                <button
+                  className="w-full flex items-center justify-between gap-2.5 px-3 py-2 text-left text-xs"
+                  style={{ color: "rgba(255,255,255,0.7)" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                  onClick={() => setShowLineNumbers((v) => !v)}
+                >
+                  <span>Show Line Numbers</span>
+                  <span style={{ color: showLineNumbers ? "#34d399" : "rgba(255,255,255,0.35)" }}>
+                    {showLineNumbers ? "On" : "Off"}
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Insert menu */}
+          <div className="relative" ref={insertMenuToolbarRef}>
+            <input
+              ref={insertImageInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleInsertImageFromDevice(file);
+                e.target.value = "";
+              }}
+            />
+            <button
+              onClick={() => {
+                setFileMenuToolbarOpen(false);
+                setViewMenuToolbarOpen(false);
+                cancelInsertTableSubmenuClose();
+                setInsertTableSubmenuOpen(false);
+                setInsertMenuToolbarOpen((v) => !v);
+              }}
+              disabled={!canEdit}
+              className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors"
+              style={{
+                color: canEdit ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.2)",
+                backgroundColor: insertMenuToolbarOpen ? "rgba(255,255,255,0.08)" : "transparent",
+              }}
+              onMouseEnter={(e) => { if (canEdit) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = insertMenuToolbarOpen ? "rgba(255,255,255,0.08)" : "transparent"; }}
+            >
+              Insert
+              <ChevronDown size={11} style={{ opacity: 0.5, transform: insertMenuToolbarOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+            </button>
+
+            {insertMenuToolbarOpen && canEdit && (
+              <div
+                className="absolute left-0 top-full mt-1 z-50 rounded-xl py-1 shadow-2xl"
+                style={{ backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)", minWidth: "170px" }}
+              >
+                <div
+                  className="relative"
+                  onMouseEnter={openInsertTableSubmenu}
+                  onMouseLeave={queueCloseInsertTableSubmenu}
+                >
+                  <button
+                    className="w-full flex items-center justify-between gap-2.5 px-3 py-2 text-left text-xs"
+                    style={{
+                      color: insertTableSubmenuOpen ? "#fff" : "rgba(255,255,255,0.75)",
+                      backgroundColor: insertTableSubmenuOpen ? "rgba(255,255,255,0.09)" : "transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!insertTableSubmenuOpen) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!insertTableSubmenuOpen) e.currentTarget.style.backgroundColor = "transparent";
+                    }}
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
+                    <span>Insert table</span>
+                    <ChevronRight size={12} style={{ color: "rgba(255,255,255,0.35)" }} />
+                  </button>
+
+                  {insertTableSubmenuOpen && (
+                    <div
+                      className="absolute left-full top-0 z-50 rounded-lg py-1 shadow-2xl"
+                      style={{ backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)", minWidth: "250px" }}
+                      onMouseEnter={openInsertTableSubmenu}
+                      onMouseLeave={queueCloseInsertTableSubmenu}
+                    >
+                      <div className="px-3 py-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>Insert table</span>
+                          <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>1-20 rows, 1-12 cols</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 mb-2">
+                          <label className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(255,255,255,0.65)" }}>
+                            Rows
+                            <input
+                              type="number"
+                              min={1}
+                              max={20}
+                              value={insertTableRows}
+                              onChange={(e) => setInsertTableRows(Math.max(1, Math.min(20, Number.parseInt(e.target.value, 10) || 1)))}
+                              className="w-14 px-1.5 py-0.5 rounded text-xs bg-transparent outline-none"
+                              style={{ border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.85)", caretColor: "#60a5fa" }}
+                            />
+                          </label>
+                          <label className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(255,255,255,0.65)" }}>
+                            Cols
+                            <input
+                              type="number"
+                              min={1}
+                              max={12}
+                              value={insertTableCols}
+                              onChange={(e) => setInsertTableCols(Math.max(1, Math.min(12, Number.parseInt(e.target.value, 10) || 1)))}
+                              className="w-14 px-1.5 py-0.5 rounded text-xs bg-transparent outline-none"
+                              style={{ border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.85)", caretColor: "#60a5fa" }}
+                            />
+                          </label>
+                        </div>
+
+                        <button
+                          className="w-full flex items-center justify-between px-2 py-1 rounded text-xs"
+                          style={{
+                            color: "rgba(255,255,255,0.7)",
+                            backgroundColor: "rgba(255,255,255,0.04)",
+                            border: "1px solid rgba(255,255,255,0.08)",
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)"; }}
+                          onClick={() => setInsertTableWithHeaderRow((v) => !v)}
+                        >
+                          <span>Header row</span>
+                          <span style={{ color: insertTableWithHeaderRow ? "#34d399" : "rgba(255,255,255,0.35)" }}>
+                            {insertTableWithHeaderRow ? "On" : "Off"}
+                          </span>
+                        </button>
+
+                        <div className="mt-2">
+                          <p className="text-[10px] mb-1" style={{ color: "rgba(255,255,255,0.35)" }}>Quick insert</p>
+                          <div className="flex items-center gap-1.5">
+                            {[
+                              { label: "2x2", rows: 2, cols: 2 },
+                              { label: "3x3", rows: 3, cols: 3 },
+                              { label: "4x4", rows: 4, cols: 4 },
+                            ].map((preset) => (
+                              <button
+                                key={preset.label}
+                                className="px-2 py-1 rounded text-xs"
+                                style={{
+                                  color: "rgba(255,255,255,0.72)",
+                                  backgroundColor: "rgba(255,255,255,0.06)",
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.11)"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"; }}
+                                onClick={() => insertTableAtCursor(preset.rows, preset.cols)}
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <button
+                          className="w-full mt-2 px-2 py-1 rounded text-xs font-medium"
+                          style={{ backgroundColor: "rgba(96,165,250,0.2)", color: "#93c5fd", border: "1px solid rgba(96,165,250,0.32)" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.28)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.2)"; }}
+                          onClick={() => insertTableAtCursor()}
+                        >
+                          Insert Table
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  className="w-full flex items-center justify-between gap-2.5 px-3 py-2 text-left text-xs"
+                  style={{ color: "rgba(255,255,255,0.75)" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    cancelInsertTableSubmenuClose();
+                    setInsertTableSubmenuOpen(false);
+                    setInsertMenuToolbarOpen(false);
+                    insertImageInputRef.current?.click();
+                  }}
+                >
+                  <span className="flex items-center gap-2">
+                    <Upload size={12} style={{ color: "rgba(255,255,255,0.4)" }} />
+                    Upload image
+                  </span>
+                </button>
+
+                <button
+                  className="w-full flex items-center justify-between gap-2.5 px-3 py-2 text-left text-xs"
+                  style={{ color: "rgba(255,255,255,0.75)" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    cancelInsertTableSubmenuClose();
+                    setInsertTableSubmenuOpen(false);
+                    setInsertMenuToolbarOpen(false);
+                    editor?.chain().focus().insertDoodleBlock().run();
+                  }}
+                >
+                  <span className="flex items-center gap-2">
+                    <Pencil size={12} style={{ color: "rgba(255,255,255,0.4)" }} />
+                    Insert doodle
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Formatting toolbar */}
@@ -2580,6 +4014,319 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
             <Heading3 size={14} />
           </ToolbarBtn>
           <ToolbarDivider />
+          <div className="relative" ref={fontFamilyMenuRef}>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                if (!canEdit) return;
+                setFontFamilyMenuOpen((v) => !v);
+              }}
+              title="Font family"
+              className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors"
+              style={{
+                border: "1px solid rgba(255,255,255,0.16)",
+                backgroundColor: fontFamilyMenuOpen ? "rgba(255,255,255,0.08)" : "transparent",
+                color: canEdit ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.25)",
+                cursor: canEdit ? "pointer" : "not-allowed",
+              }}
+            >
+              <Type size={12} />
+              <span>{activeFontFamilyLabel}</span>
+              <ChevronDown size={11} style={{ opacity: 0.6 }} />
+            </button>
+            {fontFamilyMenuOpen && canEdit && (
+              <div
+                className="absolute z-50 mt-1 rounded-lg overflow-hidden"
+                style={{
+                  top: "100%",
+                  left: 0,
+                  width: 220,
+                  backgroundColor: "rgba(20,20,32,0.98)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+                }}
+              >
+                {FONT_FAMILY_OPTIONS.map((option) => {
+                  const isActive = option.label === activeFontFamilyLabel;
+                  return (
+                    <button
+                      key={option.label}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        applyFontFamily(option.family);
+                      }}
+                      className="w-full text-left px-3 py-2"
+                      style={{
+                        backgroundColor: isActive ? "rgba(255,255,255,0.08)" : "transparent",
+                        color: isActive ? "#fff" : "rgba(255,255,255,0.78)",
+                        borderBottom: "1px solid rgba(255,255,255,0.05)",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)";
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) e.currentTarget.style.backgroundColor = "transparent";
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span style={{ fontFamily: option.family, fontSize: 13 }}>{option.label}</span>
+                        {isActive && <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>✓</span>}
+                      </div>
+                      <div
+                        className="text-[10px] mt-0.5"
+                        style={{
+                          fontFamily: option.family,
+                          color: "rgba(255,255,255,0.45)",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        The quick brown fox jumps over the lazy dog
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <ToolbarBtn title="Decrease font size" disabled={!canEdit} onClick={decreaseFontSize}>
+              <Minus size={13} />
+            </ToolbarBtn>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={fontSizeInput}
+              onChange={(e) => setFontSizeInput(e.target.value)}
+              onBlur={() => applyFontSizePx(fontSizeInput)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  applyFontSizePx(fontSizeInput);
+                  e.currentTarget.blur();
+                }
+                if (e.key === "Escape") {
+                  setFontSizeInput(String(getSelectionFontSizePx()));
+                  e.currentTarget.blur();
+                }
+              }}
+              disabled={!canEdit}
+              title="Font size"
+              className="w-10 px-1 py-0.5 rounded text-xs text-center bg-transparent outline-none"
+              style={{
+                color: canEdit ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.25)",
+                border: "1px solid rgba(255,255,255,0.16)",
+                caretColor: "#60a5fa",
+              }}
+            />
+            <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>px</span>
+            <ToolbarBtn title="Increase font size" disabled={!canEdit} onClick={increaseFontSize}>
+              <Plus size={13} />
+            </ToolbarBtn>
+          </div>
+          <ToolbarDivider />
+          <div
+            className="flex items-center gap-1.5 px-0.5 py-0.5"
+          >
+            <div className="relative" ref={textColorMenuRef}>
+              <button
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  if (!canEdit) return;
+                  setHighlightColorMenuOpen(false);
+                  setTextColorTintBase("");
+                  setTextColorMenuOpen((v) => !v);
+                }}
+                disabled={!canEdit}
+                title="Text color"
+                className="flex items-center gap-1 px-1 py-0.5 rounded-md transition-colors"
+                style={{
+                  backgroundColor: textColorMenuOpen ? "rgba(255,255,255,0.08)" : "transparent",
+                  color: canEdit ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.3)",
+                }}
+                onMouseEnter={(e) => {
+                  if (!canEdit || textColorMenuOpen) return;
+                  e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)";
+                }}
+                onMouseLeave={(e) => {
+                  if (textColorMenuOpen) {
+                    e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)";
+                    return;
+                  }
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }}
+              >
+                <Palette size={12} style={{ color: "rgba(255,255,255,0.45)" }} />
+                <span
+                  className="w-3.5 h-3.5 rounded-sm"
+                  style={{
+                    background: swatchBackground(activeTextColor),
+                  }}
+                />
+                <ChevronDown size={11} style={{ opacity: 0.55, transform: textColorMenuOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+              </button>
+
+              {textColorMenuOpen && canEdit && (
+                <div
+                  className="absolute left-0 top-full mt-1 z-50 rounded-lg py-1 shadow-2xl"
+                  style={{ backgroundColor: "#1a1a2e", minWidth: 130 }}
+                >
+                  {TEXT_COLOR_OPTIONS.map((option) => {
+                    const isActive = activeTextColor === option.value;
+                    const tintOptions = option.value ? getTextColorTints(option.value) : [];
+                    const tintActive = tintOptions.some((tint) => colorsMatch(activeTextColor, tint.value));
+                    const tintMenuOpen = textColorTintBase === option.value;
+                    return (
+                      <div
+                        key={`text-${option.label}`}
+                        className="relative"
+                        onMouseEnter={() => {
+                          if (option.value) setTextColorTintBase(option.value);
+                          else setTextColorTintBase("");
+                        }}
+                      >
+                        <button
+                          className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs"
+                          style={{
+                            color: isActive || tintActive ? "#fff" : "rgba(255,255,255,0.75)",
+                            backgroundColor: isActive || tintActive || tintMenuOpen ? "rgba(255,255,255,0.09)" : "transparent",
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isActive && !tintActive && !tintMenuOpen) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)";
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isActive && !tintActive && !tintMenuOpen) e.currentTarget.style.backgroundColor = "transparent";
+                          }}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            applyTextColor(option.value);
+                          }}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span
+                              className="w-3.5 h-3.5 rounded-sm"
+                              style={{ background: swatchBackground(option.swatch) }}
+                            />
+                            {option.label}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            {(isActive || tintActive) && <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>✓</span>}
+                            {!!option.value && <ChevronRight size={12} style={{ color: "rgba(255,255,255,0.35)" }} />}
+                          </span>
+                        </button>
+
+                        {!!option.value && tintMenuOpen && (
+                          <div
+                            className="absolute left-full top-0 ml-1 z-50 rounded-lg py-1 shadow-2xl"
+                            style={{ backgroundColor: "#1a1a2e", minWidth: 132 }}
+                          >
+                            {tintOptions.map((tint) => {
+                              const tintIsActive = colorsMatch(activeTextColor, tint.value);
+                              return (
+                                <button
+                                  key={`${option.label}-${tint.label}`}
+                                  className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs"
+                                  style={{
+                                    color: tintIsActive ? "#fff" : "rgba(255,255,255,0.75)",
+                                    backgroundColor: tintIsActive ? "rgba(255,255,255,0.1)" : "transparent",
+                                  }}
+                                  onMouseEnter={(e) => { if (!tintIsActive) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                                  onMouseLeave={(e) => { if (!tintIsActive) e.currentTarget.style.backgroundColor = "transparent"; }}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    applyTextColor(tint.value);
+                                  }}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <span className="w-3.5 h-3.5 rounded-sm" style={{ background: tint.value }} />
+                                    {tint.label}
+                                  </span>
+                                  {tintIsActive && <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>✓</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="relative" ref={highlightColorMenuRef}>
+              <button
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  if (!canEdit) return;
+                  setTextColorMenuOpen(false);
+                  setHighlightColorMenuOpen((v) => !v);
+                }}
+                disabled={!canEdit}
+                title="Highlight color"
+                className="flex items-center gap-1 px-1 py-0.5 rounded-md transition-colors"
+                style={{
+                  backgroundColor: highlightColorMenuOpen ? "rgba(255,255,255,0.08)" : "transparent",
+                  color: canEdit ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.3)",
+                }}
+                onMouseEnter={(e) => {
+                  if (!canEdit || highlightColorMenuOpen) return;
+                  e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)";
+                }}
+                onMouseLeave={(e) => {
+                  if (highlightColorMenuOpen) {
+                    e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)";
+                    return;
+                  }
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }}
+              >
+                <Highlighter size={12} style={{ color: "rgba(255,255,255,0.45)" }} />
+                <span
+                  className="w-3.5 h-3.5 rounded-sm"
+                  style={{
+                    background: swatchBackground(activeHighlightColor),
+                  }}
+                />
+                <ChevronDown size={11} style={{ opacity: 0.55, transform: highlightColorMenuOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+              </button>
+
+              {highlightColorMenuOpen && canEdit && (
+                <div
+                  className="absolute left-0 top-full mt-1 z-50 rounded-lg py-1 shadow-2xl"
+                  style={{ backgroundColor: "#1a1a2e", minWidth: 130 }}
+                >
+                  {HIGHLIGHT_COLOR_OPTIONS.map((option) => {
+                    const isActive = activeHighlightColor === option.value;
+                    return (
+                      <button
+                        key={`highlight-${option.label}`}
+                        className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs"
+                        style={{
+                          color: isActive ? "#fff" : "rgba(255,255,255,0.75)",
+                          backgroundColor: isActive ? "rgba(255,255,255,0.09)" : "transparent",
+                        }}
+                        onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                        onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = "transparent"; }}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          applyHighlightColor(option.value);
+                        }}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="w-3.5 h-3.5 rounded-sm"
+                            style={{ background: swatchBackground(option.swatch) }}
+                          />
+                          {option.label}
+                        </span>
+                        {isActive && <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
           <ToolbarBtn title="Bold" disabled={!canEdit} active={editor?.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}>
             <Bold size={14} />
           </ToolbarBtn>
@@ -2589,8 +4336,8 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
           <ToolbarBtn title="Underline (Ctrl+U)" disabled={!canEdit} active={editor?.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()}>
             <Underline size={14} />
           </ToolbarBtn>
-          <ToolbarBtn title="Inline code" disabled={!canEdit} active={editor?.isActive("code")} onClick={() => editor.chain().focus().toggleCode().run()}>
-            <Code size={14} />
+          <ToolbarBtn title="Clear formatting" disabled={!canEdit} onClick={clearFormatting}>
+            <Eraser size={14} />
           </ToolbarBtn>
           <ToolbarDivider />
           <ToolbarBtn title="Bullet list" disabled={!canEdit} active={editor?.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()}>
@@ -2607,6 +4354,9 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
           </ToolbarBtn>
           <ToolbarBtn title="Blockquote" disabled={!canEdit} active={editor?.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
             <Quote size={14} />
+          </ToolbarBtn>
+          <ToolbarBtn title="Inline code" disabled={!canEdit} active={editor?.isActive("code")} onClick={() => editor.chain().focus().toggleCode().run()}>
+            <Code size={14} />
           </ToolbarBtn>
           <ToolbarBtn title="Horizontal rule" disabled={!canEdit} onClick={() => editor.chain().focus().setHorizontalRule().run()}>
             <Minus size={14} />
@@ -2933,15 +4683,95 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               onContextMenu={(e) => {
                 if (!editor) return;
                 e.preventDefault();
+
+                const posAtClick = editor.view.posAtCoords({ left: e.clientX, top: e.clientY });
+                const selectionAtOpen = editor.state.selection;
+                const hasAnySelection = !selectionAtOpen.empty;
+                const clickPos = posAtClick?.pos;
+                const clickInsideSelection =
+                  clickPos != null &&
+                  clickPos >= selectionAtOpen.from &&
+                  clickPos <= selectionAtOpen.to;
+                const doodleHit = posAtClick?.pos != null
+                  ? findDoodleNodeAtPos(editor.state.doc, posAtClick.pos)
+                  : null;
+                const imageHit = posAtClick?.pos != null
+                  ? findImageNodeAtPos(editor.state.doc, posAtClick.pos)
+                  : null;
+
+                // Place selection at right-click location so table commands
+                // target the expected cell. For media, select the node.
+                if (posAtClick?.pos != null && !clickInsideSelection) {
+                  if (doodleHit) {
+                    editor.chain().focus().setNodeSelection(doodleHit.pos).run();
+                  } else if (imageHit) {
+                    editor.chain().focus().setNodeSelection(imageHit.pos).run();
+                  } else {
+                    editor.chain().focus().setTextSelection(posAtClick.pos).run();
+                  }
+                }
+
                 const selectedText = editor.state.doc.textBetween(
                   editor.state.selection.from,
                   editor.state.selection.to,
                   " "
                 ).trim();
-                setEditorContextMenu({ x: e.clientX, y: e.clientY, selectedText });
+                const inTable =
+                  editor.isActive("table") ||
+                  editor.isActive("tableCell") ||
+                  editor.isActive("tableHeader");
+                setEditorContextMenu({
+                  x: e.clientX,
+                  y: e.clientY,
+                  selectedText,
+                  hasAnySelection,
+                  inTable,
+                  inDoodle: Boolean(doodleHit),
+                  doodlePos: doodleHit?.pos ?? null,
+                  doodleFrozen: Boolean(doodleHit?.node?.attrs?.frozen),
+                  doodleDataUrl: doodleHit?.node?.attrs?.dataUrl || "",
+                  inImage: Boolean(imageHit),
+                  imagePos: imageHit?.pos ?? null,
+                  imageSrc: imageHit?.node?.attrs?.src || "",
+                });
               }}
             >
-              <EditorContent editor={editor} />
+              <div className="flex items-start">
+                {showLineNumbers && openFile && (
+                  <div
+                    className="mr-3 pr-2 select-none pointer-events-none"
+                    style={{
+                      position: "relative",
+                      alignSelf: "stretch",
+                      height: Math.max(lineNumberGutterHeight, 24),
+                      minWidth: 36,
+                      borderRight: "1px solid rgba(255,255,255,0.08)",
+                      color: "rgba(147,197,253,0.72)",
+                      textAlign: "right",
+                      fontSize: 11,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {visualLineTops.map((top, i) => (
+                      <div
+                        key={`${top}-${i}`}
+                        style={{
+                          position: "absolute",
+                          top,
+                          right: 2,
+                          transform: "translateY(-1px)",
+                          lineHeight: 1,
+                        }}
+                      >
+                        {i + 1}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div ref={editorContentWrapRef} className="flex-1 min-w-0">
+                  <EditorContent editor={editor} />
+                </div>
+              </div>
             </div>
 
             {/* ── Selection context menu ────────────────────────────── */}
@@ -2967,6 +4797,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                   {(() => {
                     const text = editorContextMenu.selectedText;
                     const hasSelection = text.length > 0;
+                    const hasAnySelection = Boolean(editorContextMenu.hasAnySelection);
                     const iconStyle = { flexShrink: 0, color: "rgba(255,255,255,0.4)" };
                     const btnClass = "w-full text-left px-3 py-2 text-sm flex items-center gap-2";
                     const btnStyle = { color: "rgba(255,255,255,0.85)" };
@@ -2988,18 +4819,28 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                             Cut
                           </button>
                         )}
-                        {hasSelection && (
-                          <button className={btnClass} style={btnStyle} onMouseEnter={hoverOn} onMouseLeave={hoverOff}
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              setEditorContextMenu(null);
+                        <button className={btnClass} style={hasAnySelection ? btnStyle : dimStyle}
+                          onMouseEnter={hasAnySelection ? hoverOn : undefined}
+                          onMouseLeave={hasAnySelection ? hoverOff : undefined}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            if (!hasAnySelection) return;
+                            setEditorContextMenu(null);
+                            let copied = false;
+                            try {
+                              editor?.commands.focus();
+                              copied = document.execCommand("copy");
+                            } catch {
+                              copied = false;
+                            }
+                            if (!copied && hasSelection) {
                               navigator.clipboard.writeText(text).catch(() => {});
-                            }}>
-                            <Copy size={13} style={iconStyle} />
-                            Copy
-                          </button>
-                        )}
-                        <button className={btnClass} style={hasSelection ? btnStyle : dimStyle}
+                            }
+                          }}>
+                          <Copy size={13} style={iconStyle} />
+                          Copy
+                        </button>
+                        <button className={btnClass} style={btnStyle}
                           onMouseEnter={hoverOn} onMouseLeave={hoverOff}
                           onMouseDown={(e) => {
                             e.preventDefault();
@@ -3015,6 +4856,188 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                       </>
                     );
                   })()}
+
+                  {/* Table-only actions */}
+                  {editorContextMenu.inTable && (() => {
+                    const iconStyle = { flexShrink: 0, color: "rgba(255,255,255,0.4)" };
+                    const btnClass = "w-full text-left px-3 py-2 text-sm flex items-center gap-2";
+                    const hoverOn = (e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.07)");
+                    const hoverOff = (e) => (e.currentTarget.style.backgroundColor = "transparent");
+                    const baseStyle = { color: "rgba(255,255,255,0.85)" };
+                    const disabledStyle = { color: "rgba(255,255,255,0.35)", cursor: "default" };
+
+                    const actions = [
+                      {
+                        key: "row-above",
+                        label: "Add row above",
+                        canRun: editor?.can().chain().focus().addRowBefore().run(),
+                        run: () => editor?.chain().focus().addRowBefore().run(),
+                      },
+                      {
+                        key: "row-below",
+                        label: "Add row below",
+                        canRun: editor?.can().chain().focus().addRowAfter().run(),
+                        run: () => editor?.chain().focus().addRowAfter().run(),
+                      },
+                      {
+                        key: "col-left",
+                        label: "Add column left",
+                        canRun: editor?.can().chain().focus().addColumnBefore().run(),
+                        run: () => editor?.chain().focus().addColumnBefore().run(),
+                      },
+                      {
+                        key: "col-right",
+                        label: "Add column right",
+                        canRun: editor?.can().chain().focus().addColumnAfter().run(),
+                        run: () => editor?.chain().focus().addColumnAfter().run(),
+                      },
+                      {
+                        key: "del-row",
+                        label: "Delete row",
+                        canRun: editor?.can().chain().focus().deleteRow().run(),
+                        run: () => editor?.chain().focus().deleteRow().run(),
+                      },
+                      {
+                        key: "del-col",
+                        label: "Delete column",
+                        canRun: editor?.can().chain().focus().deleteColumn().run(),
+                        run: () => editor?.chain().focus().deleteColumn().run(),
+                      },
+                      {
+                        key: "del-table",
+                        label: "Delete table",
+                        canRun: editor?.can().chain().focus().deleteTable().run(),
+                        run: () => editor?.chain().focus().deleteTable().run(),
+                      },
+                    ];
+
+                    return (
+                      <>
+                        {actions.map((action) => (
+                          <button
+                            key={action.key}
+                            className={btnClass}
+                            style={action.canRun ? baseStyle : disabledStyle}
+                            onMouseEnter={action.canRun ? hoverOn : undefined}
+                            onMouseLeave={action.canRun ? hoverOff : undefined}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              if (!action.canRun) return;
+                              setEditorContextMenu(null);
+                              action.run();
+                            }}
+                          >
+                            <span style={iconStyle}>▦</span>
+                            {action.label}
+                          </button>
+                        ))}
+                        {editorContextMenu.selectedText && (
+                          <div className="my-1 mx-2" style={{ height: 1, backgroundColor: "rgba(255,255,255,0.07)" }} />
+                        )}
+                      </>
+                    );
+                  })()}
+
+                  {/* Doodle-only actions */}
+                  {editorContextMenu.inDoodle && (() => {
+                    const iconStyle = { flexShrink: 0, color: "rgba(255,255,255,0.4)" };
+                    const btnClass = "w-full text-left px-3 py-2 text-sm flex items-center gap-2";
+                    const hoverOn = (e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.07)");
+                    const hoverOff = (e) => (e.currentTarget.style.backgroundColor = "transparent");
+                    const baseStyle = { color: "rgba(255,255,255,0.85)" };
+                    const disabledStyle = { color: "rgba(255,255,255,0.35)", cursor: "default" };
+                    const doodlePos = editorContextMenu.doodlePos;
+                    const canTargetDoodle = Number.isInteger(doodlePos);
+                    const canDownloadDoodle = Boolean(editorContextMenu.doodleDataUrl);
+                    const nextFrozen = !editorContextMenu.doodleFrozen;
+                    const canToggleFreeze = canTargetDoodle && editor?.can().chain().focus().setNodeSelection(doodlePos).updateAttributes("doodleBlock", { frozen: nextFrozen }).run();
+                    const canDeleteDoodle = canTargetDoodle && editor?.can().chain().focus().setNodeSelection(doodlePos).deleteSelection().run();
+
+                    return (
+                      <>
+                        <button
+                          className={btnClass}
+                          style={canDownloadDoodle ? baseStyle : disabledStyle}
+                          onMouseEnter={canDownloadDoodle ? hoverOn : undefined}
+                          onMouseLeave={canDownloadDoodle ? hoverOff : undefined}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            if (!canDownloadDoodle) return;
+                            setEditorContextMenu(null);
+                            quickDownloadPng(editorContextMenu.doodleDataUrl, "doodle");
+                          }}
+                        >
+                          <Download size={13} style={iconStyle} />
+                          Download doodle (.png)
+                        </button>
+                        <button
+                          className={btnClass}
+                          style={canToggleFreeze ? baseStyle : disabledStyle}
+                          onMouseEnter={canToggleFreeze ? hoverOn : undefined}
+                          onMouseLeave={canToggleFreeze ? hoverOff : undefined}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            if (!canToggleFreeze) return;
+                            setEditorContextMenu(null);
+                            editor?.chain().focus().setNodeSelection(doodlePos).updateAttributes("doodleBlock", { frozen: nextFrozen }).run();
+                          }}
+                        >
+                          <Lock size={13} style={iconStyle} />
+                          {editorContextMenu.doodleFrozen ? "Unfreeze doodle" : "Freeze doodle"}
+                        </button>
+                        <button
+                          className={btnClass}
+                          style={canDeleteDoodle ? { ...baseStyle, color: "#fca5a5" } : disabledStyle}
+                          onMouseEnter={canDeleteDoodle ? hoverOn : undefined}
+                          onMouseLeave={canDeleteDoodle ? hoverOff : undefined}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            if (!canDeleteDoodle) return;
+                            setEditorContextMenu(null);
+                            editor?.chain().focus().setNodeSelection(doodlePos).deleteSelection().run();
+                          }}
+                        >
+                          <Trash2 size={13} style={iconStyle} />
+                          Delete doodle
+                        </button>
+                        {editorContextMenu.selectedText && (
+                          <div className="my-1 mx-2" style={{ height: 1, backgroundColor: "rgba(255,255,255,0.07)" }} />
+                        )}
+                      </>
+                    );
+                  })()}
+
+                  {/* Image-only actions */}
+                  {editorContextMenu.inImage && (() => {
+                    const iconStyle = { flexShrink: 0, color: "rgba(255,255,255,0.4)" };
+                    const btnClass = "w-full text-left px-3 py-2 text-sm flex items-center gap-2";
+                    const hoverOn = (e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.07)");
+                    const hoverOff = (e) => (e.currentTarget.style.backgroundColor = "transparent");
+                    const canDownloadImage = Boolean(editorContextMenu.imageSrc);
+                    return (
+                      <>
+                        <button
+                          className={btnClass}
+                          style={canDownloadImage ? { color: "rgba(255,255,255,0.85)" } : { color: "rgba(255,255,255,0.35)", cursor: "default" }}
+                          onMouseEnter={canDownloadImage ? hoverOn : undefined}
+                          onMouseLeave={canDownloadImage ? hoverOff : undefined}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            if (!canDownloadImage) return;
+                            setEditorContextMenu(null);
+                            quickDownloadPng(editorContextMenu.imageSrc, "image");
+                          }}
+                        >
+                          <Download size={13} style={iconStyle} />
+                          Download image (.png)
+                        </button>
+                        {editorContextMenu.selectedText && (
+                          <div className="my-1 mx-2" style={{ height: 1, backgroundColor: "rgba(255,255,255,0.07)" }} />
+                        )}
+                      </>
+                    );
+                  })()}
+
                   {/* Selection-only actions: Add alias + Create note */}
                   {editorContextMenu.selectedText && (() => {
                     const text = editorContextMenu.selectedText;

@@ -1,0 +1,3 @@
+YANCY ACADEMY — location notes
+
+Yancy Academy is a private boarding school located in upstate New York, attended by Percy Jackson and other students who are considered troubled. The school is known for its strict discipline and is the setting for much of Percy's early experiences in the story. It serves as a backdrop for the introduction of key characters and the unfolding of events that reveal Percy's connection to the mythical world.

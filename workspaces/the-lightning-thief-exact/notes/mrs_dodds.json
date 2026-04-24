@@ -1,0 +1,23 @@
+{
+  "id": "mrs_dodds",
+  "name": "Mrs. Dodds",
+  "type": "character",
+  "excerpt": "Mrs. Dodds is a math teacher who transforms into a supernatural creature.",
+  "connections": [
+    {
+      "target": "tlt_ch1",
+      "label": "appears in"
+    },
+    {
+      "target": "percy_jackson",
+      "label": "antagonizes"
+    }
+  ],
+  "notes": "Mrs. Dodds is a math teacher at Yancy Academy who appears to have a particular dislike for Percy Jackson. She is described as wearing a black leather jacket and having a mean demeanor. During a field trip, she transforms into a supernatural creature with glowing eyes, talons, and bat wings, revealing her true nature before being vaporized by Percy.",
+  "aliases": [],
+  "originSourceFile": "tlt_ch1.md",
+  "sourceFile": "tlt_ch1.md",
+  "createdAt": 1776994542029,
+  "updatedAt": 1776994542029,
+  "context_summary": "- Mrs. Dodds is a math teacher at Yancy Academy.\n- She dislikes Percy Jackson.\n- She transforms into a supernatural creature during a field trip.\n- She has glowing eyes, talons, and bat wings."
+}

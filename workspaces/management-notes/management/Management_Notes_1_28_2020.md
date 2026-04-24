@@ -1,7 +1,7 @@
 **<u>Management History</u>**
 
 - *Historic Management*
-  - **Pre-Industrial** 
+  - **Pre-Industrial**
     - No real management
   - **Industrial Revolution**
     - Introduction of the factory introduced a need for management

@@ -1,0 +1,29 @@
+{
+  "id": "nancy_bobofit",
+  "name": "Nancy Bobofit",
+  "type": "character",
+  "excerpt": "Nancy Bobofit is a classmate of Percy who frequently bullies Grover.",
+  "notes": "Nancy Bobofit is a classmate of Percy Jackson at Yancy Academy. She is characterized as a freckly, redheaded kleptomaniac who enjoys causing trouble, particularly by bullying Grover Underwood. Nancy frequently targets Grover by throwing food at him and is known for her antagonistic behavior towards Percy as well. She is favored by Mrs. Dodds, who often overlooks her misbehavior. Nancy's actions contribute to the tension and conflict Percy experiences during the field trip to the museum.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "percy_jackson",
+      "label": "antagonistic classmate"
+    },
+    {
+      "target": "yancy_academy",
+      "label": "references"
+    },
+    {
+      "target": "grover_underwood",
+      "label": "bullies"
+    },
+    {
+      "target": "mrs_dodds",
+      "label": "favored student"
+    }
+  ],
+  "originSourceFile": "chapter_1/nancy_bobofit.md",
+  "sourceFile": "chapter_1/nancy_bobofit.md",
+  "updatedAt": 1776993803932
+}

@@ -1,0 +1,23 @@
+{
+  "id": "grover_underwood",
+  "name": "Grover Underwood",
+  "type": "character",
+  "excerpt": "Grover Underwood is Percy's scrawny best friend with a wispy beard and a muscular disease.",
+  "connections": [
+    {
+      "target": "tlt_ch1",
+      "label": "appears in"
+    },
+    {
+      "target": "percy_jackson",
+      "label": "best friends"
+    }
+  ],
+  "notes": "Grover Underwood is Percy's best friend at Yancy Academy. He is described as scrawny, with acne and a wispy beard, and has a muscular disease that affects his legs, causing him to walk with difficulty. Despite his physical challenges, Grover is a loyal friend who tries to protect Percy from trouble.",
+  "aliases": [],
+  "originSourceFile": "tlt_ch1.md",
+  "sourceFile": "tlt_ch1.md",
+  "createdAt": 1776994542025,
+  "updatedAt": 1776994542025,
+  "context_summary": "- Grover Underwood is Percy's best friend.\n- He is scrawny and has a wispy beard.\n- He has a muscular disease affecting his legs.\n- Grover is loyal and tries to protect Percy."
+}

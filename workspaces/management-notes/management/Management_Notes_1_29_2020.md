@@ -1,7 +1,7 @@
 **<u>The Triple Bottom Line</u>**
 
 - *The Triple Bottom Line*
-  - **Triple Bottom Line** - People, planet, profit
+  - **Triple Bottom Line** - People, planet, profit.
     - Can be measured through a **social audit**
       - How a company measures up to predefined social goals
   - **Stakeholders** - All people whose interests are affected by a firm’s actions

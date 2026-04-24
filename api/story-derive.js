@@ -6,6 +6,7 @@ import mammoth from "mammoth";
 import { syncWorkspaceAfterWrite } from "./bump-version.js";
 import { WORKSPACES_DIR } from "./_storygraph-paths.js";
 import { ensureDir } from "./_storygraph-io.js";
+import { normalizeWrappedProse } from "./_walk.js";
 
 const DERIVE_META_VERSION = 2;
 
@@ -141,7 +142,7 @@ export default async function handler(req, res) {
       const result = await mammoth.extractRawText({ buffer });
       rawText = result.value;
     }
-    rawText = rawText.trim();
+    rawText = normalizeWrappedProse(rawText.trim());
     if (!rawText) return res.status(400).json({ error: "No text content found in the file." });
 
     // ── Compute content hash ─────────────────────────────────────────────────
