@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Network, FileText, Clock, Flame, Link2, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";

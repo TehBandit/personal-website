@@ -242,17 +242,6 @@ function computeShortestPath(fromId, toId, graphData) {
   return graphBFS(fromId, toId, adj, nodeMap);
 }
 
-function getEdgeLabelBetween(aId, bId, graphData) {
-  for (const link of graphData.links) {
-    const src = typeof link.source === "object" ? link.source.id : link.source;
-    const tgt = typeof link.target === "object" ? link.target.id : link.target;
-    if ((src === aId && tgt === bId) || (src === bId && tgt === aId)) {
-      return link.label || "";
-    }
-  }
-  return "";
-}
-
 function joinWithAnd(items) {
   if (!items?.length) return "";
   if (items.length === 1) return items[0];
@@ -392,14 +381,6 @@ function analyzeGraphQuery(text, graphData) {
           .map((id) => allPathNodesById.get(id))
           .filter(Boolean)
         : [];
-
-      const relationLines = connected.map(({ target, pathNodes, hops }) => {
-        if (hops === 1) {
-          const edgeLabel = getEdgeLabelBetween(anchor.id, target.id, graphData);
-          return `- ${anchor.name} -> ${target.name}: direct connection${edgeLabel ? ` (${edgeLabel})` : ""}`;
-        }
-        return `- ${anchor.name} -> ${target.name}: ${hops} hops via ${pathNodes.map((n) => n.name).join(" -> ")}`;
-      });
 
       const connectedNames = connected.map(({ target }) => target.name);
       const routeHints = connected.map(({ pathNodes }) => pathNodes.map((n) => n.name).join(" -> "));
@@ -1177,7 +1158,7 @@ function renderContent(content, citations, onOpenNode, entityData) {
   return <div style={{ lineHeight: "1.6" }}>{elements}</div>;
 }
 
-function MessageBubble({ message, onOpenNode, graphData, ownFileIds, entityData, onRegenerate, onEditSubmit, isLast, onShowPath }) {
+function MessageBubble({ message, onOpenNode, ownFileIds, entityData, onRegenerate, onEditSubmit, isLast }) {
   const isUser = message.role === "user";
   const isStreaming = message.streaming;
   const isThinking = isStreaming && message.content === "";
@@ -1543,7 +1524,7 @@ function loadSessions(workspace) {
 }
 
 function saveSessions(workspace, sessions) {
-  try { localStorage.setItem(SESSIONS_KEY(workspace), JSON.stringify(sessions)); } catch {}
+  try { localStorage.setItem(SESSIONS_KEY(workspace), JSON.stringify(sessions)); } catch { /* no-op */ }
 }
 
 function createSession() {
@@ -1646,7 +1627,7 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
   // messages don't each rebuild the same map+regex on every workspace switch.
   const _ntc = useNodeTypeConfig();
   const _ntf = Object.values(_ntc)[0];
-  const entityData = useMemo(() => buildChatEntities(graphData, _ntc, _ntf, ownFileIds), [graphData, _ntc, _ntf, ownFileIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  const entityData = useMemo(() => buildChatEntities(graphData, _ntc, _ntf, ownFileIds), [graphData, _ntc, _ntf, ownFileIds]);
 
   // Session state
   const [sessions, setSessions] = useState(() => loadSessions(workspace));
@@ -1685,14 +1666,14 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
 
   // Derive active session and its messages
   const activeSession = sessions.find((s) => s.id === activeId) ?? null;
-  const messages = activeSession?.messages ?? [];
+  const messages = useMemo(() => activeSession?.messages ?? [], [activeSession]);
 
   // Persist sessions to localStorage. Workspace is read from the ref (not a dep)
   // so this effect only fires when sessions actually changes — never on a bare
   // workspace switch where sessions would still hold the previous workspace's data.
   useEffect(() => {
     saveSessions(sessionsWorkspaceRef.current, sessions);
-  }, [sessions]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessions]);
 
   // Smart auto-scroll: only scroll to bottom when user is already near the bottom
   useEffect(() => {
@@ -2163,7 +2144,7 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
         inputRef.current?.focus();
       }
     },
-    [input, sending, workspace, activeId, ensureSession, updateMessages, graphData, sessions]
+    [input, sending, workspace, ensureSession, updateMessages, graphData, sessions, activeSession, onBulkPatch, onShowPath]
   );
 
   // Keep ref in sync so regenerate/editMessage can call the latest sendMessage

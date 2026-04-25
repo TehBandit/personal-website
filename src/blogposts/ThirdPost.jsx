@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 export const meta = {
   title: "testing a dynamic blog timeline",
   desc: "this is my first blog post to test the ant.design timeline component!",

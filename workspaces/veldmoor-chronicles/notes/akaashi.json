@@ -7,8 +7,24 @@
   "aliases": [],
   "connections": [
     {
+      "target": "kageyama",
+      "label": "references"
+    },
+    {
+      "target": "volleyball",
+      "label": "references"
+    },
+    {
       "target": "bokuto",
       "label": "photography project subject"
+    },
+    {
+      "target": "rella_corse",
+      "label": "references"
+    },
+    {
+      "target": "lev",
+      "label": "references"
     }
   ],
   "sourceFile": "tea_stained_polaroids/akaashi.md",
@@ -17,5 +33,5 @@
     "new",
     "thing"
   ],
-  "updatedAt": 1776827320292
+  "updatedAt": 1777064832315
 }

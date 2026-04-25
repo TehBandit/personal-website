@@ -5,10 +5,15 @@
   "excerpt": "",
   "notes": "",
   "aliases": [],
-  "connections": [],
+  "connections": [
+    {
+      "target": "akaashi",
+      "label": "references"
+    }
+  ],
   "sourceFile": "hinata_wiki/volleyball.md",
   "createdAt": 1775532450697,
-  "updatedAt": 1776825997720,
+  "updatedAt": 1777064778917,
   "tags": [
     "new"
   ]

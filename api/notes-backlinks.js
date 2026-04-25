@@ -12,7 +12,7 @@ export default function handler(req, res) {
     return res.status(400).json({ error: "Invalid workspace" });
 
   // Validate filename — no empty segments, no traversal, must end in .md or .txt
-  const segments = filename ? filename.split(/[\/\\]/) : [];
+  const segments = filename ? filename.split(/[/\\]/) : [];
   if (!filename || segments.some((s) => s === ".." || s === "." || s === "") || !/\.(md|txt)$/i.test(filename))
     return res.status(400).json({ error: "Invalid filename" });
 

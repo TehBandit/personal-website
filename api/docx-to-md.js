@@ -11,7 +11,7 @@
  * any server-side file management.
  */
 import mammoth from "mammoth";
-import { htmlToMarkdown, MAMMOTH_OPTIONS } from "./_docx-md.js";
+import { htmlToMarkdown, MAMMOTH_OPTIONS, prepareDocxBuffer } from "./_docx-md.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -30,7 +30,8 @@ export default async function handler(req, res) {
 
   try {
     const buffer = Buffer.from(base64, "base64");
-    const result = await mammoth.convertToHtml({ buffer }, MAMMOTH_OPTIONS);
+    const preparedBuffer = await prepareDocxBuffer(buffer);
+    const result = await mammoth.convertToHtml({ buffer: preparedBuffer }, MAMMOTH_OPTIONS);
     const markdown = htmlToMarkdown(result.value);
 
     if (!markdown) {

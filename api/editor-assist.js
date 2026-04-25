@@ -40,7 +40,7 @@ const ACTION_PROMPTS = {
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { action, text, context = "", workspace, custom = "" } = req.body || {};
+  const { action, text, context = "", custom = "" } = req.body || {};
 
   // Validate action
   if (!ACTION_PROMPTS[action]) {

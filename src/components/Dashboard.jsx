@@ -240,6 +240,7 @@ function DayTooltip({ active, payload, label }) {
 // ── Shared card style ──────────────────────────────────────────────────────
 const CARD_STYLE = { backgroundColor: "#13131f", border: "1px solid rgba(255,255,255,0.07)" };
 const MUTED = { color: "rgba(255,255,255,0.35)" };
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // ── Main component ─────────────────────────────────────────────────────────
 
@@ -250,7 +251,6 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
   const [growthFacet, setGrowthFacet] = useState("1Y");
 
   const contribMap = useMemo(() => buildContribMap(nodes), [nodes]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const heatmapGrid = useMemo(() => buildHeatmapWeeks(), []);
   const activityTimeline = useMemo(() => buildActivityTimeline(nodes), [nodes]);
 
@@ -299,7 +299,6 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
   }, [nodes, nodeTypeConfig]);
 
   // Day-of-week cadence (Mon–Sun)
-  const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const dayCadence = useMemo(() => {
     const counts = [0, 0, 0, 0, 0, 0, 0];
     for (const n of nodes) {

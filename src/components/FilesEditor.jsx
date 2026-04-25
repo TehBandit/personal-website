@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ForceGraph2D from "react-force-graph-2d";
 import { useEditor, EditorContent, ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
-import { Extension, Node as TiptapNode } from "@tiptap/core";
+import { Extension, Mark, Node as TiptapNode } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { sinkListItem, liftListItem } from "@tiptap/pm/schema-list";
@@ -20,6 +20,7 @@ import {
   FileText, Plus, Save, Trash2, X, Tag, ChevronRight,
   Folder, FolderOpen, FolderPlus, FilePlus, MoreHorizontal,
   Bold, Italic, Underline, List, ListOrdered,
+  Strikethrough, Superscript as SuperscriptIcon, Subscript as SubscriptIcon,
   Heading1, Heading2, Heading3,
   Quote, Code, Minus, Undo, Redo, Eraser, Lock,
   CheckCircle, AlertCircle, Loader, ArrowLeftRight,
@@ -41,6 +42,7 @@ const DOODLE_PEN_SIZE = 3;
 const DOODLE_ERASER_SIZE = 10;
 const DOODLE_CANVAS_WIDTH = 960;
 const DOODLE_CANVAS_HEIGHT = 360;
+const PROGRAMMATIC_LOAD_SUPPRESS_MS = 2500;
 const FONT_FAMILY_OPTIONS = [
   { label: "Roboto", family: '"Roboto", sans-serif', match: ["roboto"] },
   { label: "Open Sans", family: '"Open Sans", sans-serif', match: ["open sans"] },
@@ -77,6 +79,10 @@ const HIGHLIGHT_COLOR_OPTIONS = [
 
 function normalizeCssColorValue(value) {
   return String(value || "").toLowerCase().replace(/\s+/g, "");
+}
+
+function colorsMatch(a, b) {
+  return normalizeCssColorValue(a) === normalizeCssColorValue(b);
 }
 
 function hexToRgbColor(hex) {
@@ -310,7 +316,7 @@ function NodeMinimap({ nodeId, graphData, files, onOpen, nodeTransparent = false
       ctx.fillStyle = isFocal ? "#ffffff" : "#94a3b8";
       ctx.fillText(node.name, node.x, node.y + r + fontSize * 0.9);
     },
-    [nodeId, ownFileIds, nodeTransparent, nodeBorder]
+    [nodeId, ownFileIds, nodeTransparent, nodeBorder, NODE_TYPE_CONFIG, nodeTypeFallback]
   );
 
   const nodePointerAreaPaint = useCallback((node, color, ctx) => {
@@ -707,7 +713,10 @@ const TextColor = Extension.create({
         attributes: {
           color: {
             default: null,
-            parseHTML: (element) => element.style.color || null,
+            parseHTML: (element) => {
+              const tag = String(element?.tagName || "").toLowerCase();
+              return element.style.color || element.getAttribute("color") || (tag === "font" ? element.getAttribute("color") : null) || null;
+            },
             renderHTML: (attributes) => {
               if (!attributes.color) return {};
               return { style: `color: ${attributes.color}` };
@@ -748,7 +757,10 @@ const TextHighlight = Extension.create({
         attributes: {
           backgroundColor: {
             default: null,
-            parseHTML: (element) => element.style.backgroundColor || null,
+            parseHTML: (element) => {
+              const tag = String(element?.tagName || "").toLowerCase();
+              return element.style.backgroundColor || element.getAttribute("data-color") || (tag === "mark" ? (element.getAttribute("data-color") || "#FFFF00") : null) || null;
+            },
             renderHTML: (attributes) => {
               if (!attributes.backgroundColor) return {};
               return { style: `background-color: ${attributes.backgroundColor}` };
@@ -772,6 +784,113 @@ const TextHighlight = Extension.create({
     };
   },
 });
+
+const SuperscriptMark = Mark.create({
+  name: "superscript",
+  excludes: "subscript",
+
+  parseHTML() {
+    return [{ tag: "sup" }];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ["sup", HTMLAttributes, 0];
+  },
+
+  addCommands() {
+    return {
+      setSuperscript:
+        () =>
+        ({ commands }) =>
+          commands.setMark(this.name),
+      toggleSuperscript:
+        () =>
+        ({ chain }) =>
+          chain().unsetMark("subscript").toggleMark(this.name).run(),
+      unsetSuperscript:
+        () =>
+        ({ commands }) =>
+          commands.unsetMark(this.name),
+    };
+  },
+
+  addStorage() {
+    return {
+      markdown: {
+        serialize: { open: "<sup>", close: "</sup>", mixable: true, expelEnclosingWhitespace: true },
+      },
+    };
+  },
+});
+
+const SubscriptMark = Mark.create({
+  name: "subscript",
+  excludes: "superscript",
+
+  parseHTML() {
+    return [{ tag: "sub" }];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ["sub", HTMLAttributes, 0];
+  },
+
+  addCommands() {
+    return {
+      setSubscript:
+        () =>
+        ({ commands }) =>
+          commands.setMark(this.name),
+      toggleSubscript:
+        () =>
+        ({ chain }) =>
+          chain().unsetMark("superscript").toggleMark(this.name).run(),
+      unsetSubscript:
+        () =>
+        ({ commands }) =>
+          commands.unsetMark(this.name),
+    };
+  },
+
+  addStorage() {
+    return {
+      markdown: {
+        serialize: { open: "<sub>", close: "</sub>", mixable: true, expelEnclosingWhitespace: true },
+      },
+    };
+  },
+});
+
+function escapeHtmlAttr(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function textStyleOpenTag(mark) {
+  const attrs = mark?.attrs || {};
+  let open = "";
+  if (attrs.color) open += `<font color="${escapeHtmlAttr(attrs.color)}">`;
+  if (attrs.backgroundColor) open += `<mark data-color="${escapeHtmlAttr(attrs.backgroundColor)}">`;
+
+  const extraStyles = [];
+  if (attrs.fontSize) extraStyles.push(`font-size: ${attrs.fontSize}`);
+  if (attrs.fontFamily) extraStyles.push(`font-family: ${attrs.fontFamily}`);
+  if (extraStyles.length) open += `<span style="${escapeHtmlAttr(extraStyles.join("; "))}">`;
+
+  return open;
+}
+
+function textStyleCloseTag(mark) {
+  const attrs = mark?.attrs || {};
+  let close = "";
+  if (attrs.fontSize || attrs.fontFamily) close += "</span>";
+  if (attrs.backgroundColor) close += "</mark>";
+  if (attrs.color) close += "</font>";
+  return close;
+}
 
 function DoodleNodeView({ node, updateAttributes, selected }) {
   const canvasRef = useRef(null);
@@ -1138,7 +1257,7 @@ const DoodleBlock = TiptapNode.create({
         serialize(state, node) {
           const escapeAttr = (value) => String(value ?? "")
             .replace(/&/g, "&amp;")
-            .replace(/\"/g, "&quot;");
+            .replace(/"/g, "&quot;");
           const attrs = node?.attrs || {};
           state.write(
             `\n<div data-doodle="true" data-url="${escapeAttr(attrs.dataUrl || "")}" data-width="${escapeAttr(attrs.width || DOODLE_CANVAS_WIDTH)}" data-height="${escapeAttr(attrs.height || DOODLE_CANVAS_HEIGHT)}" data-frozen="${attrs.frozen ? "true" : "false"}"></div>\n`
@@ -1301,13 +1420,25 @@ function treeInsertNode(nodes, node, folderPath) {
   });
 }
 
+function treeUpdateFileMtime(nodes, targetPath, mtime) {
+  return nodes.map((node) => {
+    if (node.type === "file") {
+      return node.path === targetPath ? { ...node, mtime } : node;
+    }
+    if (node.type === "folder" && node.children) {
+      return { ...node, children: treeUpdateFileMtime(node.children, targetPath, mtime) };
+    }
+    return node;
+  });
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 const EMPTY_GRAPH = { nodes: [], links: [] };
 const EMPTY_SET = new Set();
 const EMPTY_ARR = [];
+const TYPE_COLOR_PALETTE = ["#60a5fa","#34d399","#fb923c","#c084fc","#f472b6","#facc15","#38bdf8","#a78bfa","#4ade80","#f87171"];
 
-export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null, workspaceName = null, workspaces = EMPTY_ARR, onWorkspaceChange = null, onCreateWorkspace = null, onDeleteWorkspace = null, nodeTransparent = false, nodeBorder = false, disallowedAliases = EMPTY_SET, onReady = null, onFilesChange = null, onWorkspaceNodeTypesChanged = null }) {
-  // eslint-disable-next-line no-shadow
+export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null, nodeTransparent = false, nodeBorder = false, disallowedAliases = EMPTY_SET, onReady = null, onFilesChange = null, onWorkspaceNodeTypesChanged = null }) {
   const NODE_TYPE_CONFIG = useNodeTypeConfig();
   const nodeTypeFallback = Object.values(NODE_TYPE_CONFIG)[0];
   const [files, setFiles] = useState([]);
@@ -1456,6 +1587,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   const openFileRef = useRef(null);        // always current openFile — safe to read inside onUpdate
   const saveFileRef = useRef(null);        // always current saveFile — safe to call inside onUpdate
   const suppressSaveRef = useRef(false);   // true while loading a file — blocks onUpdate from queueing saves
+  const userEditIntentRef = useRef(false); // flips true on user input (typing/paste/drop/cut)
   const fileCacheRef = useRef({});         // filename → content string (cleared on workspace change)
   const backlinksCache = useRef({});       // filename → backlinks array (cleared on workspace change)
 
@@ -1489,6 +1621,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
   // ── Show titles toggle ────────────────────────────────────────────────────────
   const [showTitles, setShowTitles] = useState(true);
+  const [fileSortMode, setFileSortMode] = useState("alpha"); // "alpha" | "recent"
   const [spellCheckEnabled, setSpellCheckEnabled] = useState(false);
   const [showLineNumbers, setShowLineNumbers] = useState(false);
   const [visualLineTops, setVisualLineTops] = useState([0]);
@@ -1709,6 +1842,43 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     return map;
   }, [files, graphData.nodes]);
 
+  const sortedTree = useMemo(() => {
+    const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+    const labelForNode = (node) => {
+      if (node.type === "file" && showTitles) {
+        return fileTitleMap.get(node.path) ?? node.name;
+      }
+      return node.name;
+    };
+
+    const sortNodes = (nodes) => {
+      const withSortMeta = (nodes || []).map((node) => {
+        if (node.type === "folder") {
+          const children = sortNodes(node.children || []);
+          const latestMtime = children.reduce(
+            (max, child) => Math.max(max, child._sortLatestMtime ?? 0),
+            0
+          );
+          return { ...node, children, _sortLatestMtime: latestMtime };
+        }
+        const latestMtime = Number.isFinite(node.mtime) ? node.mtime : 0;
+        return { ...node, _sortLatestMtime: latestMtime };
+      });
+
+      withSortMeta.sort((a, b) => {
+        if (fileSortMode === "recent") {
+          const recentDiff = (b._sortLatestMtime ?? 0) - (a._sortLatestMtime ?? 0);
+          if (recentDiff !== 0) return recentDiff;
+        }
+        return collator.compare(labelForNode(a), labelForNode(b));
+      });
+
+      return withSortMeta;
+    };
+
+    return sortNodes(tree);
+  }, [tree, fileSortMode, showTitles, fileTitleMap]);
+
   // Basenames that appear in more than one path (used for sidebar duplicate badge)
   const duplicateBasenames = useMemo(() => {
     const counts = new Map();
@@ -1870,7 +2040,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     setTags(next);
     saveTags(next);
     setTagInput("");
-  }, [tagInput, tags, saveTags]);
+  }, [tags, saveTags]);
 
   const removeTag = useCallback((tag) => {
     const next = tags.filter((t) => t !== tag);
@@ -1879,8 +2049,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   }, [tags, saveTags]);
 
   // ── Node type ────────────────────────────────────────────────────────────────
-  // Palette for auto-assigning a color to a brand-new type key.
-  const TYPE_COLOR_PALETTE = ["#60a5fa","#34d399","#fb923c","#c084fc","#f472b6","#facc15","#38bdf8","#a78bfa","#4ade80","#f87171"];
+  // Palette for auto-assigning a color to a brand-new type key is TYPE_COLOR_PALETTE (module scope).
   // Optimistic override — set immediately on selection, cleared when graphData refreshes
   const [nodeTypeOverride, setNodeTypeOverride] = useState(null);
 
@@ -1914,7 +2083,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       .catch(() => {});
     setTypeDropdownOpen(false);
     setNewTypeInput("");
-  }, [NODE_TYPE_CONFIG, TYPE_COLOR_PALETTE, workspace, onWorkspaceNodeTypesChanged, saveNodeType]);
+  }, [NODE_TYPE_CONFIG, workspace, onWorkspaceNodeTypesChanged, saveNodeType]);
 
   // Keep refs in sync with their state/callback counterparts every render
   openFileRef.current = openFile;
@@ -1939,9 +2108,44 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     })
   , []);
 
+  // Serialize textStyle mark attrs as inline span styles so imported color/
+  // highlight/font styling survives markdown autosave round-trips.
+  const TextStyleWithMd = useMemo(() =>
+    TextStyle.extend({
+      parseHTML() {
+        return [
+          ...(this.parent?.() || []),
+          {
+            tag: "font[color]",
+            consuming: false,
+            getAttrs: () => ({}),
+          },
+          {
+            tag: "mark[data-color]",
+            consuming: false,
+            getAttrs: () => ({}),
+          },
+        ];
+      },
+      addStorage() {
+        return {
+          ...this.parent?.(),
+          markdown: {
+            serialize: {
+              open: (_state, mark) => textStyleOpenTag(mark),
+              close: (_state, mark) => textStyleCloseTag(mark),
+              mixable: true,
+              expelEnclosingWhitespace: true,
+            },
+          },
+        };
+      },
+    })
+  , []);
+
   const editor = useEditor({
     extensions: [
-      TextStyle,
+      TextStyleWithMd,
       FontSize,
       FontFamily,
       TextColor,
@@ -1949,6 +2153,8 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       StarterKit.configure({ codeBlock: { languageClassPrefix: "" }, underline: false }),
       Markdown.configure({ html: true, tightLists: true }),
       UnderlineWithMd,
+      SuperscriptMark,
+      SubscriptMark,
       Placeholder.configure({ placeholder: "Start writing your story notes…" }),
       CharacterCount,
       entityLinksExtension,
@@ -1966,7 +2172,37 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
         class: "notes-editor prose prose-invert focus:outline-none max-w-none",
         spellcheck: spellCheckEnabled ? "true" : "false",
       },
+      handleDOMEvents: {
+        beforeinput() {
+          userEditIntentRef.current = true;
+          return false;
+        },
+        paste() {
+          userEditIntentRef.current = true;
+          return false;
+        },
+        drop() {
+          userEditIntentRef.current = true;
+          return false;
+        },
+        cut() {
+          userEditIntentRef.current = true;
+          return false;
+        },
+      },
       handleKeyDown(view, event) {
+        // Treat user key actions as edit intent so only user-driven doc changes
+        // can trigger autosave.
+        if (
+          event.key === "Backspace" ||
+          event.key === "Delete" ||
+          event.key === "Enter" ||
+          event.key === "Tab" ||
+          event.key.length === 1
+        ) {
+          userEditIntentRef.current = true;
+        }
+
         if (event.key !== "Tab") return false;
         event.preventDefault();
 
@@ -2005,6 +2241,9 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       // Skip decoration-only (meta) transactions — docChanged=false means no
       // actual content change, so no dirty mark or save timer needed.
       if (!transaction.docChanged) return;
+      // Ignore programmatic/normalization doc changes that happen without
+      // explicit user edit intent; this prevents stripping style spans on load.
+      if (!userEditIntentRef.current) return;
       setIsDirty(true);
       // Auto-save after 1.5s of inactivity — use ref so we always call the
       // current saveFile even if openFile has changed since editor was created
@@ -2070,7 +2309,8 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     if (!editor) return "";
     const raw = editor.getAttributes("textStyle")?.backgroundColor;
     if (!raw) return "";
-    return findMatchingColorValue(raw, HIGHLIGHT_COLOR_OPTIONS);
+    const matched = findMatchingColorValue(raw, HIGHLIGHT_COLOR_OPTIONS);
+    return matched || String(raw).trim();
   }, [editor]);
 
   const applyTextColor = useCallback((nextColor) => {
@@ -2344,6 +2584,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
     const applyContent = (filename, content, cachedJson) => {
       setOpenFile({ filename, content });
+      userEditIntentRef.current = false;
       suppressSaveRef.current = true;
       // Use pre-parsed JSON when available — skips tiptap-markdown parsing (~1s on large files)
       editor?.commands.setContent(cachedJson ?? content, false);
@@ -2357,7 +2598,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
           const entry = fileCacheRef.current[filename];
           if (entry) entry.json = editor.getJSON();
         }
-      }, 50);
+      }, PROGRAMMATIC_LOAD_SUPPRESS_MS);
     };
 
     // Serve from cache if available — no network round-trip needed
@@ -2398,18 +2639,53 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
         body: { base64, workspace },
       });
 
-      const filename = slug + ".md";
-
       const currentFolder = openFileRef.current?.filename.includes("/")
         ? openFileRef.current.filename.split("/").slice(0, -1).join("/")
         : "";
-      const filePath = currentFolder ? `${currentFolder}/${filename}` : filename;
 
-      await requestJson("/api/notes-raw-file", {
-        method: "POST",
-        query: { filename: filePath, workspace },
-        body: { content: markdown, name: stem },
+      // Reuse an existing file when only punctuation differs (e.g. spaces,
+      // hyphens, underscores) so imports consistently overwrite the file the
+      // user is looking at instead of creating a near-duplicate filename.
+      const normalizeStemKey = (value) =>
+        String(value || "")
+          .toLowerCase()
+          .replace(/\.(md|txt)$/i, "")
+          .replace(/[^a-z0-9]/g, "");
+      const stemKey = normalizeStemKey(stem);
+      const inCurrentFolder = files.filter((f) => {
+        const folder = f.filename.includes("/") ? f.filename.split("/").slice(0, -1).join("/") : "";
+        return folder === currentFolder;
       });
+      const existing = inCurrentFolder.find((f) => {
+        const base = f.filename.split("/").pop() || f.filename;
+        return /\.(md|txt)$/i.test(base) && normalizeStemKey(base) === stemKey;
+      });
+
+      const filename = slug + ".md";
+      const defaultPath = currentFolder ? `${currentFolder}/${filename}` : filename;
+      const filePath = existing?.filename || defaultPath;
+
+      // Create on first import; overwrite on subsequent imports of the same file.
+      try {
+        await requestJson("/api/notes-raw-file", {
+          method: "POST",
+          query: { filename: filePath, workspace },
+          body: { content: markdown, name: stem },
+        });
+      } catch (writeErr) {
+        const isAlreadyExists = String(writeErr?.message || "").includes("File already exists");
+        if (!isAlreadyExists) throw writeErr;
+
+        await requestJson("/api/notes-raw-file", {
+          method: "PUT",
+          query: { filename: filePath, workspace },
+          body: { content: markdown },
+        });
+      }
+
+      // Keep in-memory cache aligned with the just-written upload so reopening
+      // the same filename doesn't show stale pre-import content.
+      fileCacheRef.current[filePath] = { content: markdown, json: null };
 
       if (currentFolder) setOpenFolders((prev) => new Set([...prev, currentFolder]));
       loadFiles();
@@ -2419,18 +2695,19 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     } finally {
       setDocxImporting(false);
     }
-  }, [workspace, loadFiles, openFileByName]);
+  }, [workspace, loadFiles, openFileByName, files]);
 
   // When editor is ready and we already have openFile set, push content in
   useEffect(() => {
     if (editor && openFile) {
+      userEditIntentRef.current = false;
       suppressSaveRef.current = true;
       editor.commands.setContent(openFile.content, false);
       setTimeout(() => {
         lastSavedContentRef.current = editor.storage.markdown.getMarkdown();
         suppressSaveRef.current = false;
         setIsDirty(false);
-      }, 50);
+      }, PROGRAMMATIC_LOAD_SUPPRESS_MS);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
@@ -2455,6 +2732,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       body: { content },
     })
       .then(() => {
+        const savedAt = Date.now();
         lastSavedContentRef.current = content;
         // Update cache — store new content and capture the current parsed JSON
         // so the very next open also skips re-parsing.
@@ -2462,6 +2740,9 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
           content,
           json: editor?.getJSON() ?? null,
         };
+        setOpenFile((prev) => (prev?.filename === currentFile.filename ? { ...prev, content } : prev));
+        setFiles((prev) => prev.map((f) => (f.filename === currentFile.filename ? { ...f, mtime: savedAt } : f)));
+        setTree((prev) => treeUpdateFileMtime(prev, currentFile.filename, savedAt));
         setIsDirty(false);
         setSaveState("saved");
         setTimeout(() => setSaveState("idle"), 2000);
@@ -2809,13 +3090,6 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     // whose filename doesn't match the canonical node ID).
     const openBasename = openFile?.filename.split("/").pop() ?? "";
     const openFileNodeId = openNode?.id ?? openBasename.replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
-    // Words in the current node's name — used below to suppress auto-partial aliases from
-    // OTHER nodes that would spuriously match a word in the current node's name.
-    // e.g. editing "Chief Surveyor Vane" must not hyperlink "Vane" via Orrus Vane's auto-partial.
-    const openNodeNameWords = new Set(
-      (openNode?.name ?? "").toLowerCase().split(/\s+/).filter((w) => w.length > 0)
-    );
-
     // For a given text (name or alias) and array of candidate files for one node,
     // return the file whose stem best matches the text. Falls back to first file.
     function bestFileForText(text, nodeFiles) {
@@ -2872,7 +3146,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     }
     // Sort longer names first to prevent partial shadowing
     return result.sort((a, b) => b.name.length - a.name.length);
-  }, [graphData.nodes, files, openFile, openNode, disallowedAliases, ownFileIds]);
+  }, [graphData.nodes, files, openFile, openNode, disallowedAliases, ownFileIds, NODE_TYPE_CONFIG, nodeTypeFallback]);
 
   // Keep decoration ref in sync and force the decorator to rerun.
   // IMPORTANT: we must dispatch a ProseMirror transaction AFTER updating the
@@ -3016,9 +3290,9 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
         }
       }
     };
-    collect(tree);
+    collect(sortedTree);
     return paths;
-  }, [tree]);
+  }, [sortedTree]);
 
   // Flat ordered list of visible file paths (depth-first, respecting open folders).
   // Used for shift-click range selection.
@@ -3030,9 +3304,9 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
         else if (node.type === "folder" && openFolders.has(node.path) && node.children) walk(node.children);
       }
     };
-    walk(tree);
+    walk(sortedTree);
     return result;
-  }, [tree, openFolders]);
+  }, [sortedTree, openFolders]);
 
   // Handle file row click — supports Ctrl/Cmd (toggle), Shift (range), plain (open).
   const handleFileClick = useCallback((path, e) => {
@@ -3068,6 +3342,19 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     setSelectedPaths(new Set());
     openFileByName(path);
   }, [flatVisibleFiles, openFileByName]);
+
+  const explorerUltraCompact = sidebarWidth <= 180;
+  const explorerCompact = sidebarWidth <= 235;
+  const displayChipLabel = explorerUltraCompact
+    ? (showTitles ? "T" : "F")
+    : explorerCompact
+    ? (showTitles ? "Title" : "File")
+    : (showTitles ? "Titles" : "Files");
+  const sortChipLabel = explorerUltraCompact
+    ? (fileSortMode === "recent" ? "R" : "A")
+    : explorerCompact
+    ? (fileSortMode === "recent" ? "Recent" : "A-Z")
+    : (fileSortMode === "recent" ? "Recent" : "A-Z");
 
   // ── File tree renderer ─────────────────────────────────────────────────────
   const renderTree = (nodes, depth) => {
@@ -3402,43 +3689,78 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
           </div>
         </div>
 
-        {/* Explorer display menu */}
+        {/* Explorer display/sort menu */}
         <div className="px-2 py-1 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-          <div className="flex items-center justify-between" style={{ fontSize: 11 }}>
-            <span style={{ color: "rgba(255,255,255,0.45)" }}>Display</span>
-            <div className="flex items-center gap-1.5">
-              <span style={{ color: !showTitles ? "rgba(255,255,255,0.82)" : "rgba(255,255,255,0.45)" }}>Filenames</span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={showTitles}
-                aria-label={showTitles ? "Switch to filenames" : "Switch to titles"}
-                title={showTitles ? "Showing titles" : "Showing filenames"}
-                onClick={() => setShowTitles((v) => !v)}
-                className="relative"
+          <div className="flex items-center" style={{ fontSize: 11, gap: explorerUltraCompact ? 4 : 6 }}>
+            <button
+              type="button"
+              aria-label={showTitles ? "Switch display to filenames" : "Switch display to titles"}
+              title={showTitles ? "Display: Titles (click for filenames)" : "Display: Filenames (click for titles)"}
+              onClick={() => setShowTitles((v) => !v)}
+              className="flex-1 min-w-0 flex items-center justify-center rounded-md"
+              style={{
+                backgroundColor: showTitles ? "rgba(96,165,250,0.18)" : "rgba(255,255,255,0.06)",
+                color: showTitles ? "#bfdbfe" : "rgba(255,255,255,0.72)",
+                border: `1px solid ${showTitles ? "rgba(96,165,250,0.35)" : "rgba(255,255,255,0.12)"}`,
+                whiteSpace: "nowrap",
+                gap: explorerUltraCompact ? 3 : 6,
+                padding: explorerUltraCompact ? "4px 6px" : "4px 8px",
+              }}
+              onMouseEnter={(e) => {
+                if (showTitles) e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.24)";
+                else e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)";
+              }}
+              onMouseLeave={(e) => {
+                if (showTitles) e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.18)";
+                else e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)";
+              }}
+            >
+              <Type size={explorerUltraCompact ? 10 : 11} style={{ flexShrink: 0, opacity: 0.85 }} />
+              <span
+                className="truncate"
                 style={{
-                  width: 30,
-                  height: 16,
-                  borderRadius: 999,
-                  backgroundColor: showTitles ? "#60a5fa" : "rgba(255,255,255,0.25)",
-                  transition: "background-color 120ms ease",
+                  letterSpacing: explorerUltraCompact ? "0.04em" : "normal",
+                  fontWeight: explorerUltraCompact ? 600 : 500,
                 }}
               >
-                <span
-                  style={{
-                    position: "absolute",
-                    top: 2,
-                    left: showTitles ? 16 : 2,
-                    width: 12,
-                    height: 12,
-                    borderRadius: 999,
-                    backgroundColor: "#ffffff",
-                    transition: "left 120ms ease",
-                  }}
-                />
-              </button>
-              <span style={{ color: showTitles ? "rgba(255,255,255,0.82)" : "rgba(255,255,255,0.45)" }}>Titles</span>
-            </div>
+                {displayChipLabel}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              aria-label={fileSortMode === "recent" ? "Switch sort to alphabetical" : "Switch sort to most recently edited"}
+              title={fileSortMode === "recent" ? "Sort: Most recently edited (click for A-Z)" : "Sort: A-Z (click for most recently edited)"}
+              onClick={() => setFileSortMode((mode) => (mode === "alpha" ? "recent" : "alpha"))}
+              className="flex-1 min-w-0 flex items-center justify-center rounded-md"
+              style={{
+                backgroundColor: fileSortMode === "recent" ? "rgba(96,165,250,0.18)" : "rgba(255,255,255,0.06)",
+                color: fileSortMode === "recent" ? "#bfdbfe" : "rgba(255,255,255,0.72)",
+                border: `1px solid ${fileSortMode === "recent" ? "rgba(96,165,250,0.35)" : "rgba(255,255,255,0.12)"}`,
+                whiteSpace: "nowrap",
+                gap: explorerUltraCompact ? 3 : 6,
+                padding: explorerUltraCompact ? "4px 6px" : "4px 8px",
+              }}
+              onMouseEnter={(e) => {
+                if (fileSortMode === "recent") e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.24)";
+                else e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)";
+              }}
+              onMouseLeave={(e) => {
+                if (fileSortMode === "recent") e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.18)";
+                else e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)";
+              }}
+            >
+              <ChevronsUpDown size={explorerUltraCompact ? 10 : 11} style={{ flexShrink: 0, opacity: 0.85 }} />
+              <span
+                className="truncate"
+                style={{
+                  letterSpacing: explorerUltraCompact ? "0.04em" : "normal",
+                  fontWeight: explorerUltraCompact ? 600 : 500,
+                }}
+              >
+                {sortChipLabel}
+              </span>
+            </button>
           </div>
         </div>
 
@@ -3605,10 +3927,10 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
             });
           })() : (
             <>
-              {tree.length === 0 && !inlineNew && (
+              {sortedTree.length === 0 && !inlineNew && (
                 <p className="text-xs px-3 py-2" style={{ color: "rgba(255,255,255,0.2)" }}>No files yet</p>
               )}
-              {renderTree(tree, 0)}
+              {renderTree(sortedTree, 0)}
             </>
           )}
         </div>
@@ -4335,6 +4657,15 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
           </ToolbarBtn>
           <ToolbarBtn title="Underline (Ctrl+U)" disabled={!canEdit} active={editor?.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()}>
             <Underline size={14} />
+          </ToolbarBtn>
+          <ToolbarBtn title="Strikethrough" disabled={!canEdit} active={editor?.isActive("strike")} onClick={() => editor.chain().focus().toggleStrike().run()}>
+            <Strikethrough size={14} />
+          </ToolbarBtn>
+          <ToolbarBtn title="Superscript" disabled={!canEdit} active={editor?.isActive("superscript")} onClick={() => editor.chain().focus().toggleSuperscript().run()}>
+            <SuperscriptIcon size={14} />
+          </ToolbarBtn>
+          <ToolbarBtn title="Subscript" disabled={!canEdit} active={editor?.isActive("subscript")} onClick={() => editor.chain().focus().toggleSubscript().run()}>
+            <SubscriptIcon size={14} />
           </ToolbarBtn>
           <ToolbarBtn title="Clear formatting" disabled={!canEdit} onClick={clearFormatting}>
             <Eraser size={14} />

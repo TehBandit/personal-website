@@ -2,11 +2,71 @@ import OpenAI from "openai";
 import fs from "fs";
 import path from "path";
 import mammoth from "mammoth";
-import { htmlToMarkdown, MAMMOTH_OPTIONS } from "./_docx-md.js";
+import { htmlToMarkdown, MAMMOTH_OPTIONS, prepareDocxBuffer } from "./_docx-md.js";
 import { deduplicateNodes, remapConnections } from "./dedup-nodes.js";
 import { syncWorkspaceAfterWrite } from "./bump-version.js";
 import { extractTitleFromContent, normalizeWrappedProse } from "./_walk.js";
 import { ensureDir } from "./_storygraph-io.js";
+
+function hasFormattingTags(value) {
+  if (typeof value !== "string" || !value) return { hasSpan: false, hasFont: false, hasMark: false };
+  return {
+    hasSpan: /<span\b[^>]*>/i.test(value),
+    hasFont: /<font\b[^>]*color\s*=\s*['"][^'"]+['"][^>]*>/i.test(value),
+    hasMark: /<mark\b[^>]*data-color\s*=\s*['"][^'"]+['"][^>]*>/i.test(value),
+  };
+}
+
+function snippetAroundFormatting(value) {
+  if (typeof value !== "string" || !value) return "";
+  const re = /<mark\b[^>]*data-color\s*=\s*['"][^'"]+['"][^>]*>|<font\b[^>]*color\s*=\s*['"][^'"]+['"][^>]*>|<span\b[^>]*style\s*=\s*['"][^'"]*(?:color|background(?:-color)?)\s*:[^'"]*['"][^>]*>/i;
+  const m = value.match(re);
+  if (!m || typeof m.index !== "number") {
+    return value.slice(0, 420);
+  }
+  const idx = m.index;
+  const start = Math.max(0, idx - 220);
+  const end = Math.min(value.length, idx + 220);
+  return value.slice(start, end);
+}
+
+function appendWriteTrace(wsDir, req, phase, payload) {
+  try {
+    const traceFlag = req.query?.trace === "1" || req.body?.trace === 1 || req.body?.trace === "1";
+    const sentinelPath = path.join(wsDir, "_notes_trace_on");
+    const traceEnabled = traceFlag || fs.existsSync(sentinelPath);
+    if (!traceEnabled) return;
+
+    const hasAnyFmt = (f) => Boolean(f?.hasSpan || f?.hasFont || f?.hasMark);
+    const isSuspicious = (() => {
+      if (payload?.error) return true;
+      if (phase === "STORY-EXTRACT-write" || phase === "STORY-EXTRACT-focused-write") {
+        // If docx conversion produced non-empty markdown but no inline formatting tags,
+        // keep a trace row for investigation.
+        if (payload?.sourceType === "docx" && typeof payload?.incomingLength === "number" && payload.incomingLength > 0 && !hasAnyFmt(payload?.incomingFlags)) {
+          return true;
+        }
+        return false;
+      }
+      return false;
+    })();
+    if (!isSuspicious) return;
+
+    const tracePath = path.join(wsDir, "_notes_write_trace.log");
+    const row = {
+      ts: new Date().toISOString(),
+      method: req.method,
+      phase,
+      workspace: req.body?.workspace || "",
+      ua: req.headers["user-agent"] || "",
+      referer: req.headers.referer || req.headers.referrer || "",
+      ...payload,
+    };
+    fs.appendFileSync(tracePath, `${JSON.stringify(row)}\n`, "utf-8");
+  } catch {
+    // Non-fatal tracing.
+  }
+}
 
 // ── File helpers ──────────────────────────────────────────────────────────────
 
@@ -140,9 +200,10 @@ export default async function handler(req, res) {
     let markdownContent = null; // formatted markdown, only set for docx
     if (type === "docx" && base64) {
       const buffer = Buffer.from(base64, "base64");
+      const preparedBuffer = await prepareDocxBuffer(buffer);
       const [rawResult, htmlResult] = await Promise.all([
-        mammoth.extractRawText({ buffer }),
-        mammoth.convertToHtml({ buffer }, MAMMOTH_OPTIONS),
+        mammoth.extractRawText({ buffer: preparedBuffer }),
+        mammoth.convertToHtml({ buffer: preparedBuffer }, MAMMOTH_OPTIONS),
       ]);
       rawText = rawResult.value;
       markdownContent = normalizeWrappedProse(htmlToMarkdown(htmlResult.value));
@@ -361,7 +422,17 @@ ${rawText}`;
       // main extraction) finds the sourceFile on disk and does not purge this node.
       const _focusedWriteDir = _safeFolder ? path.join(wsDir, _safeFolder) : wsDir;
       ensureDir(_focusedWriteDir);
-      fs.writeFileSync(path.join(_focusedWriteDir, safeUploadFilename), markdownContent ?? rawText, "utf-8");
+      const focusedWritePath = path.join(_focusedWriteDir, safeUploadFilename);
+      const focusedWriteContent = markdownContent ?? rawText;
+      fs.writeFileSync(focusedWritePath, focusedWriteContent, "utf-8");
+      appendWriteTrace(wsDir, req, "STORY-EXTRACT-focused-write", {
+        filename: uploadSourceFile,
+        sourceType: type || "text",
+        incomingFlags: hasFormattingTags(focusedWriteContent),
+        incomingSnippet: snippetAroundFormatting(focusedWriteContent),
+        incomingLength: focusedWriteContent.length,
+        destinationPath: path.relative(wsDir, focusedWritePath).replace(/\\/g, "/"),
+      });
 
       // Fall through to the full multi-entity extraction ↓
     }
@@ -623,7 +694,17 @@ ${rawText}`;
       ? path.join(wsDir, _safeFolder)
       : wsDir;
     ensureDir(uploadsDir);
-    fs.writeFileSync(path.join(uploadsDir, safeUploadFilename), markdownContent ?? rawText, "utf-8");
+    const uploadWritePath = path.join(uploadsDir, safeUploadFilename);
+    const uploadWriteContent = markdownContent ?? rawText;
+    fs.writeFileSync(uploadWritePath, uploadWriteContent, "utf-8");
+    appendWriteTrace(wsDir, req, "STORY-EXTRACT-write", {
+      filename: uploadSourceFile,
+      sourceType: type || "text",
+      incomingFlags: hasFormattingTags(uploadWriteContent),
+      incomingSnippet: snippetAroundFormatting(uploadWriteContent),
+      incomingLength: uploadWriteContent.length,
+      destinationPath: path.relative(wsDir, uploadWritePath).replace(/\\/g, "/"),
+    });
 
     // Prepend the focused/title node to the response so the upload-complete
     // screen shows it alongside the extracted entities.
@@ -638,6 +719,18 @@ ${rawText}`;
       connectionsPatched: patchedConnectionCount,
     });
   } catch (err) {
+    try {
+      const workspace = req.body?.workspace;
+      if (workspace && /^[a-z0-9-]+$/.test(workspace)) {
+        const wsDir = path.join(process.cwd(), "workspaces", workspace);
+        appendWriteTrace(wsDir, req, "STORY-EXTRACT-error", {
+          sourceType: req.body?.type || "text",
+          error: err?.message || "Extraction failed",
+        });
+      }
+    } catch {
+      // non-fatal debug tracing
+    }
     console.error("story-extract error:", err);
     return res.status(500).json({ error: err.message || "Extraction failed" });
   }

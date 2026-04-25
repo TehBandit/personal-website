@@ -15,12 +15,8 @@
       "label": "friend and coworker"
     },
     {
-      "target": "kenma",
-      "label": "volleyball teammate"
-    },
-    {
-      "target": "nekoma_s",
-      "label": "volleyball team"
+      "target": "akaashi",
+      "label": "references"
     }
   ],
   "sourceFile": "tea_stained_polaroids/lev.md",
@@ -28,5 +24,6 @@
   "tags": [
     "new",
     "thing"
-  ]
+  ],
+  "updatedAt": 1777064832315
 }

@@ -142,7 +142,6 @@ export default function StoryGraph() {
 
   // Derive active node-type config from the loaded workspace list
   // (falls back to the static narrative config for legacy workspaces without nodeTypes)
-  // eslint-disable-next-line no-shadow
   const NODE_TYPE_CONFIG = useMemo(() => {
     const ws = workspaces.find((w) => w.slug === workspace);
     return ws?.nodeTypes ?? STATIC_NODE_TYPE_CONFIG;
@@ -1009,7 +1008,7 @@ export default function StoryGraph() {
       ctx.fillText(label, node.x, labelY);
       ctx.globalAlpha = 1;
     },
-    [selectedNode, hoveredNode, hoveredNeighborIds, focusNeighborIds, activePath, nodeRadius, ownFileIds, nodeTransparent, nodeBorder]
+    [selectedNode, hoveredNode, hoveredNeighborIds, focusNeighborIds, activePath, nodeRadius, ownFileIds, nodeTransparent, nodeBorder, NODE_TYPE_CONFIG, nodeTypeFallback]
   );
 
   const linkColor = useCallback(

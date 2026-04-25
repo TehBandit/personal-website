@@ -22,6 +22,114 @@ function resolveDirs(workspace) {
   };
 }
 
+// Preserve inline span styles when a client serializer strips them to plain text
+// (observed with some markdown editor round-trips on load/autosave).
+function preserveStyledSpans(existingContent, nextContent) {
+  const existing = typeof existingContent === "string" ? existingContent : "";
+  let next = typeof nextContent === "string" ? nextContent : "";
+  const hasStyledSpan = existing.includes("<span style=");
+  const hasColorFont = /<font\s+color=/i.test(existing);
+  const hasColorMark = /<mark\s+data-color=/i.test(existing);
+  const incomingHasFormatting = next.includes("<span style=") || /<font\s+color=/i.test(next) || /<mark\s+data-color=/i.test(next);
+  if (!(hasStyledSpan || hasColorFont || hasColorMark) || incomingHasFormatting) return next;
+
+  const rules = [
+    {
+      full: /<span\s+style="[^"]*">[\s\S]*?<\/span>/g,
+      plain: /<span\s+style="[^"]*">([\s\S]*?)<\/span>/g,
+    },
+    {
+      full: /<font\s+color="[^"]*">[\s\S]*?<\/font>/gi,
+      plain: /<font\s+color="[^"]*">([\s\S]*?)<\/font>/gi,
+    },
+    {
+      full: /<mark\s+data-color="[^"]*">[\s\S]*?<\/mark>/gi,
+      plain: /<mark\s+data-color="[^"]*">([\s\S]*?)<\/mark>/gi,
+    },
+  ];
+
+  for (const rule of rules) {
+    const fullMatches = [...existing.matchAll(rule.full)].map((m) => m[0]);
+    const plainMatches = [...existing.matchAll(rule.plain)].map((m) => m[1]);
+
+    for (let i = 0; i < fullMatches.length; i++) {
+      const fullMarkup = fullMatches[i];
+      const plainText = plainMatches[i] ?? "";
+      if (!plainText) continue;
+      if (next.includes(fullMarkup)) continue;
+
+      const idx = next.indexOf(plainText);
+      if (idx === -1) continue;
+      next = next.slice(0, idx) + fullMarkup + next.slice(idx + plainText.length);
+    }
+  }
+
+  return next;
+}
+
+function hasFormattingTags(value) {
+  const text = typeof value === "string" ? value : "";
+  return {
+    hasSpan: /<span\s+style=/i.test(text),
+    hasFont: /<font\s+color=/i.test(text),
+    hasMark: /<mark\s+data-color=/i.test(text),
+  };
+}
+
+function snippetAroundFormatting(value) {
+  const text = typeof value === "string" ? value : "";
+  const idx = text.search(/Highlight|Color Text|<mark\s+data-color=|<font\s+color=/i);
+  if (idx < 0) return "";
+  const start = Math.max(0, idx - 80);
+  const end = Math.min(text.length, idx + 220);
+  return text.slice(start, end).replace(/\r\n/g, "\\n").replace(/\n/g, "\\n");
+}
+
+function appendWriteTrace(dir, req, phase, payload) {
+  const traceEnabledByQuery = req.query?.trace === "1";
+  const traceEnabledByFile = fs.existsSync(path.join(dir, "_notes_trace_on"));
+  if (!traceEnabledByQuery && !traceEnabledByFile) return;
+
+  const hasAnyFmt = (f) => Boolean(f?.hasSpan || f?.hasFont || f?.hasMark);
+  const isSuspicious = (() => {
+    if (payload?.error) return true;
+    if (phase === "PUT-before-write") {
+      const hadFormatting = hasAnyFmt(payload?.incomingFlags) || hasAnyFmt(payload?.existingFlags);
+      const finalHasFormatting = hasAnyFmt(payload?.finalFlags);
+      if (hadFormatting && !finalHasFormatting) return true;
+      if (typeof payload?.incomingLength === "number" && payload.incomingLength > 0 && payload?.finalLength === 0) return true;
+      return false;
+    }
+    if (phase === "POST-write") {
+      if (typeof payload?.incomingLength === "number" && payload.incomingLength === 0) return true;
+      return false;
+    }
+    if (phase === "GET-read") {
+      if (typeof payload?.contentLength === "number" && payload.contentLength === 0) return true;
+      return false;
+    }
+    return false;
+  })();
+  if (!isSuspicious) return;
+
+  const tracePath = path.join(dir, "_notes_write_trace.log");
+  const row = {
+    ts: new Date().toISOString(),
+    method: req.method,
+    phase,
+    filename: req.query?.filename || "",
+    workspace: req.query?.workspace || "",
+    ua: req.headers["user-agent"] || "",
+    referer: req.headers.referer || req.headers.referrer || "",
+    ...payload,
+  };
+  try {
+    fs.appendFileSync(tracePath, `${JSON.stringify(row)}\n`, "utf-8");
+  } catch {
+    // non-fatal debug instrumentation
+  }
+}
+
 /**
  * Detect mentioned node IDs via greedy non-overlapping phrase matching.
  * Longer names/aliases claim spans first so shorter substrings cannot steal
@@ -137,7 +245,7 @@ export default function handler(req, res) {
   // Every path segment must be a non-empty, non-dotfile, non-traversal name.
   const isFolder = (req.method === "POST" && req.body?.isFolder === true) ||
                    (req.method === "DELETE" && req.query.isFolder === "true");
-  const segments = filename ? filename.split(/[\/\\]/) : [];
+  const segments = filename ? filename.split(/[/\\]/) : [];
   const badSegment = segments.some((s) => s === ".." || s === "." || s === "");
   const needsTextExt = !isFolder;
   if (!filename || badSegment || (needsTextExt && !/\.(md|txt)$/i.test(filename))) {
@@ -161,6 +269,11 @@ export default function handler(req, res) {
   if (req.method === "GET") {
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found" });
     const content = fs.readFileSync(filePath, "utf-8");
+    appendWriteTrace(dir, req, "GET-read", {
+      contentFlags: hasFormattingTags(content),
+      contentSnippet: snippetAroundFormatting(content),
+      contentLength: content.length,
+    });
     res.setHeader("Cache-Control", "no-store");
     return res.status(200).json({ filename, content });
   }
@@ -175,7 +288,14 @@ export default function handler(req, res) {
     if (fs.existsSync(filePath)) return res.status(409).json({ error: "File already exists" });
     const parentDir = path.dirname(filePath);
     ensureDir(parentDir);
-    fs.writeFileSync(filePath, req.body?.content ?? "", "utf-8");
+    const postContent = req.body?.content ?? "";
+    fs.writeFileSync(filePath, postContent, "utf-8");
+    appendWriteTrace(dir, req, "POST-write", {
+      incomingFlags: hasFormattingTags(postContent),
+      incomingSnippet: snippetAroundFormatting(postContent),
+      incomingLength: postContent.length,
+      destinationPath: path.relative(dir, filePath).replace(/\\/g, "/"),
+    });
 
     // If a name is provided, create or attach the corresponding node JSON in notes/.
     // Importantly, dedupe against existing nodes first so adding a raw file for a grey
@@ -294,7 +414,21 @@ export default function handler(req, res) {
   // ── PUT: save existing file ─────────────────────────────────────────────────
   if (req.method === "PUT") {
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found" });
-    const content = req.body?.content ?? "";
+    const incomingContent = req.body?.content ?? "";
+    const existingContent = fs.readFileSync(filePath, "utf-8");
+    const content = preserveStyledSpans(existingContent, incomingContent);
+    appendWriteTrace(dir, req, "PUT-before-write", {
+      incomingFlags: hasFormattingTags(incomingContent),
+      incomingSnippet: snippetAroundFormatting(incomingContent),
+      existingFlags: hasFormattingTags(existingContent),
+      existingSnippet: snippetAroundFormatting(existingContent),
+      finalFlags: hasFormattingTags(content),
+      finalSnippet: snippetAroundFormatting(content),
+      incomingLength: incomingContent.length,
+      existingLength: existingContent.length,
+      finalLength: content.length,
+      destinationPath: path.relative(dir, filePath).replace(/\\/g, "/"),
+    });
     fs.writeFileSync(filePath, content, "utf-8");
     const rawStem = path.basename(filename).replace(/\.(md|txt)$/i, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
     const rawNodeJsonPath = path.join(notesDir, `${rawStem}.json`);
@@ -375,7 +509,7 @@ export default function handler(req, res) {
             // Include the entity's own file (backlinks excludes self)
             if (fs.existsSync(filePath)) scopedPaths.add(path.resolve(filePath));
             for (const rel of affectedFiles) {
-              const segs = (typeof rel === "string" ? rel : "").split(/[\/\\]/);
+              const segs = (typeof rel === "string" ? rel : "").split(/[/\\]/);
               if (segs.some((s) => s === ".." || s === "." || s === "")) continue;
               if (!/\.(md|txt)$/i.test(rel)) continue;
               const abs = path.resolve(path.join(dir, ...segs));

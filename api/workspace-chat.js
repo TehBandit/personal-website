@@ -242,7 +242,7 @@ async function resolveMetaQuery(query, meta) {
   if (!toolCall) return null; // not a meta query — fall through to RAG
 
   let args = {};
-  try { args = JSON.parse(toolCall.function.arguments); } catch {}
+  try { args = JSON.parse(toolCall.function.arguments); } catch { /* no-op */ }
   const name = toolCall.function.name;
 
   // ── get_workspace_summary ──────────────────────────────────────────────────

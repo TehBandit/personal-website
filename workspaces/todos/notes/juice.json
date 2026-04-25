@@ -1,0 +1,18 @@
+{
+  "id": "juice",
+  "name": "juice",
+  "type": "entity",
+  "excerpt": "",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "oneyear",
+      "label": "references"
+    }
+  ],
+  "originSourceFile": "juice.md",
+  "sourceFile": "juice.md",
+  "createdAt": 1777130457599,
+  "updatedAt": 1777130627217
+}

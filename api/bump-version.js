@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { walkBasenameMap, normalizeSourceFile } from "./_walk.js";
+import { walkBasenameMap } from "./_walk.js";
 import { WORKSPACES_DIR } from "./_storygraph-paths.js";
 
 /**

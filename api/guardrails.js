@@ -49,22 +49,13 @@ const PROFANITY_REGEX = new RegExp(
 // ---------------------------------------------------------------------------
 function stripControlChars(str) {
   // Remove null bytes and non-printable ASCII control characters (except tab/newline/CR)
+  // eslint-disable-next-line no-control-regex
   return str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
 }
 
 // ---------------------------------------------------------------------------
 // Public helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Sanitize a free-text string: trim, strip control chars, enforce max length.
- * Returns the cleaned string (does NOT throw — callers use validateUserInput for full checks).
- */
-function sanitizeText(str, maxLength = 300) {
-  if (typeof str !== "string") return "";
-  const cleaned = stripControlChars(str.trim());
-  return cleaned.slice(0, maxLength);
-}
 
 /**
  * Returns true if the string contains a detected prompt-injection pattern.

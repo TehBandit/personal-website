@@ -5,8 +5,13 @@
   "excerpt": "",
   "notes": "",
   "aliases": [],
-  "connections": [],
+  "connections": [
+    {
+      "target": "hours",
+      "label": "references"
+    }
+  ],
   "sourceFile": "earth.md",
   "createdAt": 1776266430315,
-  "updatedAt": 1776267609259
+  "updatedAt": 1777147574631
 }

@@ -21,6 +21,10 @@
     {
       "target": "bokuto",
       "label": "references"
+    },
+    {
+      "target": "akaashi",
+      "label": "references"
     }
   ],
   "sourceFile": "bulk_test/rella_corse.md",
@@ -29,5 +33,5 @@
     "new",
     "thing"
   ],
-  "updatedAt": 1776993163157
+  "updatedAt": 1777064778917
 }

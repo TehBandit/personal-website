@@ -278,15 +278,15 @@ Return ONLY valid JSON:
 
 ID rules (CRITICAL for disambiguation):
 - For EXISTING nodes in the roster below: use their EXACT id as shown — never invent a new id for them
-- For NEW entities you are creating: invent a snake_case id (e.g. \"maren_ashveil\", \"salt_warren\")
+- For NEW entities you are creating: invent a snake_case id (e.g. "maren_ashveil", "salt_warren")
 - Connection target_id must be either an existing roster id OR the id you assigned to another entity/mention in this extraction
-- If a partial name in the text (e.g. \"Vane\") could match multiple existing nodes, use the excerpt and context to pick the correct id
+- If a partial name in the text (e.g. "Vane") could match multiple existing nodes, use the excerpt and context to pick the correct id
 
 Other rules:
 - Names must match the text exactly (proper capitalisation)
-- Aliases should capture shorthand references (e.g. \"Sable\" for \"Sable Voss\")
+- Aliases should capture shorthand references (e.g. "Sable" for "Sable Voss")
 - Do not invent entities not present in the text
-- Do not include truly unnamed walk-ons (e.g. \"a guard\", \"some merchants\")
+- Do not include truly unnamed walk-ons (e.g. "a guard", "some merchants")
 - Every mention MUST have at least one connection to a major entity or existing graph node — do not emit isolated mentions
 - If an existing graph node (listed below) appears in the text with meaningful new information, include it as a MAJOR entity using its EXACT existing id and name — the system will merge the new notes into the existing profile without duplicating it`;
 

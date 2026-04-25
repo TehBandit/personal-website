@@ -14,7 +14,7 @@ import chokidar from "chokidar";
 import { spawn } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
-import { readFileSync, readdirSync } from "fs";
+import { readFileSync } from "fs";
 import { walkRelPaths } from "../api/_walk.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
