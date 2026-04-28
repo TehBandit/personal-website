@@ -1,0 +1,32 @@
+{
+  "id": "lena",
+  "name": "Lena",
+  "type": "person",
+  "excerpt": "Lena is a friend who often discusses personal well-being with the writer.",
+  "notes": "Lena is mentioned in the journal as someone who walks with the writer at Riverwalk and discusses topics like burnout and routines. She provides insights into the writer's habits, such as treating rest as a reward, which suggests she is a reflective and thoughtful presence.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "riverwalk",
+      "label": "walks with"
+    },
+    {
+      "target": "maple_street_cafe",
+      "label": "discusses routines"
+    },
+    {
+      "target": "journal_entry_2026_04_03",
+      "label": "mentioned in"
+    }
+  ],
+  "originSourceFile": "journal/journal-entry-2026-04-03.md",
+  "sourceFile": "journal/journal-entry-2026-04-03.md",
+  "createdAt": 1777353517348,
+  "updatedAt": 1777353517352,
+  "context_summary": [
+    "- Friend who discusses personal well-being with the writer.",
+    "- Walks with the writer at Riverwalk.",
+    "- Talks about burnout and routines.",
+    "- Offers insights into the writer's habits regarding rest."
+  ]
+}

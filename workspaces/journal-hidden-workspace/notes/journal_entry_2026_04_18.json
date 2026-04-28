@@ -6,15 +6,10 @@
   "notes": "",
   "aliases": [],
   "tags": [],
-  "connections": [
-    {
-      "target": "boundaries",
-      "label": "mentions"
-    }
-  ],
+  "connections": [],
   "originSourceFile": "journal/journal-entry-2026-04-18.md",
   "sourceFile": "journal/journal-entry-2026-04-18.md",
   "documentNode": true,
-  "createdAt": 1777349385209,
-  "updatedAt": 1777349397729
+  "createdAt": 1777353495711,
+  "updatedAt": 1777353495711
 }

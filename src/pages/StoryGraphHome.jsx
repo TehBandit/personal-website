@@ -66,6 +66,14 @@ function basename(p) {
   return p.split("/").pop();
 }
 
+function humanizeFilename(filename) {
+  return stripExt(basename(filename || ""))
+    .replace(/[+_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 /** workspace/folder/sub — no spaces, no trailing slash */
 function pathLabel(wsName, filename) {
   const dir = filename.includes("/") ? filename.split("/").slice(0, -1).join("/") : null;
@@ -697,7 +705,7 @@ export default function StoryGraphHome() {
 
                   {/* filename */}
                   <span className="text-sm font-semibold leading-snug" style={{ color: TEXT }}>
-                    {stripExt(basename(doc.filename))}
+                    {String(doc.title || "").trim() || humanizeFilename(doc.filename)}
                   </span>
 
                   {/* preview */}

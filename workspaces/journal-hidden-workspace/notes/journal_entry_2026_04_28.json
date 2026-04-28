@@ -6,15 +6,10 @@
   "notes": "",
   "aliases": [],
   "tags": [],
-  "connections": [
-    {
-      "target": "deep_work_mornings",
-      "label": "mentions"
-    }
-  ],
+  "connections": [],
   "originSourceFile": "journal/journal-entry-2026-04-28.md",
   "sourceFile": "journal/journal-entry-2026-04-28.md",
   "documentNode": true,
-  "createdAt": 1777349385212,
-  "updatedAt": 1777349397721
+  "createdAt": 1777353495714,
+  "updatedAt": 1777353495714
 }

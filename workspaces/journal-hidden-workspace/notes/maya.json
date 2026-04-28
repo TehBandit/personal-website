@@ -1,0 +1,36 @@
+{
+  "id": "maya",
+  "name": "Maya",
+  "type": "person",
+  "excerpt": "Maya is a supportive friend involved in reviewing the writer's projects.",
+  "notes": "Maya is frequently mentioned in the journal as a friend who reviews the writer's StoryGraph drafts and provides feedback. She also participates in discussions about budgeting habits and boundaries. Maya seems to play a role in the writer's creative and personal development.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "maple_street_cafe",
+      "label": "met at"
+    },
+    {
+      "target": "riverwalk",
+      "label": "walks with"
+    },
+    {
+      "target": "storygraph",
+      "label": "reviews drafts"
+    },
+    {
+      "target": "journal_entry_2026_03_31",
+      "label": "mentioned in"
+    }
+  ],
+  "originSourceFile": "journal/journal-entry-2026-03-31.md",
+  "sourceFile": "journal/journal-entry-2026-03-31.md",
+  "createdAt": 1777353517342,
+  "updatedAt": 1777353517345,
+  "context_summary": [
+    "- Supportive friend who reviews the writer's projects.",
+    "- Provides feedback on StoryGraph drafts.",
+    "- Discusses budgeting habits and personal boundaries.",
+    "- Plays a role in the writer's creative and personal development."
+  ]
+}

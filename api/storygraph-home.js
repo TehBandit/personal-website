@@ -131,6 +131,7 @@ export default async function handler(req, res) {
           wsSlug: summary.workspace.slug,
           wsName: summary.workspace.name,
           filename: doc.filename,
+          title: doc.title || "",
           mtime: doc.mtime,
           preview: doc.preview || "",
         }))

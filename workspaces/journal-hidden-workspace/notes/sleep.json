@@ -1,0 +1,32 @@
+{
+  "id": "sleep",
+  "name": "Sleep",
+  "type": "theme",
+  "excerpt": "Sleep is a recurring issue affecting the writer's well-being.",
+  "notes": "Sleep appears frequently in the journal entries, often in the context of its impact on the writer's mood and productivity. Inconsistent sleep is linked to increased work stress and decreased patience. The writer recognizes the need for better sleep habits to improve overall well-being.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "work_stress",
+      "label": "affects"
+    },
+    {
+      "target": "boundaries",
+      "label": "helps manage"
+    },
+    {
+      "target": "journal_entry_2026_03_31",
+      "label": "mentioned in"
+    }
+  ],
+  "originSourceFile": "journal/journal-entry-2026-03-31.md",
+  "sourceFile": "journal/journal-entry-2026-03-31.md",
+  "createdAt": 1777353517376,
+  "updatedAt": 1777353517381,
+  "context_summary": [
+    "- Recurring issue affecting the writer's well-being.",
+    "- Linked to mood and productivity.",
+    "- Inconsistent sleep increases work stress and decreases patience.",
+    "- Recognizes the need for better sleep habits."
+  ]
+}

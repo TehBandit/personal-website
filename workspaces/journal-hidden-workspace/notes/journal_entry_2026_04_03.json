@@ -6,10 +6,19 @@
   "notes": "",
   "aliases": [],
   "tags": [],
-  "connections": [],
+  "connections": [
+    {
+      "target": "lena",
+      "label": "mentions"
+    },
+    {
+      "target": "financial_anxiety",
+      "label": "mentions"
+    }
+  ],
   "originSourceFile": "journal/journal-entry-2026-04-03.md",
   "sourceFile": "journal/journal-entry-2026-04-03.md",
   "documentNode": true,
-  "createdAt": 1777349385206,
-  "updatedAt": 1777349385206
+  "createdAt": 1777353495708,
+  "updatedAt": 1777353517427
 }

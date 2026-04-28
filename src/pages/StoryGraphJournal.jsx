@@ -112,6 +112,7 @@ export default function StoryGraphJournal() {
     }).catch(() => ({ nodes: [] }));
     const graphNodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
     setJournalGraphData({ nodes: graphNodes, links: [] });
+    return graphNodes;
   }, []);
 
   const loadJournalTimelinePage = useCallback(async ({
@@ -335,23 +336,31 @@ export default function StoryGraphJournal() {
     setIsEditorOpen(true);
   }, []);
 
-  const visualizeJournal = useCallback(async (force = false) => {
+  const deriveJournalGraph = useCallback(async (force = false) => {
+    const deriveSecret = import.meta.env.VITE_JOURNAL_DERIVE_SECRET;
+    await requestJson("/api/journal-derive", {
+      method: "POST",
+      headers: deriveSecret ? { "x-journal-derive-secret": String(deriveSecret) } : undefined,
+      body: {
+        workspace: JOURNAL_WORKSPACE_SLUG,
+        ...(force ? { force: true } : {}),
+      },
+    });
+  }, []);
+
+  const openJournalGraph = useCallback(async () => {
     if (visualizing || sortedEntries.length === 0) return;
     setVisualizing(true);
     setVisualizeError("");
-    setVisualizeProgress(force ? "Rebuilding graph from scratch\u2026" : "Extracting people, places, and themes\u2026");
+    setVisualizeProgress("Checking existing graph\u2026");
     try {
-      const deriveSecret = import.meta.env.VITE_JOURNAL_DERIVE_SECRET;
-      await requestJson("/api/journal-derive", {
-        method: "POST",
-        headers: deriveSecret ? { "x-journal-derive-secret": String(deriveSecret) } : undefined,
-        body: {
-          workspace: JOURNAL_WORKSPACE_SLUG,
-          ...(force ? { force: true } : {}),
-        },
-      });
-
-      setVisualizeProgress("Building graph\u2026");
+      const currentNodes = await loadJournalGraph().catch(() => []);
+      const hasExistingGraph = Array.isArray(currentNodes) && currentNodes.length > 0;
+      if (!hasExistingGraph) {
+        setVisualizeProgress("No graph found. Building from scratch\u2026");
+        await deriveJournalGraph(true);
+        await loadJournalGraph();
+      }
       navigate(`/storygraph/graph?workspace=${encodeURIComponent(JOURNAL_WORKSPACE_SLUG)}`);
     } catch (err) {
       setVisualizeError(String(err?.message || "Unable to visualize journal entries."));
@@ -359,7 +368,26 @@ export default function StoryGraphJournal() {
       setVisualizing(false);
       setVisualizeProgress("");
     }
-  }, [visualizing, sortedEntries, navigate]);
+  }, [visualizing, sortedEntries.length, loadJournalGraph, deriveJournalGraph, navigate]);
+
+  const refreshJournalGraph = useCallback(async () => {
+    if (visualizing || sortedEntries.length === 0) return;
+    setVisualizing(true);
+    setVisualizeError("");
+    setVisualizeProgress("Rebuilding graph from scratch\u2026");
+    try {
+      await deriveJournalGraph(true);
+      await loadJournalGraph();
+      navigate(`/storygraph/graph?workspace=${encodeURIComponent(JOURNAL_WORKSPACE_SLUG)}`);
+    } catch (err) {
+      setVisualizeError(String(err?.message || "Unable to refresh journal graph."));
+    } finally {
+      setVisualizing(false);
+      setVisualizeProgress("");
+    }
+  }, [visualizing, sortedEntries.length, deriveJournalGraph, loadJournalGraph, navigate]);
+
+  const hasJournalGraphNodes = journalGraphData.nodes.length > 0;
 
   const handleJournalFilesChange = useCallback(() => {
     if (!workspaceReady) return;
@@ -537,7 +565,7 @@ export default function StoryGraphJournal() {
             </button>
 
             <button
-              onClick={visualizeJournal}
+              onClick={openJournalGraph}
               disabled={visualizing || sortedEntries.length === 0}
               style={{
                 marginTop: 28,
@@ -564,33 +592,35 @@ export default function StoryGraphJournal() {
               Visualize Journal
             </button>
 
-            <button
-              onClick={() => visualizeJournal(true)}
-              disabled={visualizing || sortedEntries.length === 0}
-              style={{
-                marginTop: 8,
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                padding: "9px 0",
-                fontSize: 13,
-                fontWeight: 600,
-                borderRadius: 8,
-                border: "1px solid rgba(148,163,184,0.2)",
-                backgroundColor: "rgba(148,163,184,0.06)",
-                color: "rgba(148,163,184,0.8)",
-                cursor: visualizing || sortedEntries.length === 0 ? "default" : "pointer",
-                opacity: sortedEntries.length === 0 ? 0.4 : 1,
-                transition: "background-color 150ms ease",
-              }}
-              onMouseEnter={(e) => { if (!visualizing && sortedEntries.length > 0) e.currentTarget.style.backgroundColor = "rgba(148,163,184,0.12)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(148,163,184,0.06)"; }}
-            >
-              <GitFork size={14} style={{ transform: "rotate(180deg)" }} />
-              Refresh Graph
-            </button>
+            {hasJournalGraphNodes && (
+              <button
+                onClick={refreshJournalGraph}
+                disabled={visualizing || sortedEntries.length === 0}
+                style={{
+                  marginTop: 8,
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "9px 0",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  border: "1px solid rgba(148,163,184,0.2)",
+                  backgroundColor: "rgba(148,163,184,0.06)",
+                  color: "rgba(148,163,184,0.8)",
+                  cursor: visualizing || sortedEntries.length === 0 ? "default" : "pointer",
+                  opacity: sortedEntries.length === 0 ? 0.4 : 1,
+                  transition: "background-color 150ms ease",
+                }}
+                onMouseEnter={(e) => { if (!visualizing && sortedEntries.length > 0) e.currentTarget.style.backgroundColor = "rgba(148,163,184,0.12)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(148,163,184,0.06)"; }}
+              >
+                <GitFork size={14} style={{ transform: "rotate(180deg)" }} />
+                Refresh Graph
+              </button>
+            )}
 
             {visualizeError && (
               <p style={{ fontSize: 11, color: "#fca5a5", marginTop: 8, textAlign: "center" }}>{visualizeError}</p>

@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import ForceGraph2D from "react-force-graph-2d";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -184,6 +185,52 @@ function buildActivityTimeline(nodes) {
   return result;
 }
 
+function getNodeTs(node) {
+  const ts = Number(node?.createdAt || node?.updatedAt || 0);
+  return Number.isFinite(ts) && ts > 0 ? ts : null;
+}
+
+function buildTimelapseNodes(nodes) {
+  return nodes
+    .map((n) => ({ ...n, _tlTs: getNodeTs(n) }))
+    .filter((n) => n._tlTs)
+    .sort((a, b) => a._tlTs - b._tlTs || String(a.name).localeCompare(String(b.name)));
+}
+
+function linkIds(link) {
+  const source = typeof link.source === "object" ? link.source.id : link.source;
+  const target = typeof link.target === "object" ? link.target.id : link.target;
+  return [source, target];
+}
+
+function buildPropagationDepth(originId, visibleNodeIds, links) {
+  if (!originId || !visibleNodeIds?.has(originId)) return { depths: new Map(), maxDepth: 0, reached: 0 };
+  const adj = new Map();
+  for (const id of visibleNodeIds) adj.set(id, new Set());
+  for (const link of links) {
+    const [s, t] = linkIds(link);
+    if (!visibleNodeIds.has(s) || !visibleNodeIds.has(t)) continue;
+    adj.get(s).add(t);
+    adj.get(t).add(s);
+  }
+
+  const depths = new Map([[originId, 0]]);
+  const q = [originId];
+  while (q.length) {
+    const cur = q.shift();
+    const d = depths.get(cur) ?? 0;
+    for (const nxt of (adj.get(cur) || [])) {
+      if (depths.has(nxt)) continue;
+      depths.set(nxt, d + 1);
+      q.push(nxt);
+    }
+  }
+
+  let maxDepth = 0;
+  for (const d of depths.values()) if (d > maxDepth) maxDepth = d;
+  return { depths, maxDepth, reached: depths.size };
+}
+
 const HEAT_LEVELS = [
   "rgba(255,255,255,0.06)",
   "rgba(96,165,250,0.28)",
@@ -249,6 +296,10 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
 
   const [hoverCell, setHoverCell] = useState(null);
   const [growthFacet, setGrowthFacet] = useState("1Y");
+  const [timelapseOpen, setTimelapseOpen] = useState(false);
+  const [timelapsePlaying, setTimelapsePlaying] = useState(false);
+  const [timelapseFrame, setTimelapseFrame] = useState(0);
+  const [timelapseSpeedMs, setTimelapseSpeedMs] = useState(220);
 
   const contribMap = useMemo(() => buildContribMap(nodes), [nodes]);
   const heatmapGrid = useMemo(() => buildHeatmapWeeks(), []);
@@ -338,6 +389,141 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
     }
     return filtered;
   }, [series, growthFacet]);
+
+  const timelapseNodes = useMemo(() => buildTimelapseNodes(nodes), [nodes]);
+  const timelapseMaxFrame = Math.max(0, timelapseNodes.length - 1);
+  const timelapseCurrentNode = timelapseNodes[Math.min(timelapseFrame, timelapseMaxFrame)] || null;
+  const timelapseStartNode = timelapseNodes[0] || null;
+
+  const timelapseNodeIndexMap = useMemo(() => {
+    const map = new Map();
+    for (let i = 0; i < timelapseNodes.length; i++) map.set(timelapseNodes[i].id, i);
+    return map;
+  }, [timelapseNodes]);
+
+  // Build stable object pools once so d3 keeps x/y/velocity across frames.
+  const timelapseNodePool = useMemo(
+    () => timelapseNodes.map((n, idx) => ({ id: n.id, name: n.name, type: n.type, filePreview: n.filePreview, revealIndex: idx })),
+    [timelapseNodes]
+  );
+
+  const timelapseLinkPool = useMemo(() => {
+    const pool = [];
+    for (const l of links) {
+      const [s, t] = linkIds(l);
+      const sIdx = timelapseNodeIndexMap.get(s);
+      const tIdx = timelapseNodeIndexMap.get(t);
+      if (sIdx === undefined || tIdx === undefined) continue;
+      pool.push({ source: s, target: t, revealIndex: Math.max(sIdx, tIdx) });
+    }
+    return pool;
+  }, [links, timelapseNodeIndexMap]);
+
+  const timelapseGraphData = useMemo(() => {
+    const end = Math.min(timelapseFrame, timelapseMaxFrame);
+    return {
+      nodes: timelapseNodePool.slice(0, end + 1),
+      links: timelapseLinkPool.filter((l) => l.revealIndex <= end),
+    };
+  }, [timelapseFrame, timelapseMaxFrame, timelapseNodePool, timelapseLinkPool]);
+
+  const visibleNodeIds = useMemo(() => new Set(timelapseGraphData.nodes.map((n) => n.id)), [timelapseGraphData.nodes]);
+  const timelapseVisibleLinks = timelapseGraphData.links;
+
+  const timelapsePropagation = useMemo(
+    () => buildPropagationDepth(timelapseStartNode?.id, visibleNodeIds, timelapseVisibleLinks),
+    [timelapseStartNode, visibleNodeIds, timelapseVisibleLinks]
+  );
+
+  const timelapseDegreeMap = useMemo(() => {
+    const m = new Map();
+    for (const l of timelapseVisibleLinks) {
+      const [s, t] = linkIds(l);
+      m.set(s, (m.get(s) || 0) + 1);
+      m.set(t, (m.get(t) || 0) + 1);
+    }
+    return m;
+  }, [timelapseVisibleLinks]);
+
+  const timelapseDepthBuckets = useMemo(() => {
+    const buckets = new Map();
+    for (const depth of timelapsePropagation.depths.values()) {
+      buckets.set(depth, (buckets.get(depth) || 0) + 1);
+    }
+    return [...buckets.entries()].sort((a, b) => a[0] - b[0]);
+  }, [timelapsePropagation]);
+  const timelapseGraphRef = useRef(null);
+  const timelapsePrevFrameRef = useRef(-1);
+
+  useEffect(() => {
+    if (timelapseFrame <= timelapseMaxFrame) return;
+    setTimelapseFrame(timelapseMaxFrame);
+  }, [timelapseFrame, timelapseMaxFrame]);
+
+  useEffect(() => {
+    if (!timelapseOpen || !timelapsePlaying) return;
+    if (timelapseFrame >= timelapseMaxFrame) {
+      setTimelapsePlaying(false);
+      return;
+    }
+    const t = setTimeout(() => {
+      setTimelapseFrame((prev) => Math.min(prev + 1, timelapseMaxFrame));
+    }, timelapseSpeedMs);
+    return () => clearTimeout(t);
+  }, [timelapseOpen, timelapsePlaying, timelapseFrame, timelapseMaxFrame, timelapseSpeedMs]);
+
+  useEffect(() => {
+    if (!timelapseOpen) return;
+    const fg = timelapseGraphRef.current;
+    if (!fg) return;
+
+    fg.d3Force("charge").strength(-135).distanceMax(420);
+    fg.d3Force("link").distance(88).strength(0.75);
+    fg.d3Force("center").strength(0.12);
+    fg.d3Force("collision", null);
+    timelapsePrevFrameRef.current = -1;
+  }, [timelapseOpen]);
+
+  useEffect(() => {
+    if (!timelapseOpen) return;
+    const prev = timelapsePrevFrameRef.current;
+    timelapsePrevFrameRef.current = timelapseFrame;
+    if (prev < 0 || timelapseFrame <= prev) return;
+
+    // Seed newly revealed nodes near already-visible neighbors so the force
+    // simulation extends smoothly instead of popping from random positions.
+    for (let i = prev + 1; i <= timelapseFrame; i++) {
+      const newNode = timelapseNodePool[i];
+      if (!newNode) continue;
+      if (Number.isFinite(newNode.x) && Number.isFinite(newNode.y)) continue;
+
+      let anchor = null;
+      for (const l of timelapseLinkPool) {
+        if (l.revealIndex > timelapseFrame) continue;
+        if (l.source === newNode.id) {
+          const idx = timelapseNodeIndexMap.get(l.target);
+          if (idx !== undefined && idx <= prev) { anchor = timelapseNodePool[idx]; break; }
+        }
+        if (l.target === newNode.id) {
+          const idx = timelapseNodeIndexMap.get(l.source);
+          if (idx !== undefined && idx <= prev) { anchor = timelapseNodePool[idx]; break; }
+        }
+      }
+
+      const jitter = () => (Math.random() - 0.5) * 18;
+      if (anchor && Number.isFinite(anchor.x) && Number.isFinite(anchor.y)) {
+        newNode.x = anchor.x + jitter();
+        newNode.y = anchor.y + jitter();
+        newNode.vx = (anchor.vx || 0) * 0.35;
+        newNode.vy = (anchor.vy || 0) * 0.35;
+      } else {
+        newNode.x = 430 + jitter();
+        newNode.y = 160 + jitter();
+        newNode.vx = 0;
+        newNode.vy = 0;
+      }
+    }
+  }, [timelapseOpen, timelapseFrame, timelapseNodePool, timelapseLinkPool, timelapseNodeIndexMap]);
 
   // Session streak — based on any day a node was created OR edited
   const streakData = useMemo(() => {    const daysSet = new Set(
@@ -440,6 +626,24 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
                 >{f}</button>
               ))}
             </div>
+            <button
+              onClick={() => {
+                setTimelapseFrame(0);
+                setTimelapsePlaying(true);
+                setTimelapseOpen(true);
+              }}
+              disabled={!timelapseNodes.length}
+              className="text-xs px-3 py-1.5 rounded-lg"
+              style={{
+                backgroundColor: timelapseNodes.length ? "rgba(96,165,250,0.15)" : "rgba(255,255,255,0.05)",
+                color: timelapseNodes.length ? "#93c5fd" : "rgba(255,255,255,0.2)",
+                border: "1px solid rgba(96,165,250,0.25)",
+                cursor: timelapseNodes.length ? "pointer" : "not-allowed",
+                fontWeight: 600,
+              }}
+            >
+              Generate Timelapse
+            </button>
           </div>
         </div>
         {!hasTimestampedNodes ? (
@@ -672,6 +876,219 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
           )}
         </div>
       </div>
+
+      {/* ── Timelapse modal ─────────────────────────────────────────────── */}
+      {timelapseOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(8,10,18,0.74)",
+            backdropFilter: "blur(6px)",
+            zIndex: 9998,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+          onMouseDown={() => {
+            setTimelapseOpen(false);
+            setTimelapsePlaying(false);
+          }}
+        >
+          <div
+            style={{
+              width: "min(920px, 92vw)",
+              backgroundColor: "#13131f",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 14,
+              padding: 18,
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <h3 className="text-sm font-semibold text-white">Workspace Iteration Timelapse</h3>
+                <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+                  Nodes reveal chronologically; propagation waves are measured from the first node.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setTimelapseOpen(false);
+                  setTimelapsePlaying(false);
+                }}
+                className="text-xs px-2.5 py-1 rounded"
+                style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.75)", border: "none", cursor: "pointer" }}
+              >Close</button>
+            </div>
+
+            {!timelapseNodes.length ? (
+              <div className="h-40 flex items-center justify-center" style={{ color: "rgba(255,255,255,0.35)" }}>
+                No timestamped nodes available for timelapse.
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-4 gap-3 mb-4">
+                  <div className="rounded-lg p-3" style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Visible Nodes</p>
+                    <p className="text-lg font-semibold" style={{ color: "#60a5fa" }}>{visibleNodeIds.size}</p>
+                  </div>
+                  <div className="rounded-lg p-3" style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Visible Links</p>
+                    <p className="text-lg font-semibold" style={{ color: "#a78bfa" }}>{timelapseVisibleLinks.length}</p>
+                  </div>
+                  <div className="rounded-lg p-3" style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Propagation Depth</p>
+                    <p className="text-lg font-semibold" style={{ color: "#34d399" }}>{timelapsePropagation.maxDepth}</p>
+                  </div>
+                  <div className="rounded-lg p-3" style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Frame</p>
+                    <p className="text-lg font-semibold" style={{ color: "#fbbf24" }}>{timelapseFrame + 1} / {timelapseNodes.length}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg p-3 mb-4" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <p className="text-xs mb-1" style={{ color: "rgba(255,255,255,0.4)" }}>Current reveal</p>
+                  <p className="text-sm font-semibold text-white">
+                    {timelapseCurrentNode?.name || "-"}
+                    <span className="ml-2 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+                      {timelapseCurrentNode?._tlTs ? formatDate(timelapseCurrentNode._tlTs) : ""}
+                    </span>
+                  </p>
+                </div>
+
+                <div className="rounded-lg p-3 mb-4" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <p className="text-xs mb-2" style={{ color: "rgba(255,255,255,0.4)" }}>Graph Build View</p>
+                  <div style={{ width: "100%", height: 320, borderRadius: 10, overflow: "hidden", backgroundColor: "rgba(8,10,18,0.55)" }}>
+                    <ForceGraph2D
+                      ref={timelapseGraphRef}
+                      graphData={timelapseGraphData}
+                      width={860}
+                      height={320}
+                      backgroundColor="rgba(8,10,18,0)"
+                      cooldownTicks={80}
+                      nodeRelSize={4}
+                      nodeCanvasObjectMode={() => "replace"}
+                      nodeCanvasObject={(node, ctx, globalScale) => {
+                        const isDerived = !Object.prototype.hasOwnProperty.call(node, "filePreview") || node.filePreview === undefined;
+                        const cfg = nodeTypeConfig[node.type];
+                        const baseColor = isDerived ? "#6b7280" : (cfg?.color ?? "#6b7280");
+                        const deg = timelapseDegreeMap.get(node.id) || 0;
+                        const r = isDerived ? Math.max((4 + Math.sqrt(deg) * 7) * 0.65, 3) : (4 + Math.sqrt(deg) * 7);
+
+                        if (node.id === timelapseCurrentNode?.id) {
+                          ctx.beginPath();
+                          ctx.arc(node.x, node.y, r + 5, 0, 2 * Math.PI);
+                          ctx.fillStyle = baseColor + "35";
+                          ctx.fill();
+                        }
+
+                        ctx.beginPath();
+                        ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
+                        ctx.fillStyle = baseColor;
+                        ctx.fill();
+
+                        const LABEL_HIDE = 0.45;
+                        const LABEL_FADE = 0.70;
+                        if (globalScale < LABEL_HIDE) return;
+                        const zoomAlpha = globalScale < LABEL_FADE
+                          ? (globalScale - LABEL_HIDE) / (LABEL_FADE - LABEL_HIDE)
+                          : 1;
+
+                        const fontSize = Math.max(12 / globalScale, 3.5);
+                        const labelY = node.y + r + fontSize * 0.3 + 4 / globalScale;
+                        ctx.globalAlpha = zoomAlpha;
+                        ctx.font = `600 ${fontSize}px Inter, sans-serif`;
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "middle";
+                        ctx.fillStyle = "#cbd5e1";
+                        ctx.fillText(node.name || "", node.x, labelY);
+                        ctx.globalAlpha = 1;
+                      }}
+                      linkColor={() => "rgba(255,255,255,0.18)"}
+                      linkWidth={() => 1.5}
+                      enablePanInteraction
+                      enableZoomInteraction
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <input
+                    type="range"
+                    min={0}
+                    max={timelapseMaxFrame}
+                    value={Math.min(timelapseFrame, timelapseMaxFrame)}
+                    onChange={(e) => {
+                      setTimelapsePlaying(false);
+                      setTimelapseFrame(Number(e.target.value));
+                    }}
+                    style={{ width: "100%" }}
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 mb-4">
+                  <button
+                    onClick={() => setTimelapsePlaying((v) => !v)}
+                    className="text-xs px-3 py-1.5 rounded"
+                    style={{ backgroundColor: "rgba(96,165,250,0.16)", color: "#93c5fd", border: "none", cursor: "pointer" }}
+                  >{timelapsePlaying ? "Pause" : "Play"}</button>
+                  <button
+                    onClick={() => {
+                      setTimelapsePlaying(false);
+                      setTimelapseFrame(0);
+                    }}
+                    className="text-xs px-3 py-1.5 rounded"
+                    style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.75)", border: "none", cursor: "pointer" }}
+                  >Reset</button>
+                  <label className="text-xs ml-2" style={{ color: "rgba(255,255,255,0.45)" }}>Speed</label>
+                  <select
+                    value={timelapseSpeedMs}
+                    onChange={(e) => setTimelapseSpeedMs(Number(e.target.value))}
+                    className="text-xs px-2 py-1 rounded"
+                    style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "#fff", border: "1px solid rgba(255,255,255,0.18)" }}
+                  >
+                    <option value={360}>Slow</option>
+                    <option value={220}>Normal</option>
+                    <option value={120}>Fast</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-lg p-3" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <p className="text-xs mb-2" style={{ color: "rgba(255,255,255,0.4)" }}>Propagation Rings</p>
+                    {timelapseDepthBuckets.length === 0 ? (
+                      <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>No connected nodes revealed yet.</p>
+                    ) : (
+                      <div className="flex flex-col gap-1.5">
+                        {timelapseDepthBuckets.map(([depth, count]) => (
+                          <div key={depth} className="flex items-center justify-between text-xs">
+                            <span style={{ color: "rgba(255,255,255,0.6)" }}>Depth {depth}</span>
+                            <span style={{ color: "#fff", fontWeight: 600 }}>{count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="rounded-lg p-3" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <p className="text-xs mb-2" style={{ color: "rgba(255,255,255,0.4)" }}>Span</p>
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.75)" }}>
+                      Start: {timelapseStartNode?._tlTs ? formatDate(timelapseStartNode._tlTs) : "-"}
+                    </p>
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.75)" }}>
+                      Current: {timelapseCurrentNode?._tlTs ? formatDate(timelapseCurrentNode._tlTs) : "-"}
+                    </p>
+                    <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Origin node: <span style={{ color: "#fff" }}>{timelapseStartNode?.name || "-"}</span>
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Heatmap hover tooltip */}
       {hoverCell && (

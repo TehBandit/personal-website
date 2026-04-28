@@ -1,9 +1,10 @@
 import fs from "fs";
 import path from "path";
 import { walkRelPaths } from "./_walk.js";
+import { extractTitleFromContent } from "./_walk.js";
 import { WORKSPACES_DIR } from "./_storygraph-paths.js";
 
-const SUMMARY_VERSION = 1;
+const SUMMARY_VERSION = 3;
 const SUMMARY_FILE = "workspace-summary.json";
 const PREVIEW_LIMIT = 300;
 
@@ -77,6 +78,17 @@ function listWorkspaceRawFiles(wsDir) {
   return files;
 }
 
+function readFileTitle(wsDir, filename) {
+  try {
+    const absPath = path.join(wsDir, ...String(filename || "").split("/"));
+    const raw = fs.readFileSync(absPath, "utf-8");
+    const extracted = extractTitleFromContent(raw);
+    return typeof extracted === "string" ? extracted.trim() : "";
+  } catch {
+    return "";
+  }
+}
+
 function writeSummary(workspace, summary) {
   const wsDir = path.join(WORKSPACES_DIR, workspace);
   fs.writeFileSync(path.join(wsDir, SUMMARY_FILE), JSON.stringify(summary), "utf-8");
@@ -107,6 +119,7 @@ export function rebuildWorkspaceSummary(workspace) {
   const files = listWorkspaceRawFiles(wsDir);
 
   const previewMap = new Map();
+  const titleMap = new Map();
   const activityDayMap = {};
   const createdAtMap = {};
   let nodesThisWeek = 0;
@@ -133,15 +146,26 @@ export function rebuildWorkspaceSummary(workspace) {
         if (!previewMap.has(sf)) previewMap.set(sf, val);
       }
     }
+
+    const nodeTitle = typeof node?.name === "string" ? node.name.trim() : "";
+    if (nodeTitle) {
+      if (node?.sourceFile && !titleMap.has(node.sourceFile)) titleMap.set(node.sourceFile, nodeTitle);
+      for (const sf of (node?.additionalSourceFiles || [])) {
+        if (!titleMap.has(sf)) titleMap.set(sf, nodeTitle);
+      }
+    }
   }
 
   const recentDocs = files
     .map((f) => {
       const raw = previewMap.get(f.filename) || "";
       const preview = raw.length > PREVIEW_LIMIT ? `${raw.slice(0, PREVIEW_LIMIT).trimEnd()}...` : raw;
+      const mappedTitle = String(titleMap.get(f.filename) || "").trim();
+      const extractedTitle = mappedTitle ? "" : readFileTitle(wsDir, f.filename);
       return {
         filename: f.filename,
         mtime: f.mtime,
+        title: mappedTitle || extractedTitle,
         preview,
       };
     })
