@@ -1,0 +1,28 @@
+{
+  "id": "storygraph_project",
+  "name": "StoryGraph Project",
+  "type": "activity",
+  "excerpt": "The StoryGraph Project is a personal project that organizes life events and habits.",
+  "notes": "The writer is actively developing the StoryGraph Project, which aims to give equal weight to small habits and major moments. Feedback from friends like Maya is crucial for its development. The project involves drafting ideas and connecting recurring themes and people.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "maya",
+      "label": "receives feedback"
+    },
+    {
+      "target": "deep_work_mornings",
+      "label": "influenced by work habit"
+    }
+  ],
+  "originSourceFile": "journal/journal-entry-2026-04-28.md",
+  "sourceFile": "journal_derived/storygraph_project.md",
+  "createdAt": 1777355473297,
+  "updatedAt": 1777355473297,
+  "context_summary": [
+    "- Personal project organizing life events and habits.",
+    "- Aims to give equal weight to small habits and major moments.",
+    "- Feedback from friends is crucial for its development.",
+    "- Involves drafting ideas and connecting recurring themes."
+  ]
+}

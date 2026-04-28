@@ -85,6 +85,7 @@ async function batchGenerateContextSummaries(openai, items) {
 
 const DERIVE_KEY = "journal-entries";
 const JOURNAL_WORKSPACE_SLUG = "journal-hidden-workspace";
+const JOURNAL_DERIVED_FOLDER = "journal_derived";
 
 function isJournalDeriveAuthorized(req) {
   const configuredSecret = process.env.JOURNAL_DERIVE_SECRET;
@@ -150,45 +151,6 @@ function saveDeriveIndex(indexPath, index) {
   fs.writeFileSync(indexPath, JSON.stringify(index, null, 2), "utf-8");
 }
 
-function getDefaultNodeType(workspace) {
-  try {
-    const wsJson = JSON.parse(fs.readFileSync(path.join(WORKSPACES_DIR, workspace, "workspace.json"), "utf-8"));
-    const keys = Object.keys(wsJson.nodeTypes || {});
-    if (keys.length > 0) return keys[0];
-  } catch { /* fallback */ }
-  return "event";
-}
-
-function extractDateFromJournalFilename(filename) {
-  const m = String(filename || "").match(/(\d{4}-\d{2}-\d{2})/);
-  return m ? m[1] : null;
-}
-
-function buildDefaultJournalTitle(dateKey) {
-  if (!dateKey) return "Journal Entry";
-  const [y, m, d] = dateKey.split("-").map((v) => Number.parseInt(v, 10));
-  const dt = new Date(y, m - 1, d);
-  const pretty = dt.toLocaleDateString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-  return `Journal Entry - ${pretty}`;
-}
-
-function extractJournalTitle(fallbackDateKey) {
-  return buildDefaultJournalTitle(fallbackDateKey);
-}
-
-function journalFilenameToNodeId(filename) {
-  return String(filename || "")
-    .replace(/\.(md|txt)$/i, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_|_$/g, "");
-}
-
 // ── Find which journal entry first mentions a name ────────────────────────────
 // sortedEntries: [{ relPath, content }] oldest → newest
 function findFirstMentionEntry(name, aliases, sortedEntries) {
@@ -211,21 +173,33 @@ export default async function handler(req, res) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return res.status(500).json({ error: "Server misconfiguration" });
 
-    const { workspace, force } = req.body;
+    const { workspace, sourceWorkspace, force } = req.body;
 
     // ── Validate ──────────────────────────────────────────────────────────────
     if (!workspace || !/^[a-z0-9-]+$/.test(workspace)) {
       return res.status(400).json({ error: "Invalid workspace" });
     }
-    if (workspace !== JOURNAL_WORKSPACE_SLUG) {
-      return res.status(400).json({ error: "journal derive only supports the hidden journal workspace" });
+    const journalSourceWorkspace = sourceWorkspace || JOURNAL_WORKSPACE_SLUG;
+    if (!/^[a-z0-9-]+$/.test(journalSourceWorkspace)) {
+      return res.status(400).json({ error: "Invalid source workspace" });
+    }
+    if (journalSourceWorkspace !== JOURNAL_WORKSPACE_SLUG) {
+      return res.status(400).json({ error: "journal derive only supports the hidden journal source workspace" });
+    }
+    if (workspace === JOURNAL_WORKSPACE_SLUG) {
+      return res.status(400).json({ error: "target workspace must be distinct from the journal source workspace" });
     }
 
     // ── Read journal entry files from disk ────────────────────────────────────
-    const wsDir = path.join(WORKSPACES_DIR, workspace);
-    const journalDir = path.join(wsDir, "journal");
+    const sourceWsDir = path.join(WORKSPACES_DIR, journalSourceWorkspace);
+    const journalDir = path.join(sourceWsDir, "journal");
     if (!fs.existsSync(journalDir)) {
       return res.status(400).json({ error: "No journal folder found in this workspace." });
+    }
+
+    const wsDir = path.join(WORKSPACES_DIR, workspace);
+    if (!fs.existsSync(wsDir)) {
+      return res.status(404).json({ error: "Target workspace not found." });
     }
 
     // Load all journal .md files, sorted oldest → newest by filename.
@@ -243,10 +217,7 @@ export default async function handler(req, res) {
       const absPath = path.join(journalDir, filename);
       let content = "";
       try { content = fs.readFileSync(absPath, "utf-8"); } catch { /* skip unreadable */ }
-      const dateKey = extractDateFromJournalFilename(filename);
-      const title = extractJournalTitle(dateKey);
-      const nodeId = journalFilenameToNodeId(filename);
-      return { filename, relPath: `journal/${filename}`, content, dateKey, title, nodeId };
+      return { filename, relPath: `journal/${filename}`, content };
     });
 
     // Combined text for hash + AI prompt
@@ -262,21 +233,14 @@ export default async function handler(req, res) {
     // ── Hash-based dedup ──────────────────────────────────────────────────────
     const contentHash = crypto.createHash("sha256").update(combinedText).digest("hex");
     const notesDir = path.join(wsDir, "notes");
+    const derivedFolderDir = path.join(wsDir, JOURNAL_DERIVED_FOLDER);
     const deriveIndexPath = path.join(wsDir, "derive-meta.json");
     const deriveIndex = loadDeriveIndex(deriveIndexPath);
 
-    const preservedDocumentTitles = new Map();
     const entryRelPaths = new Set(sortedEntries.map((entry) => entry.relPath));
     if (force) {
       const previousDerive = deriveIndex.items.find((i) => i.inputPath === DERIVE_KEY);
       deriveIndex.items = deriveIndex.items.filter((i) => i.inputPath !== DERIVE_KEY);
-
-      for (const entry of sortedEntries) {
-        const existing = loadNodeFile(notesDir, entry.nodeId);
-        if (existing?.documentNode && typeof existing?.name === "string" && existing.name.trim()) {
-          preservedDocumentTitles.set(entry.nodeId, existing.name.trim());
-        }
-      }
 
       // Force-refresh should clear only prior journal-derived/journal-linked nodes.
       if (fs.existsSync(notesDir)) {
@@ -285,44 +249,15 @@ export default async function handler(req, res) {
           try { fs.unlinkSync(path.join(notesDir, `${id}.json`)); } catch { /* non-fatal */ }
         }
       }
+      try { fs.rmSync(derivedFolderDir, { recursive: true, force: true }); } catch { /* non-fatal */ }
     }
     const cached = deriveIndex.items.find((i) => i.inputPath === DERIVE_KEY);
     if (cached && cached.sourceHash === contentHash) {
       return res.status(200).json({ alreadyDerived: true, derivedAt: cached.derivedAt, nodes: cached.nodeIds || [] });
     }
 
-    // Materialize one document node per journal file so each entry has a stable
-    // node identity (filename-stem id) and editable title source-of-truth in JSON.
     ensureDir(notesDir);
-    const defaultNodeType = getDefaultNodeType(workspace);
-    const documentNodeIdBySourceFile = new Map();
-    const documentNodeIds = [];
-    for (const entry of sortedEntries) {
-      const existing = loadNodeFile(notesDir, entry.nodeId);
-      const nodeData = {
-        ...(existing || {}),
-        id: entry.nodeId,
-        name: existing?.name || preservedDocumentTitles.get(entry.nodeId) || entry.title,
-        type: existing?.type || defaultNodeType,
-        excerpt: existing?.excerpt || "",
-        notes: existing?.notes || "",
-        aliases: Array.isArray(existing?.aliases) ? existing.aliases : [],
-        tags: Array.isArray(existing?.tags) ? existing.tags : [],
-        connections: Array.isArray(existing?.connections) ? existing.connections : [],
-        originSourceFile: existing?.originSourceFile || entry.relPath,
-        sourceFile: entry.relPath,
-        additionalSourceFiles: (existing?.additionalSourceFiles || []).filter((f) => f && f !== entry.relPath),
-        documentNode: true,
-        createdAt: existing?.createdAt || Date.now(),
-        updatedAt: Date.now(),
-      };
-      if (!nodeData.additionalSourceFiles || nodeData.additionalSourceFiles.length === 0) {
-        delete nodeData.additionalSourceFiles;
-      }
-      fs.writeFileSync(path.join(notesDir, `${entry.nodeId}.json`), JSON.stringify(nodeData, null, 2), "utf-8");
-      documentNodeIdBySourceFile.set(entry.relPath, entry.nodeId);
-      documentNodeIds.push(entry.nodeId);
-    }
+    ensureDir(derivedFolderDir);
 
     // ── Load existing graph nodes ─────────────────────────────────────────────
     let existingNodes = [];
@@ -464,7 +399,7 @@ ID rules:
         .filter((node) => node?.id && node?.name)
         .map((node) => String(node.id).replace(/[^a-z0-9_-]/gi, "_").toLowerCase())
     );
-    const knownNodeIds = new Set([...existingIdSet, ...newNodeIdSet, ...documentNodeIds]);
+    const knownNodeIds = new Set([...existingIdSet, ...newNodeIdSet]);
 
     // Collect orphaned connections from deduped (merged) nodes
     const orphanedBySource = new Map();
@@ -489,7 +424,14 @@ ID rules:
       const safeId = node.id.replace(/[^a-z0-9_-]/gi, "_").toLowerCase();
 
       // sourceFile = first journal entry that mentions this entity
-      const sourceFile = findFirstMentionEntry(node.name, node.aliases || [], sortedEntries);
+      const firstMentionFile = findFirstMentionEntry(node.name, node.aliases || [], sortedEntries);
+      const sourceFile = `${JOURNAL_DERIVED_FOLDER}/${safeId}.md`;
+      const existingMd = path.join(wsDir, ...sourceFile.split("/"));
+      if (!fs.existsSync(existingMd)) {
+        const header = `${node.name.toUpperCase()} — ${node.type || "person"} notes`;
+        const body = node.notes || node.excerpt || "";
+        fs.writeFileSync(existingMd, `${header}\n\n${body}`, "utf-8");
+      }
 
       const nodeData = {
         id: safeId,
@@ -499,7 +441,7 @@ ID rules:
         notes: node.notes || "",
         aliases: (node.aliases || []).filter((a) => typeof a === "string" && a.trim()),
         connections: normalizeConnectionList(node.connections || [], safeId, knownNodeIds),
-        originSourceFile: sourceFile,
+        originSourceFile: firstMentionFile || sourceFile,
         sourceFile,
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -508,12 +450,6 @@ ID rules:
       fs.writeFileSync(filePath, JSON.stringify(nodeData, null, 2), "utf-8");
       savedNodes.push({ id: safeId, name: node.name, type: node.type || "person" });
       nodesForSummary.push({ filePath, nodeData });
-
-      const docNodeId = documentNodeIdBySourceFile.get(sourceFile);
-      if (docNodeId && docNodeId !== safeId) {
-        patchNodeConnections(notesDir, docNodeId, [{ target: safeId, label: "mentions" }]);
-        patchNodeConnections(notesDir, safeId, [{ target: docNodeId, label: "mentioned in" }]);
-      }
     }
 
     // ── Apply incremental updates to existing nodes ───────────────────────────
@@ -572,7 +508,7 @@ ID rules:
       inputPath: DERIVE_KEY,
       sourceHash: contentHash,
       derivedAt: new Date().toISOString(),
-      nodeIds: [...new Set([...documentNodeIds, ...savedNodes.map((n) => n.id)])],
+      nodeIds: [...new Set(savedNodes.map((n) => n.id))],
     });
     saveDeriveIndex(deriveIndexPath, deriveIndex);
 

@@ -1,0 +1,35 @@
+{
+  "id": "maple_street_cafe",
+  "name": "Maple Street Cafe",
+  "type": "place",
+  "excerpt": "Maple Street Cafe is a frequent meeting spot for the writer and their friends.",
+  "notes": "The cafe serves as a regular backdrop in the writer's life, hosting meetings with friends like Maya, Jordan, and Lena. It is a place where the writer often writes, reflects on work stress, and has meaningful discussions about life, work, and personal growth.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "maya",
+      "label": "meets regularly"
+    },
+    {
+      "target": "jordan",
+      "label": "meets regularly"
+    },
+    {
+      "target": "lena",
+      "label": "meets regularly"
+    },
+    {
+      "target": "work_stress",
+      "label": "place for reflection"
+    }
+  ],
+  "originSourceFile": "journal/journal-entry-2026-03-31.md",
+  "sourceFile": "journal_derived/maple_street_cafe.md",
+  "createdAt": 1777355473291,
+  "updatedAt": 1777355473291,
+  "context_summary": [
+    "- Frequent meeting spot for the writer and friends.",
+    "- Hosts discussions about life, work, and personal growth.",
+    "- A backdrop for writing and reflecting on work stress."
+  ]
+}

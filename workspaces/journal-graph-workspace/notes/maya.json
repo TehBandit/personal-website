@@ -1,0 +1,32 @@
+{
+  "id": "maya",
+  "name": "Maya",
+  "type": "person",
+  "excerpt": "Maya is a close friend who provides feedback on the writer's StoryGraph project.",
+  "notes": "Maya frequently meets the writer at Maple Street Cafe and is a significant sounding board for the writer's StoryGraph project. She encourages the writer to embrace the ordinary aspects of life in their work. Maya also discusses budgeting habits with the writer and provides feedback on the StoryGraph journal map.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "storygraph_project",
+      "label": "provides feedback"
+    },
+    {
+      "target": "maple_street_cafe",
+      "label": "frequent cafe companion"
+    },
+    {
+      "target": "budgeting",
+      "label": "discusses budgeting habits"
+    }
+  ],
+  "originSourceFile": "journal/journal-entry-2026-03-31.md",
+  "sourceFile": "journal_derived/maya.md",
+  "createdAt": 1777355473286,
+  "updatedAt": 1777355473286,
+  "context_summary": [
+    "- Close friend who gives feedback on the StoryGraph project.",
+    "- Frequently meets the writer at Maple Street Cafe.",
+    "- Encourages embracing ordinary aspects of life in work.",
+    "- Discusses budgeting habits with the writer."
+  ]
+}

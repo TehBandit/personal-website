@@ -1541,7 +1541,7 @@ const EMPTY_SET = new Set();
 const EMPTY_ARR = [];
 const TYPE_COLOR_PALETTE = ["#60a5fa","#34d399","#fb923c","#c084fc","#f472b6","#facc15","#38bdf8","#a78bfa","#4ade80","#f87171"];
 
-export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null, nodeTransparent = false, nodeBorder = false, disallowedAliases = EMPTY_SET, onReady = null, onFilesChange = null, onWorkspaceNodeTypesChanged = null, hotbarOnly = false }) {
+export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null, nodeTransparent = false, nodeBorder = false, disallowedAliases = EMPTY_SET, onReady = null, onOpenFileChange = null, onFilesChange = null, onWorkspaceNodeTypesChanged = null, hotbarOnly = false }) {
   const NODE_TYPE_CONFIG = useNodeTypeConfig();
   const nodeTypeFallback = Object.values(NODE_TYPE_CONFIG)[0];
   const [files, setFiles] = useState([]);
@@ -2934,6 +2934,9 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   // without a separate fetch against /api/notes-raw-list).
   useEffect(() => { onFilesChange?.(files); }, [files, onFilesChange]);
 
+  // Notify parent when the currently open file changes.
+  useEffect(() => { onOpenFileChange?.(openFile?.filename || ""); }, [openFile?.filename, onOpenFileChange]);
+
   // ── Open a file ──────────────────────────────────────────────────────────────
   const openFileByName = useCallback((filename) => {
     if (!workspaceRef.current) return;
@@ -3429,6 +3432,20 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     a.click();
     URL.revokeObjectURL(url);
   }, [openFile, getFileContentForAction]);
+
+  const downloadFiles = useCallback(async (paths) => {
+    const uniquePaths = [...new Set((paths || []).filter(Boolean))];
+    if (uniquePaths.length === 0) return;
+    if (uniquePaths.length > 1) {
+      const confirmed = window.confirm(`You are about to download ${uniquePaths.length} files. Continue?`);
+      if (!confirmed) return;
+    }
+    for (const path of uniquePaths) {
+      // Keep downloads in order and reuse existing single-file flow.
+      // Browsers may still group prompts depending on user settings.
+      await downloadFile(path);
+    }
+  }, [downloadFile]);
 
   const duplicateFile = useCallback(async (filename = openFile?.filename) => {
     if (!filename) return;
@@ -4453,6 +4470,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
         </div>
         {fileMenuOpen && (() => {
           const menuPath = fileMenuOpen.path;
+          const isBulkDownload = selectedPaths.size > 1 && selectedPaths.has(menuPath);
           const menuName = menuPath.split("/").pop()?.replace(/\.(md|txt)$/i, "") || menuPath;
           const itemStyle = { color: "rgba(255,255,255,0.7)" };
           const destructiveStyle = { color: "#f87171" };
@@ -4495,12 +4513,16 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                 onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
                 onClick={() => {
-                  downloadFile(menuPath);
                   setFileMenuOpen(null);
+                  if (isBulkDownload) {
+                    downloadFiles([...selectedPaths]);
+                  } else {
+                    downloadFile(menuPath);
+                  }
                 }}
               >
                 <Download size={12} style={{ color: "rgba(255,255,255,0.35)", flexShrink: 0 }} />
-                Download
+                {isBulkDownload ? `Download Selected (${selectedPaths.size})` : "Download"}
               </button>
               <div className="my-1 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }} />
               <button

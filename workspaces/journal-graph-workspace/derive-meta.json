@@ -1,0 +1,20 @@
+{
+  "items": [
+    {
+      "inputPath": "journal-entries",
+      "sourceHash": "1ddd27d8e429da05aa421b5ae2690a53e90e42056d0d902236696314bec53b30",
+      "derivedAt": "2026-04-28T05:51:21.769Z",
+      "nodeIds": [
+        "jordan",
+        "maya",
+        "lena",
+        "maple_street_cafe",
+        "riverwalk",
+        "storygraph_project",
+        "work_stress",
+        "budgeting",
+        "deep_work_mornings"
+      ]
+    }
+  ]
+}

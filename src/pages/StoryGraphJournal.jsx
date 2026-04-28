@@ -6,6 +6,8 @@ import CalendarHeatmap from "../components/CalendarHeatmap.jsx";
 import { requestJson } from "../utils/storygraphApi.js";
 import {
   JOURNAL_ENTRY_DIR,
+  JOURNAL_GRAPH_WORKSPACE_NAME,
+  JOURNAL_GRAPH_WORKSPACE_SLUG,
   JOURNAL_LEGACY_FILE_PATH,
   JOURNAL_WORKSPACE_NAME,
   JOURNAL_WORKSPACE_SLUG,
@@ -106,9 +108,34 @@ export default function StoryGraphJournal() {
     }
   }, []);
 
+  const ensureJournalGraphWorkspace = useCallback(async () => {
+    try {
+      const existing = await requestJson("/api/workspaces", {
+        query: { includeHidden: "1" },
+      }).catch(() => null);
+      const found = Array.isArray(existing?.workspaces)
+        && existing.workspaces.some((ws) => ws?.slug === JOURNAL_GRAPH_WORKSPACE_SLUG);
+      if (found) return true;
+
+      await requestJson("/api/workspaces", {
+        method: "POST",
+        body: {
+          name: JOURNAL_GRAPH_WORKSPACE_NAME,
+          desiredSlug: JOURNAL_GRAPH_WORKSPACE_SLUG,
+          preset: "journaling",
+          hidden: true,
+        },
+      });
+      return true;
+    } catch (err) {
+      const alreadyExists = String(err?.message || "").includes("already exists");
+      return alreadyExists;
+    }
+  }, []);
+
   const loadJournalGraph = useCallback(async () => {
     const graph = await requestJson("/api/story-notes", {
-      query: { workspace: JOURNAL_WORKSPACE_SLUG },
+      query: { workspace: JOURNAL_GRAPH_WORKSPACE_SLUG },
     }).catch(() => ({ nodes: [] }));
     const graphNodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
     setJournalGraphData({ nodes: graphNodes, links: [] });
@@ -342,7 +369,8 @@ export default function StoryGraphJournal() {
       method: "POST",
       headers: deriveSecret ? { "x-journal-derive-secret": String(deriveSecret) } : undefined,
       body: {
-        workspace: JOURNAL_WORKSPACE_SLUG,
+        workspace: JOURNAL_GRAPH_WORKSPACE_SLUG,
+        sourceWorkspace: JOURNAL_WORKSPACE_SLUG,
         ...(force ? { force: true } : {}),
       },
     });
@@ -354,6 +382,8 @@ export default function StoryGraphJournal() {
     setVisualizeError("");
     setVisualizeProgress("Checking existing graph\u2026");
     try {
+      const graphReady = await ensureJournalGraphWorkspace();
+      if (!graphReady) throw new Error("Unable to initialize journal graph workspace.");
       const currentNodes = await loadJournalGraph().catch(() => []);
       const hasExistingGraph = Array.isArray(currentNodes) && currentNodes.length > 0;
       if (!hasExistingGraph) {
@@ -361,14 +391,14 @@ export default function StoryGraphJournal() {
         await deriveJournalGraph(true);
         await loadJournalGraph();
       }
-      navigate(`/storygraph/graph?workspace=${encodeURIComponent(JOURNAL_WORKSPACE_SLUG)}`);
+      navigate(`/storygraph/graph?workspace=${encodeURIComponent(JOURNAL_GRAPH_WORKSPACE_SLUG)}`);
     } catch (err) {
       setVisualizeError(String(err?.message || "Unable to visualize journal entries."));
     } finally {
       setVisualizing(false);
       setVisualizeProgress("");
     }
-  }, [visualizing, sortedEntries.length, loadJournalGraph, deriveJournalGraph, navigate]);
+  }, [visualizing, sortedEntries.length, ensureJournalGraphWorkspace, loadJournalGraph, deriveJournalGraph, navigate]);
 
   const refreshJournalGraph = useCallback(async () => {
     if (visualizing || sortedEntries.length === 0) return;
@@ -376,16 +406,18 @@ export default function StoryGraphJournal() {
     setVisualizeError("");
     setVisualizeProgress("Rebuilding graph from scratch\u2026");
     try {
+      const graphReady = await ensureJournalGraphWorkspace();
+      if (!graphReady) throw new Error("Unable to initialize journal graph workspace.");
       await deriveJournalGraph(true);
       await loadJournalGraph();
-      navigate(`/storygraph/graph?workspace=${encodeURIComponent(JOURNAL_WORKSPACE_SLUG)}`);
+      navigate(`/storygraph/graph?workspace=${encodeURIComponent(JOURNAL_GRAPH_WORKSPACE_SLUG)}`);
     } catch (err) {
       setVisualizeError(String(err?.message || "Unable to refresh journal graph."));
     } finally {
       setVisualizing(false);
       setVisualizeProgress("");
     }
-  }, [visualizing, sortedEntries.length, deriveJournalGraph, loadJournalGraph, navigate]);
+  }, [visualizing, sortedEntries.length, ensureJournalGraphWorkspace, deriveJournalGraph, loadJournalGraph, navigate]);
 
   const hasJournalGraphNodes = journalGraphData.nodes.length > 0;
 

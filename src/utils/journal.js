@@ -3,6 +3,8 @@ export const JOURNAL_LEGACY_FILE_PATH = JOURNAL_FILE_PATH;
 export const JOURNAL_ENTRY_DIR = "journal";
 export const JOURNAL_WORKSPACE_SLUG = "journal-hidden-workspace";
 export const JOURNAL_WORKSPACE_NAME = "Journal Hidden Workspace";
+export const JOURNAL_GRAPH_WORKSPACE_SLUG = "journal-graph-workspace";
+export const JOURNAL_GRAPH_WORKSPACE_NAME = "Journal Graph Workspace";
 
 function pad2(value) {
   return String(value).padStart(2, "0");

@@ -1,0 +1,28 @@
+{
+  "id": "budgeting",
+  "name": "Budgeting",
+  "type": "theme",
+  "excerpt": "Budgeting is a significant focus for the writer, aiming to manage financial anxiety.",
+  "notes": "The writer frequently mentions budgeting as a way to control financial anxiety and track spending habits. Discussions with Maya help the writer refine their budgeting approach, and it is also a recurring topic in the StoryGraph Project.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "maya",
+      "label": "discusses budgeting habits"
+    },
+    {
+      "target": "storygraph_project",
+      "label": "related theme"
+    }
+  ],
+  "originSourceFile": "journal/journal-entry-2026-03-31.md",
+  "sourceFile": "journal_derived/budgeting.md",
+  "createdAt": 1777355473303,
+  "updatedAt": 1777355473303,
+  "context_summary": [
+    "- Significant focus for managing financial anxiety.",
+    "- Aims to track spending habits.",
+    "- Discussions with Maya help refine budgeting approach.",
+    "- A recurring topic in the StoryGraph Project."
+  ]
+}

@@ -115,7 +115,23 @@ export default function StoryGraph() {
   const [uploadMode, setUploadMode] = useState("note"); // "note" | "derive"
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadFolderName, setUploadFolderName] = useState("");
-  const [activeTab, setActiveTab] = useState("graph");
+  const [activeTab, setActiveTab] = useState(() => {
+    const tab = searchParams.get("tab") || "";
+    return ["graph", "files", "dashboard"].includes(tab) ? tab : "graph";
+  });
+  const lastManualTabRef = useRef({ tab: "graph", at: 0 });
+  const switchTabFromUser = useCallback((tab) => {
+    lastManualTabRef.current = { tab, at: Date.now() };
+    setActiveTab(tab);
+  }, []);
+  const switchToFilesProgrammatically = useCallback(() => {
+    const { tab, at } = lastManualTabRef.current;
+    // If the user just manually switched to a non-files tab, do not immediately
+    // rebound them back to Files due async/programmatic actions.
+    if (tab !== "files" && Date.now() - at < 350) return false;
+    setActiveTab("files");
+    return true;
+  }, []);
   const [pendingChatQuestion, setPendingChatQuestion] = useState(null);
   const [askInput, setAskInput] = useState("");
   const [uploadFile, setUploadFile] = useState(null);
@@ -358,18 +374,31 @@ export default function StoryGraph() {
     loadGraph(silent);
   }, [workspace, loadGraph]);
 
-  // Keep URL ?workspace= param in sync with state
+  // Keep URL ?workspace= param in sync with state.
+  // Use updater-only reads to avoid feedback loops from search param object identity.
   useEffect(() => {
     if (!workspace) return;
-    const cur = searchParams.get("workspace");
-    if (cur !== workspace) {
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set("workspace", workspace);
-        return next;
-      }, { replace: true });
-    }
-  }, [workspace, searchParams, setSearchParams]);
+    setSearchParams((prev) => {
+      const cur = prev.get("workspace") || "";
+      if (cur === workspace) return prev;
+      const next = new URLSearchParams(prev);
+      next.set("workspace", workspace);
+      return next;
+    }, { replace: true });
+  }, [workspace, setSearchParams]);
+
+  // Keep URL ?tab= param in sync with state. We omit the default "graph" tab.
+  useEffect(() => {
+    setSearchParams((prev) => {
+      const current = prev.get("tab") || "";
+      const nextTab = activeTab === "graph" ? "" : activeTab;
+      if (current === nextTab) return prev;
+      const next = new URLSearchParams(prev);
+      if (nextTab) next.set("tab", nextTab);
+      else next.delete("tab");
+      return next;
+    }, { replace: true });
+  }, [activeTab, setSearchParams]);
 
   // Reset graph state when switching workspaces
   const graphVersionRef = useRef(null);
@@ -698,9 +727,9 @@ export default function StoryGraph() {
       ?? addl
       ?? null;
     if (!filename) return;
-    setActiveTab("files");
+    switchToFilesProgrammatically();
     setTimeout(() => api.openFileByName(filename), 80);
-  }, [ownFileIds, storyFiles, fileBasenameMap]);
+  }, [ownFileIds, storyFiles, fileBasenameMap, switchToFilesProgrammatically]);
 
   const openNodeById = useCallback((nodeId) => {
     const node = graphData.nodes.find((n) => n.id === nodeId);
@@ -713,6 +742,8 @@ export default function StoryGraph() {
   // Stable ref so FilesEditor's useEffect([files, onFilesChange]) only fires when
   // the file list itself changes, not when loadGraph is recreated on workspace switch.
   const loadGraphRef = useRef(requestGraphRefresh);
+  const [filesEditorReadyTick, setFilesEditorReadyTick] = useState(0);
+  const consumedFileParamRef = useRef("");
   useEffect(() => { loadGraphRef.current = requestGraphRefresh; }, [requestGraphRefresh]);
   const onFilesEditorFilesChange = useCallback((files) => {
     setStoryFiles(files);
@@ -744,17 +775,59 @@ export default function StoryGraph() {
 
   const onFilesEditorReady = useCallback((api) => {
     filesEditorApi.current = api;
+    setFilesEditorReadyTick((tick) => tick + 1);
+  }, []);
+
+  useEffect(() => {
+    const api = filesEditorApi.current;
+    if (!api) return;
+
     const paramFile = searchParams.get("file");
-    if (paramFile) {
-      setActiveTab("files");
-      setTimeout(() => api.openFileByName(decodeURIComponent(paramFile)), 80);
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
+    if (!paramFile) {
+      consumedFileParamRef.current = "";
+      return;
+    }
+
+    const decoded = decodeURIComponent(paramFile);
+    const key = `${workspace || ""}::${decoded}`;
+    if (consumedFileParamRef.current === key) return;
+    consumedFileParamRef.current = key;
+
+    // Do not force tab changes here; tab state is owned by explicit tab param/user action.
+    setTimeout(() => api.openFileByName(decoded), 80);
+  }, [searchParams, workspace, filesEditorReadyTick]);
+
+  const onFilesEditorOpenFileChange = useCallback((filename) => {
+    const nextFilename = String(filename || "");
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      const cur = String(next.get("file") || "");
+      if (activeTab !== "files") {
+        if (!cur) return prev;
         next.delete("file");
         return next;
-      }, { replace: true });
-    }
-  }, [searchParams, setSearchParams]);
+      }
+      if (nextFilename) {
+        if (cur === nextFilename) return prev;
+        next.set("file", nextFilename);
+        return next;
+      }
+      if (!cur) return prev;
+      next.delete("file");
+      return next;
+    }, { replace: true });
+  }, [activeTab, setSearchParams]);
+
+  // Keep URL minimal: only include ?file while actively in Files tab.
+  useEffect(() => {
+    if (activeTab === "files") return;
+    setSearchParams((prev) => {
+      if (!prev.get("file")) return prev;
+      const next = new URLSearchParams(prev);
+      next.delete("file");
+      return next;
+    }, { replace: true });
+  }, [activeTab, setSearchParams]);
 
   // react-force-graph-2d has no native onNodeDblClick — detect via click timing.
   const lastNodeClickRef = useRef({ id: null, time: 0 });
@@ -1156,7 +1229,7 @@ export default function StoryGraph() {
       body: { content },
     })
       .then(() => {
-        setActiveTab("files");
+        switchToFilesProgrammatically();
         const { openFileByName, loadFiles } = filesEditorApi.current;
         if (loadFiles) loadFiles();
         setTimeout(() => openFileByName(filename), 80);
@@ -1166,7 +1239,7 @@ export default function StoryGraph() {
         setNodeActionError("Failed to create notes file");
         setTimeout(() => setNodeActionError(null), 3000);
       });
-  }, [workspace]);
+  }, [workspace, switchToFilesProgrammatically]);
 
   // Connections list for the selected node — memoized to avoid double-compute in render
   // Show raw file content preview for nodes that own a file.
@@ -1305,7 +1378,7 @@ export default function StoryGraph() {
           {[{ id: "graph", icon: <Network size={12} />, label: "Graph" }, { id: "files", icon: <FileText size={12} />, label: "Files" }, { id: "dashboard", icon: <BarChart2 size={12} />, label: "Dashboard" }].map(({ id, icon, label }) => (
             <button
               key={id}
-              onClick={() => setActiveTab(id)}
+              onClick={() => switchTabFromUser(id)}
               className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors"
               style={{
                 backgroundColor: activeTab === id ? "rgba(96,165,250,0.2)" : "transparent",
@@ -1348,6 +1421,7 @@ export default function StoryGraph() {
             nodeBorder={nodeBorder}
             disallowedAliases={disallowedAliases}
             onReady={onFilesEditorReady}
+            onOpenFileChange={onFilesEditorOpenFileChange}
             onFilesChange={onFilesEditorFilesChange}
             onWorkspaceNodeTypesChanged={handleWorkspaceNodeTypesChanged}
           />

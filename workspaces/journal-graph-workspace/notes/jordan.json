@@ -1,0 +1,32 @@
+{
+  "id": "jordan",
+  "name": "Jordan",
+  "type": "person",
+  "excerpt": "Jordan is a friend and running companion who often meets the writer at Riverwalk.",
+  "notes": "Jordan frequently appears in the writer's entries, often associated with running at Riverwalk and providing thoughtful advice. He suggested protecting mornings for deep work, which helped the writer become more productive. Jordan and the writer share conversations about being overbooked and the challenges of managing stress.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "riverwalk",
+      "label": "running companion"
+    },
+    {
+      "target": "work_stress",
+      "label": "discusses work stress"
+    },
+    {
+      "target": "deep_work_mornings",
+      "label": "suggested deep work"
+    }
+  ],
+  "originSourceFile": "journal/journal-entry-2026-03-31.md",
+  "sourceFile": "journal_derived/jordan.md",
+  "createdAt": 1777355473282,
+  "updatedAt": 1777355473282,
+  "context_summary": [
+    "- Friend and running companion of the writer.",
+    "- Often meets the writer at Riverwalk.",
+    "- Provides thoughtful advice, including protecting mornings for deep work.",
+    "- Discusses challenges of being overbooked and managing stress."
+  ]
+}

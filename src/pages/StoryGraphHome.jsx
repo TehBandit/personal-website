@@ -1,9 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Network, FileText, Clock, Flame, Link2, TrendingUp } from "lucide-react";
+import { Network, FileText, Clock, Flame, Link2, TrendingUp, Plus } from "lucide-react";
 import Header from "../components/Header.jsx";
 import CalendarHeatmap from "../components/CalendarHeatmap.jsx";
+import { TYPE_PRESETS } from "../constants/nodeTypes.js";
 import { requestJson } from "../utils/storygraphApi.js";
 import {
   JOURNAL_ENTRY_DIR,
@@ -106,6 +107,11 @@ export default function StoryGraphHome() {
   const journalLastSavedTextRef = useRef("");
   const journalAutosaveTimerRef = useRef(null);
   const mounted = useRef(true);
+  const homeCreateRef = useRef(null);
+  const [homeCreateOpen, setHomeCreateOpen] = useState(false);
+  const [homeCreateStep, setHomeCreateStep] = useState("preset"); // preset | name
+  const [homeCreatePreset, setHomeCreatePreset] = useState(null);
+  const [homeCreateName, setHomeCreateName] = useState("");
 
   useEffect(() => {
     mounted.current = true;
@@ -362,6 +368,57 @@ export default function StoryGraphHome() {
   const openDoc = (wsSlug, filename) => navigate(
     `/storygraph/graph?workspace=${encodeURIComponent(wsSlug)}&file=${encodeURIComponent(filename)}`
   );
+  const closeHomeCreate = useCallback(() => {
+    setHomeCreateOpen(false);
+    setHomeCreateStep("preset");
+    setHomeCreatePreset(null);
+    setHomeCreateName("");
+  }, []);
+
+  const createWorkspaceFromHome = useCallback(async () => {
+    const trimmed = String(homeCreateName || "").trim();
+    if (!trimmed) return;
+    try {
+      const created = await requestJson("/api/workspaces", {
+        method: "POST",
+        body: { name: trimmed, preset: homeCreatePreset || "narrative" },
+      });
+      const next = {
+        slug: String(created?.slug || ""),
+        name: String(created?.name || trimmed),
+        nodeTypes: created?.nodeTypes || null,
+      };
+      if (!next.slug) throw new Error("Could not create workspace.");
+
+      setWorkspaces((prev) => {
+        if (prev.some((ws) => ws.slug === next.slug)) return prev;
+        const merged = [...prev, next].sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+        _cache.data = {
+          workspaces: merged,
+          docs: _cache.data?.docs ?? recentDocs,
+          stats: _cache.data?.stats ?? stats,
+        };
+        _cache.fetchedAt = Date.now();
+        return merged;
+      });
+
+      closeHomeCreate();
+      navigate(`/storygraph/graph?workspace=${encodeURIComponent(next.slug)}`);
+    } catch (err) {
+      window.alert(String(err?.message || "Unable to create workspace."));
+    }
+  }, [homeCreateName, homeCreatePreset, closeHomeCreate, navigate, recentDocs, stats]);
+
+  useEffect(() => {
+    if (!homeCreateOpen) return;
+    const handler = (e) => {
+      if (homeCreateRef.current && !homeCreateRef.current.contains(e.target)) {
+        closeHomeCreate();
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [homeCreateOpen, closeHomeCreate]);
   const openJournalPage = () => {
     navigate("/storygraph/journal");
   };
@@ -667,6 +724,133 @@ export default function StoryGraphHome() {
                   {ws.name}
                 </button>
               ))}
+              <button
+                onClick={() => {
+                  setHomeCreateOpen((prev) => !prev);
+                  setHomeCreateStep("preset");
+                  setHomeCreatePreset(null);
+                  setHomeCreateName("");
+                }}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: "rgba(96,165,250,0.08)",
+                  color: "#93c5fd",
+                  border: "1px dashed rgba(96,165,250,0.35)",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.16)")}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.08)")}
+                title="Create a new workspace"
+              >
+                <Plus size={13} className="text-blue-300" />
+                New Workspace
+              </button>
+            </div>
+          )}
+
+          {homeCreateOpen && (
+            <div
+              ref={homeCreateRef}
+              className="mt-3 rounded-xl"
+              style={{
+                backgroundColor: "#1a1a2e",
+                border: "1px solid rgba(255,255,255,0.12)",
+                maxWidth: 360,
+              }}
+            >
+              {homeCreateStep === "preset" ? (
+                <div className="px-3 pt-3 pb-2">
+                  <p className="text-xs font-semibold uppercase tracking-widest mb-2.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+                    Choose a type
+                  </p>
+                  <div className="flex flex-col gap-0.5">
+                    {Object.entries(TYPE_PRESETS).map(([key, p]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => { setHomeCreatePreset(key); setHomeCreateStep("name"); }}
+                        className="text-left px-2.5 py-2 rounded-lg w-full"
+                        style={{ backgroundColor: "transparent" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-0.5 flex-shrink-0">
+                            {Object.values(p.types).map((t, i) => (
+                              <span key={i} className="w-2 h-2 rounded-full" style={{ backgroundColor: t.color }} />
+                            ))}
+                          </div>
+                          <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>{p.label}</span>
+                        </div>
+                        <p className="text-xs mt-0.5 ml-6" style={{ color: "rgba(255,255,255,0.3)" }}>{p.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeHomeCreate}
+                    className="text-xs mt-2 px-1"
+                    style={{ color: "rgba(255,255,255,0.3)" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    createWorkspaceFromHome();
+                  }}
+                  className="px-3 pt-3 pb-2"
+                >
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setHomeCreateStep("preset")}
+                      className="text-xs"
+                      style={{ color: "rgba(255,255,255,0.35)" }}
+                    >
+                      ← Back
+                    </button>
+                    {homeCreatePreset && (
+                      <div className="flex items-center gap-1.5">
+                        {Object.values(TYPE_PRESETS[homeCreatePreset]?.types ?? {}).map((t, i) => (
+                          <span key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: t.color }} />
+                        ))}
+                        <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+                          {TYPE_PRESETS[homeCreatePreset]?.label}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Workspace name..."
+                    value={homeCreateName}
+                    onChange={(e) => setHomeCreateName(e.target.value)}
+                    className="w-full bg-transparent outline-none text-sm"
+                    style={{ color: "rgba(255,255,255,0.85)", caretColor: "#60a5fa" }}
+                    onKeyDown={(e) => { if (e.key === "Escape") closeHomeCreate(); }}
+                  />
+                  <div className="flex gap-1.5 mt-2.5">
+                    <button
+                      type="submit"
+                      className="text-xs px-2.5 py-1 rounded-md font-medium"
+                      style={{ backgroundColor: "rgba(96,165,250,0.2)", color: "#93c5fd" }}
+                    >
+                      Create
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeHomeCreate}
+                      className="text-xs px-2.5 py-1 rounded-md"
+                      style={{ color: "rgba(255,255,255,0.35)" }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           )}
         </section>
