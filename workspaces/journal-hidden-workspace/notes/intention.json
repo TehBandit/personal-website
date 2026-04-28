@@ -1,0 +1,31 @@
+{
+  "id": "intention",
+  "name": "Intention",
+  "type": "theme",
+  "excerpt": "Living with intention is a recurring theme in the writer's reflections.",
+  "notes": "The writer frequently reflects on living with intention, attempting to balance daily routines with meaningful habits. This theme is intertwined with activities like budgeting and creative projects such as StoryGraph, suggesting a desire for purposeful living.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "storygraph",
+      "label": "integrated into project"
+    },
+    {
+      "target": "budgeting",
+      "label": "part of intentional living"
+    },
+    {
+      "target": "journal_entry_2026_03_31",
+      "label": "mentioned in"
+    }
+  ],
+  "originSourceFile": "journal/journal-entry-2026-03-31.md",
+  "sourceFile": "journal/journal-entry-2026-03-31.md",
+  "createdAt": 1777349397713,
+  "updatedAt": 1777349397716,
+  "context_summary": [
+    "- Living with intention is a recurring theme in the writer's reflections.",
+    "- The writer balances daily routines with meaningful habits.",
+    "- Activities like budgeting and creative projects (e.g., StoryGraph) reflect a desire for purposeful living."
+  ]
+}

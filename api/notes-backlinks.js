@@ -37,7 +37,12 @@ export default function handler(req, res) {
 
   if (!fs.existsSync(nodeJsonPath)) return res.status(200).json({ backlinks: [] });
 
-  const node = JSON.parse(fs.readFileSync(nodeJsonPath, "utf-8"));
+  let node;
+  try {
+    node = JSON.parse(fs.readFileSync(nodeJsonPath, "utf-8"));
+  } catch {
+    return res.status(200).json({ backlinks: [] });
+  }
 
   // Fast path: use the backlinks index. If the index is missing/stale, the
   // loader lazily rebuilds it before returning.

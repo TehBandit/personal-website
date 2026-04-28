@@ -218,16 +218,38 @@ export default function StoryGraph() {
     return () => ro.disconnect();
   }, [loading]);
 
+  // Track whether the active workspace is hidden (journal graph, etc.)
+  const [activeWorkspaceHidden, setActiveWorkspaceHidden] = useState(false);
+
   // Load workspace list on mount
   useEffect(() => {
     const paramWs = searchParams.get("workspace");
     requestJson("/api/workspaces")
-      .then((d) => {
+      .then(async (d) => {
         const list = d.workspaces || [];
         setWorkspaces(list);
         if (list.length > 0) {
           const preferred = paramWs && list.find((w) => w.slug === paramWs);
-          setWorkspace(preferred ? preferred.slug : list[0].slug);
+          if (preferred) {
+            setWorkspace(preferred.slug);
+          } else if (paramWs) {
+            // param workspace not in normal list — may be hidden; try with includeHidden
+            try {
+              const hidden = await requestJson("/api/workspaces", { query: { includeHidden: "1" } });
+              const hiddenWs = (hidden.workspaces || []).find((w) => w.slug === paramWs);
+              if (hiddenWs) {
+                setWorkspaces((prev) => [...prev, hiddenWs]);
+                setWorkspace(hiddenWs.slug);
+                setActiveWorkspaceHidden(true);
+              } else {
+                setWorkspace(list[0].slug);
+              }
+            } catch {
+              setWorkspace(list[0].slug);
+            }
+          } else {
+            setWorkspace(list[0].slug);
+          }
         } else {
           setLoading(false); // no workspaces — stop spinning
         }
@@ -276,30 +298,65 @@ export default function StoryGraph() {
     }
   };
 
+  // Prevent overlapping graph fetches from poll + file events + explicit reloads.
+  const graphLoadControllerRef = useRef(null);
+  const graphLoadSeqRef = useRef(0);
+  const graphLoadInFlightRef = useRef(false);
+  const pendingGraphRefreshRef = useRef(false);
+  const pendingGraphRefreshSilentRef = useRef(true);
+
   // Fetch graph data — extracted into a callback so it can be called after upload too
   // silent=true skips the loading spinner (used for background auto-refresh)
   const loadGraph = useCallback((silent = false) => {
     if (!workspace) return;
+    if (graphLoadControllerRef.current) {
+      graphLoadControllerRef.current.abort();
+      graphLoadControllerRef.current = null;
+    }
+
+    const controller = new AbortController();
+    graphLoadControllerRef.current = controller;
+    const seq = ++graphLoadSeqRef.current;
+    graphLoadInFlightRef.current = true;
+
     if (!silent) { setLoading(true); setLoadError(null); }
-    let cancelled = false;
-    requestJson("/api/story-notes", { query: { workspace } })
+    requestJson("/api/story-notes", { query: { workspace }, signal: controller.signal })
       .then((data) => {
-        if (cancelled) return;
+        if (seq !== graphLoadSeqRef.current) return;
         setGraphData(data);
         setDisallowedAliases(new Set((data.disallowedAliases || []).map((a) => a.toLowerCase())));
         if (!silent) setLoading(false);
         graphLoadedRef.current = true;
       })
       .catch((err) => {
-        if (cancelled) return;
+        if (seq !== graphLoadSeqRef.current) return;
+        if (err?.name === "AbortError") return;
         if (!silent) { setLoadError(err.message); setLoading(false); }
+      })
+      .finally(() => {
+        if (seq !== graphLoadSeqRef.current) return;
+        graphLoadInFlightRef.current = false;
+        if (graphLoadControllerRef.current === controller) {
+          graphLoadControllerRef.current = null;
+        }
+        if (pendingGraphRefreshRef.current) {
+          const nextSilent = pendingGraphRefreshSilentRef.current;
+          pendingGraphRefreshRef.current = false;
+          pendingGraphRefreshSilentRef.current = true;
+          loadGraph(nextSilent);
+        }
       });
-    return () => { cancelled = true; };
   }, [workspace]);
 
-  useEffect(() => {
-    if (workspace) return loadGraph();
-  }, [loadGraph, workspace]);
+  const requestGraphRefresh = useCallback((silent = true) => {
+    if (!workspace) return;
+    if (graphLoadInFlightRef.current) {
+      pendingGraphRefreshRef.current = true;
+      pendingGraphRefreshSilentRef.current = pendingGraphRefreshSilentRef.current && silent;
+      return;
+    }
+    loadGraph(silent);
+  }, [workspace, loadGraph]);
 
   // Keep URL ?workspace= param in sync with state
   useEffect(() => {
@@ -326,20 +383,31 @@ export default function StoryGraph() {
   // filesEditorSettledRef: becomes true after FilesEditor's initial file list has
   // been received. Prevents loadGraph(true) firing on the initial mount population.
   const filesEditorSettledRef = useRef(false);
+  const filesEditorLastSignatureRef = useRef("");
   useEffect(() => {
     if (!workspace) return;
+    if (graphLoadControllerRef.current) {
+      graphLoadControllerRef.current.abort();
+      graphLoadControllerRef.current = null;
+    }
+    graphLoadInFlightRef.current = false;
     graphVersionRef.current = null;
     graphLoadedRef.current = false;
     simulationInitializedRef.current = false;
     filesEditorSettledRef.current = false;
+    filesEditorLastSignatureRef.current = "";
+    pendingGraphRefreshRef.current = false;
+    pendingGraphRefreshSilentRef.current = true;
     setGraphData({ nodes: [], links: [] });
     setSelectedNode(null);
-  }, [workspace]);
+    requestGraphRefresh(false);
+  }, [workspace, requestGraphRefresh]);
 
   // Poll /api/graph-version every 2s; silently reload when notes change
   useEffect(() => {
     if (!workspace) return;
     const interval = setInterval(() => {
+      if (graphLoadInFlightRef.current) return;
       requestJson("/api/graph-version", { query: { workspace } })
         .then((data) => {
           if (!data) return;
@@ -349,13 +417,13 @@ export default function StoryGraph() {
           }
           if (data.version !== graphVersionRef.current) {
             graphVersionRef.current = data.version;
-            loadGraph(true); // silent refresh
+            requestGraphRefresh(true); // silent refresh
           }
         })
         .catch(() => {});
-    }, 2000);
+      }, 5000);
     return () => clearInterval(interval);
-  }, [loadGraph, workspace]);
+  }, [requestGraphRefresh, workspace]);
 
   // ownFileIds: node ids that have a dedicated notes-raw file.
   // Seeded immediately from a direct fetch when workspace loads (so nodes are
@@ -475,7 +543,7 @@ export default function StoryGraph() {
       });
 
       setExtractResult({ ...data, mode: "derive" });
-      loadGraph();
+      requestGraphRefresh(false);
     } catch (err) {
       setExtractError(err.message);
     } finally {
@@ -535,7 +603,7 @@ export default function StoryGraph() {
     setExtracting(false);
     setBulkProgress(null);
     setExtractProgress(null);
-    loadGraph();
+    requestGraphRefresh(false);
     setExtractResult({ mode: "bulk", submode: "derive", results, errors, totalFiles: uploadFiles.length });
   };
 
@@ -584,7 +652,7 @@ export default function StoryGraph() {
     setExtracting(false);
     setBulkProgress(null);
     setExtractProgress(null);
-    loadGraph();
+    requestGraphRefresh(false);
     setExtractResult({ mode: "bulk", submode: "note", results, errors, totalFiles: uploadFiles.length });
   };
 
@@ -606,7 +674,7 @@ export default function StoryGraph() {
       });
 
       setExtractResult(data);
-      loadGraph();
+      requestGraphRefresh(false);
     } catch (err) {
       setExtractError(err.message);
     } finally {
@@ -644,18 +712,33 @@ export default function StoryGraph() {
   // new nodes appear in the left sidebar immediately without waiting for the 2s poll.
   // Stable ref so FilesEditor's useEffect([files, onFilesChange]) only fires when
   // the file list itself changes, not when loadGraph is recreated on workspace switch.
-  const loadGraphRef = useRef(loadGraph);
-  useEffect(() => { loadGraphRef.current = loadGraph; }, [loadGraph]);
+  const loadGraphRef = useRef(requestGraphRefresh);
+  useEffect(() => { loadGraphRef.current = requestGraphRefresh; }, [requestGraphRefresh]);
   const onFilesEditorFilesChange = useCallback((files) => {
     setStoryFiles(files);
     if (!graphLoadedRef.current) return;
+
+    const signature = (Array.isArray(files) ? files : [])
+      .map((f) => `${String(f?.filename || "")}::${Number(f?.mtime || 0)}`)
+      .sort()
+      .join("|");
+
     // Skip the initial population from FilesEditor's first loadFiles() call — that's
     // the same data the graph already has. Only reload on subsequent user-driven changes
     // (file created, renamed, deleted). The first non-empty report marks "settled".
     if (!filesEditorSettledRef.current) {
-      if (files.length > 0) filesEditorSettledRef.current = true;
+      if (files.length > 0) {
+        filesEditorSettledRef.current = true;
+        filesEditorLastSignatureRef.current = signature;
+      }
       return;
     }
+
+    // FilesEditor can emit duplicate callbacks with identical payloads during startup.
+    // Avoid triggering a silent graph reload when nothing changed.
+    if (signature === filesEditorLastSignatureRef.current) return;
+    filesEditorLastSignatureRef.current = signature;
+
     loadGraphRef.current(true);
   }, []); // stable — no deps
 
@@ -1077,14 +1160,13 @@ export default function StoryGraph() {
         const { openFileByName, loadFiles } = filesEditorApi.current;
         if (loadFiles) loadFiles();
         setTimeout(() => openFileByName(filename), 80);
-        loadGraph(true);
       })
       .catch((err) => {
         console.error("handleAddNotes failed:", err);
         setNodeActionError("Failed to create notes file");
         setTimeout(() => setNodeActionError(null), 3000);
       });
-  }, [workspace, loadGraph]);
+  }, [workspace]);
 
   // Connections list for the selected node — memoized to avoid double-compute in render
   // Show raw file content preview for nodes that own a file.
@@ -1200,14 +1282,16 @@ export default function StoryGraph() {
           <h1 className="text-lg font-semibold text-white tracking-tight">Story Graph</h1>
         </Link>
 
-        <WorkspacePicker
-          workspaces={workspaces}
-          workspace={workspace}
-          workspaceName={workspaces.find((w) => w.slug === workspace)?.name ?? workspace}
-          onWorkspaceChange={setWorkspace}
-          onCreateWorkspace={handleCreateWorkspace}
-          onDeleteWorkspace={handleDeleteWorkspace}
-        />
+        {!activeWorkspaceHidden && (
+          <WorkspacePicker
+            workspaces={workspaces.filter((w) => !w.hidden)}
+            workspace={workspace}
+            workspaceName={workspaces.find((w) => w.slug === workspace)?.name ?? workspace}
+            onWorkspaceChange={setWorkspace}
+            onCreateWorkspace={handleCreateWorkspace}
+            onDeleteWorkspace={handleDeleteWorkspace}
+          />
+        )}
 
         <span
           className="text-xs px-2 py-0.5 rounded-full font-medium"
@@ -1233,16 +1317,18 @@ export default function StoryGraph() {
           ))}
         </div>
 
-        <button
-          onClick={() => { resetUploadModal(); setUploadOpen(true); }}
-          className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-          style={{ backgroundColor: "rgba(96,165,250,0.15)", color: "#93c5fd" }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.25)")}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.15)")}
-        >
-          <Upload size={14} />
-          Upload Notes
-        </button>
+        {!activeWorkspaceHidden && (
+          <button
+            onClick={() => { resetUploadModal(); setUploadOpen(true); }}
+            className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+            style={{ backgroundColor: "rgba(96,165,250,0.15)", color: "#93c5fd" }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.25)")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.15)")}
+          >
+            <Upload size={14} />
+            Upload Notes
+          </button>
+        )}
       </div>
 
       {/* Main layout */}

@@ -19,10 +19,6 @@
       "label": "photography project subject"
     },
     {
-      "target": "rella_corse",
-      "label": "references"
-    },
-    {
       "target": "lev",
       "label": "references"
     }
@@ -33,5 +29,5 @@
     "new",
     "thing"
   ],
-  "updatedAt": 1777064832315
+  "updatedAt": 1777254472607
 }

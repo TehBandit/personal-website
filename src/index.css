@@ -160,6 +160,10 @@ display: none !important;
   font-size: 0.9375rem;
   line-height: 1.75;
   min-height: 100%;
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .notes-editor p { margin-bottom: 0.75em; }
 .notes-editor h1 { font-size: 1.6rem; font-weight: 700; color: #fff; margin: 1.25em 0 0.5em; line-height: 1.2; }
@@ -184,6 +188,9 @@ display: none !important;
 .notes-editor th, .notes-editor td { border: 1px solid rgba(255,255,255,0.15); padding: 0.4em 0.75em; text-align: left; }
 .notes-editor th { background: rgba(255,255,255,0.06); font-weight: 600; }
 .notes-editor tr:nth-child(even) td { background: rgba(255,255,255,0.03); }
+/* ── Task list (checkbox list) ── */
+.notes-editor ul[data-type="taskList"] { list-style: none; padding-left: 1.5em; margin-bottom: 0.5em; }
+.notes-editor ul[data-type="taskList"] li[data-type="taskItem"] > div > p { margin: 0; }
 .notes-editor blockquote { border-left: 3px solid rgba(96,165,250,0.5); padding-left: 1em; color: rgba(255,255,255,0.55); margin: 1em 0; }
 .notes-editor hr { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 1.5em 0; }
 .notes-editor p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: rgba(255,255,255,0.2); pointer-events: none; float: left; height: 0; }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ForceGraph2D from "react-force-graph-2d";
-import { useEditor, EditorContent, ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
+import { useEditor, EditorContent, ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent } from "@tiptap/react";
 import { Extension, Mark, Node as TiptapNode } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
@@ -12,6 +12,68 @@ import CharacterCount from "@tiptap/extension-character-count";
 import { Markdown } from "tiptap-markdown";
 import { Underline as UnderlineExt } from "@tiptap/extension-underline";
 import Image from "@tiptap/extension-image";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItemBase from "@tiptap/extension-task-item";
+import TextAlign from "@tiptap/extension-text-align";
+
+function TaskItemView({ node, updateAttributes, editor }) {
+  const checked = node.attrs.checked;
+  return (
+    <NodeViewWrapper
+      as="li"
+      data-type="taskItem"
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: "0.5em",
+        listStyle: "none",
+        marginBottom: "0.15em",
+      }}
+    >
+      <span
+        contentEditable={false}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          marginTop: "0.22em",
+          width: "1em",
+          height: "1em",
+          borderRadius: "4px",
+          border: checked ? "none" : "1.5px solid rgba(255,255,255,0.3)",
+          backgroundColor: checked ? "#3b82f6" : "rgba(255,255,255,0.06)",
+          cursor: editor?.isEditable ? "pointer" : "default",
+          transition: "background 0.15s, border 0.15s",
+          userSelect: "none",
+        }}
+        onClick={() => editor?.isEditable && updateAttributes({ checked: !checked })}
+      >
+        {checked && (
+          <svg width="10" height="8" viewBox="0 0 10 8" fill="none" style={{ display: "block" }}>
+            <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </span>
+      <NodeViewContent
+        as="div"
+        style={{
+          flex: 1,
+          minWidth: 0,
+          opacity: checked ? 0.45 : 1,
+          textDecoration: checked ? "line-through" : "none",
+          transition: "opacity 0.15s",
+        }}
+      />
+    </NodeViewWrapper>
+  );
+}
+
+const TaskItem = TaskItemBase.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(TaskItemView);
+  },
+});
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableHeader } from "@tiptap/extension-table-header";
@@ -19,13 +81,15 @@ import { TableCell } from "@tiptap/extension-table-cell";
 import {
   FileText, Plus, Save, Trash2, X, Tag, ChevronRight,
   Folder, FolderOpen, FolderPlus, FilePlus, MoreHorizontal,
-  Bold, Italic, Underline, List, ListOrdered,
+  Bold, Italic, Underline, List, ListOrdered, ListTodo,
+  AlignLeft, AlignCenter, AlignRight,
   Strikethrough, Superscript as SuperscriptIcon, Subscript as SubscriptIcon,
   Heading1, Heading2, Heading3,
   Quote, Code, Minus, Undo, Redo, Eraser, Lock,
   CheckCircle, AlertCircle, Loader, ArrowLeftRight,
   ChevronsDownUp, ChevronsUpDown, Copy, GitMerge, Scissors, Clipboard, Search, Upload,
   Download, Pencil, ChevronDown, Sparkles, WandSparkles, Type, Info, Palette, Highlighter,
+  ListTree, AlertTriangle,
 } from "lucide-react";
 import { TYPE_PRESETS } from "../constants/nodeTypes.js";
 import { useNodeTypeConfig } from "../contexts/NodeTypeContext.jsx";
@@ -42,7 +106,17 @@ const DOODLE_PEN_SIZE = 3;
 const DOODLE_ERASER_SIZE = 10;
 const DOODLE_CANVAS_WIDTH = 960;
 const DOODLE_CANVAS_HEIGHT = 360;
-const PROGRAMMATIC_LOAD_SUPPRESS_MS = 2500;
+const PREFETCH_NEARBY_COUNT = 2;
+const FILE_CACHE_MAX_ENTRIES = 120;
+
+function getProgrammaticSuppressMs(content, hasParsedJson) {
+  if (hasParsedJson) return 120;
+  const length = typeof content === "string" ? content.length : 0;
+  if (length < 4000) return 180;
+  if (length < 20000) return 260;
+  return 340;
+}
+
 const FONT_FAMILY_OPTIONS = [
   { label: "Roboto", family: '"Roboto", sans-serif', match: ["roboto"] },
   { label: "Open Sans", family: '"Open Sans", sans-serif', match: ["open sans"] },
@@ -1321,6 +1395,35 @@ function sanitizeDownloadStem(stem) {
     .toLowerCase() || "image";
 }
 
+function sanitizeNoteStem(stem) {
+  return String(stem || "")
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^\.+|\.+$/g, "")
+    .replace(/[.\s]+$/g, "")
+    .trim();
+}
+
+function buildDuplicateFilePath(existingPaths, originalPath) {
+  const parts = String(originalPath || "").split("/");
+  const basename = parts.pop() || "untitled.md";
+  const dir = parts.join("/");
+  const extMatch = basename.match(/\.(md|txt)$/i);
+  const ext = extMatch?.[0] ?? ".md";
+  const rawStem = basename.slice(0, basename.length - ext.length);
+  const stemMatch = rawStem.match(/^(.*) \((\d+)\)$/);
+  const baseStem = (stemMatch?.[1] || rawStem).trim() || "untitled";
+  const taken = new Set(existingPaths.map((filePath) => String(filePath || "").toLowerCase()));
+
+  let copyIndex = stemMatch ? Number.parseInt(stemMatch[2], 10) + 1 : 1;
+  while (true) {
+    const candidateBasename = `${baseStem} (${copyIndex})${ext}`;
+    const candidatePath = dir ? `${dir}/${candidateBasename}` : candidateBasename;
+    if (!taken.has(candidatePath.toLowerCase())) return candidatePath;
+    copyIndex += 1;
+  }
+}
+
 function triggerDownload(href, fileName) {
   if (typeof document === "undefined") return;
   const link = document.createElement("a");
@@ -1438,7 +1541,7 @@ const EMPTY_SET = new Set();
 const EMPTY_ARR = [];
 const TYPE_COLOR_PALETTE = ["#60a5fa","#34d399","#fb923c","#c084fc","#f472b6","#facc15","#38bdf8","#a78bfa","#4ade80","#f87171"];
 
-export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null, nodeTransparent = false, nodeBorder = false, disallowedAliases = EMPTY_SET, onReady = null, onFilesChange = null, onWorkspaceNodeTypesChanged = null }) {
+export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null, nodeTransparent = false, nodeBorder = false, disallowedAliases = EMPTY_SET, onReady = null, onFilesChange = null, onWorkspaceNodeTypesChanged = null, hotbarOnly = false }) {
   const NODE_TYPE_CONFIG = useNodeTypeConfig();
   const nodeTypeFallback = Object.values(NODE_TYPE_CONFIG)[0];
   const [files, setFiles] = useState([]);
@@ -1450,7 +1553,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   const [openFolders, setOpenFolders] = useState(() => new Set());
   const [inlineNew, setInlineNew] = useState(null); // { parentPath, type: "file"|"folder", value }
   const [inlineRename, setInlineRename] = useState(null); // { path, value } | null
-  const [fileMenuOpen, setFileMenuOpen] = useState(null); // path of file whose menu is open
+  const [fileMenuOpen, setFileMenuOpen] = useState(null); // { path, x, y } | null
   const [dragItem, setDragItem] = useState(null);       // { path: string } — drives isDragging visual only
   const dragItemRef = useRef(null);                        // always-current, read inside event handlers
   const [dropIndicator, setDropIndicator] = useState(null); // null | { type:"folder"|"line"|"root", path?, position? }
@@ -1551,9 +1654,13 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   const [propagateMsg, setPropagateMsg] = useState(""); // e.g. "3 files updated"
   const [propagateConfirm, setPropagateConfirm] = useState(null); // { title, oldName, filesAffected, referencesAffected, aliasesAffected } | null
   const [isDirty, setIsDirty] = useState(false);
+  const [connectionNotices, setConnectionNotices] = useState([]);
+  const [orphanedStateRef, setOrphanedStateRef] = useState(false);
   const saveTimerRef = useRef(null);
   const workspaceRef = useRef(workspace);
+  const filesRef = useRef(files);
   useEffect(() => { workspaceRef.current = workspace; }, [workspace]);
+  useEffect(() => { filesRef.current = files; }, [files]);
 
   // Close file context menu on outside click
   useEffect(() => {
@@ -1586,10 +1693,33 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   const lastSavedContentRef = useRef(""); // tracks last-written markdown to skip no-op saves
   const openFileRef = useRef(null);        // always current openFile — safe to read inside onUpdate
   const saveFileRef = useRef(null);        // always current saveFile — safe to call inside onUpdate
+  const saveNodeTitleRef = useRef(null);   // always current title saver — used by Ctrl/Cmd+S
+  const connectionNoticeTimersRef = useRef(new Map());
+  const connectionNoticeRemovalTimersRef = useRef(new Map());
   const suppressSaveRef = useRef(false);   // true while loading a file — blocks onUpdate from queueing saves
   const userEditIntentRef = useRef(false); // flips true on user input (typing/paste/drop/cut)
-  const fileCacheRef = useRef({});         // filename → content string (cleared on workspace change)
+  const fileCacheRef = useRef({});         // filename → { content, json } (cleared on workspace change)
+  const fileCacheOrderRef = useRef([]);    // simple LRU key order for fileCacheRef
   const backlinksCache = useRef({});       // filename → backlinks array (cleared on workspace change)
+
+  // Cache helpers declared early so any useCallback below can reference them safely.
+  const writeFileCache = useCallback((filename, value) => {
+    if (!filename) return;
+    fileCacheRef.current[filename] = value;
+    const order = fileCacheOrderRef.current.filter((k) => k !== filename);
+    order.push(filename);
+    while (order.length > FILE_CACHE_MAX_ENTRIES) {
+      const evict = order.shift();
+      if (evict) delete fileCacheRef.current[evict];
+    }
+    fileCacheOrderRef.current = order;
+  }, []);
+
+  const deleteFileCacheEntry = useCallback((filename) => {
+    if (!filename) return;
+    delete fileCacheRef.current[filename];
+    fileCacheOrderRef.current = fileCacheOrderRef.current.filter((k) => k !== filename);
+  }, []);
 
   // ── Docx import (ref + state only — handler defined after loadFiles/openFileByName)
   const docxImportRef = useRef(null);
@@ -1621,6 +1751,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
   // ── Show titles toggle ────────────────────────────────────────────────────────
   const [showTitles, setShowTitles] = useState(true);
+  const isJournalWorkspace = workspace === "journal-hidden-workspace";
   const [fileSortMode, setFileSortMode] = useState("alpha"); // "alpha" | "recent"
   const [spellCheckEnabled, setSpellCheckEnabled] = useState(false);
   const [showLineNumbers, setShowLineNumbers] = useState(false);
@@ -1632,12 +1763,17 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   const [activeFontFamilyLabel, setActiveFontFamilyLabel] = useState("Open Sans");
   const [activeTextColor, setActiveTextColor] = useState("");
   const [activeHighlightColor, setActiveHighlightColor] = useState("");
+  const [selectionRenderTick, setSelectionRenderTick] = useState(0);
   const [textColorMenuOpen, setTextColorMenuOpen] = useState(false);
   const [highlightColorMenuOpen, setHighlightColorMenuOpen] = useState(false);
+  const [alignmentMenuOpen, setAlignmentMenuOpen] = useState(false);
+  const [tocPanelOpen, setTocPanelOpen] = useState(false);
+  const [tocRevision, setTocRevision] = useState(0);
   const [textColorTintBase, setTextColorTintBase] = useState("");
   const fontFamilyMenuRef = useRef(null);
   const textColorMenuRef = useRef(null);
   const highlightColorMenuRef = useRef(null);
+  const alignmentMenuRef = useRef(null);
 
   // ── Entity hover preview tooltip ─────────────────────────────────────────────
   const [entityTooltip, setEntityTooltip] = useState(null); // { node, x, y } | null
@@ -1706,6 +1842,56 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     return () => document.removeEventListener("mousedown", handler);
   }, [textColorMenuOpen, highlightColorMenuOpen]);
 
+  const enqueueConnectionNotices = useCallback((notices) => {
+    if (!Array.isArray(notices) || notices.length === 0) return;
+    const stagedNotices = notices.map((notice) => ({ ...notice, phase: "entering" }));
+    setConnectionNotices((prev) => [...prev, ...stagedNotices]);
+
+    requestAnimationFrame(() => {
+      setConnectionNotices((prev) => prev.map((item) => (
+        stagedNotices.some((notice) => notice.id === item.id)
+          ? { ...item, phase: "visible" }
+          : item
+      )));
+    });
+
+    for (const notice of stagedNotices) {
+      const timer = setTimeout(() => {
+        connectionNoticeTimersRef.current.delete(notice.id);
+        setConnectionNotices((prev) => prev.map((item) => (
+          item.id === notice.id ? { ...item, phase: "leaving" } : item
+        )));
+
+        const removalTimer = setTimeout(() => {
+          connectionNoticeRemovalTimersRef.current.delete(notice.id);
+          setConnectionNotices((prev) => prev.filter((item) => item.id !== notice.id));
+        }, 320);
+        connectionNoticeRemovalTimersRef.current.set(notice.id, removalTimer);
+      }, 3200);
+      connectionNoticeTimersRef.current.set(notice.id, timer);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      for (const timer of connectionNoticeTimersRef.current.values()) clearTimeout(timer);
+      connectionNoticeTimersRef.current.clear();
+      for (const timer of connectionNoticeRemovalTimersRef.current.values()) clearTimeout(timer);
+      connectionNoticeRemovalTimersRef.current.clear();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!alignmentMenuOpen) return;
+    const handler = (e) => {
+      if (alignmentMenuRef.current && !alignmentMenuRef.current.contains(e.target)) {
+        setAlignmentMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [alignmentMenuOpen]);
+
   // ── Backlinks ─────────────────────────────────────────────────────────────────
   const [backlinks, setBacklinks] = useState([]); // [{ filename }]
   const [loadingBacklinks, setLoadingBacklinks] = useState(false);
@@ -1737,15 +1923,31 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     return () => controller.abort();
   }, [openFile, workspace]);
 
-  // Derive node ID from open filename (e.g. maren-ashveil.md → maren_ashveil)
-  // Find the graph node for the currently open file.
-  // Primary: match node id derived from filename (notes-raw files).
-  // Fallback: match by sourceFile basename — but ONLY when the node id matches the
-  // file stem, so a multi-entity extract upload (many nodes sharing one sourceFile)
-  // doesn't spuriously attach the first extracted character as the file's node.
-  const openNode = useMemo(() => {
-    if (!openFile) return null;
-    const filename = openFile.filename;
+  // Canonical filename→node resolver used by both the editor title and sidebar title map.
+  // Keeping this single-path avoids drift where different UI surfaces show different titles.
+
+  // Pre-computed lookup maps over graphData.nodes so resolveNodeFromFilename is O(1)
+  // instead of O(N) per call. Rebuilt only when graphData.nodes changes.
+  const nodeLookupsForResolve = useMemo(() => {
+    const byId = new Map();           // nodeId → node
+    const bySourceFile = new Map();   // sourceFile path → node[]
+    const byAdditional = new Map();   // additionalSourceFile path → node
+    for (const node of graphData.nodes) {
+      byId.set(node.id, node);
+      if (node.sourceFile) {
+        if (!bySourceFile.has(node.sourceFile)) bySourceFile.set(node.sourceFile, []);
+        bySourceFile.get(node.sourceFile).push(node);
+      }
+      for (const sf of (node.additionalSourceFiles || [])) {
+        byAdditional.set(sf, node);
+      }
+    }
+    return { byId, bySourceFile, byAdditional };
+  }, [graphData.nodes]);
+
+  const resolveNodeFromFilename = useCallback((filename) => {
+    if (!filename) return null;
+    const { byId, bySourceFile, byAdditional } = nodeLookupsForResolve;
     const basename = filename.split("/").pop();
     const rawStem = basename.replace(/\.(md|txt)$/i, "");
     // Normalize the same way the server does: lowercase + non-alphanumeric → _
@@ -1753,32 +1955,47 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     // Also try the legacy simple form (hyphen→underscore only) as a fallback
     const stemIdLegacy = rawStem.replace(/-/g, "_");
     // 1. Stem ID match (standard notes-raw files and focused-note uploads)
-    const byId = graphData.nodes.find((n) => n.id === stemId || n.id === stemIdLegacy);
-    if (byId) return byId;
-    // 2. Content-title match — for story-extract uploads where the node ID is derived
-    //    from the file's title line rather than the filename (e.g. "monitoring_and_controlling_chapter_8"
-    //    for a file named "BIT_4484_Notes_8_9_2020.md").
-    if (openFile.content) {
-      const titleFromContent = extractTitleFromContent(openFile.content);
-      if (titleFromContent) {
-        const titleId = normalizeToId(titleFromContent);
-        const byTitleId = graphData.nodes.find((n) => n.id === titleId);
-        if (byTitleId) return byTitleId;
-      }
-    }
+    const byIdNode = byId.get(stemId) ?? byId.get(stemIdLegacy);
+    if (byIdNode) return byIdNode;
+    // 2.5. Exact sourceFile path match — but only when it is unambiguous.
+    // This covers duplicate files whose numbered filename no longer matches the
+    // canonical node id, while still avoiding arbitrary attachment when a
+    // multi-entity extract created several nodes for one source document.
+    const exactSourceFileMatches = bySourceFile.get(filename) ?? [];
+    const exactSourceDocumentNode = exactSourceFileMatches.find((n) => n.documentNode);
+    if (exactSourceDocumentNode) return exactSourceDocumentNode;
+    if (!isJournalWorkspace && exactSourceFileMatches.length === 1) return exactSourceFileMatches[0];
     // 3. Primary sourceFile basename match — only when the node id matches the file stem
-    const bySourceFile = graphData.nodes.find(
+    // We must still linear-scan for basename-only matches since bySourceFile keys on full path
+    const bySourceFileNode = exactSourceFileMatches.find(
       (n) => n.sourceFile && n.sourceFile.split("/").pop() === basename && (n.id === stemId || n.id === stemIdLegacy)
-    );
-    if (bySourceFile) return bySourceFile;
+    ) ?? null;
+    if (bySourceFileNode) return bySourceFileNode;
     // 4. Full path match against primarySourceFile — same id-must-match guard
-    const byFullPath = graphData.nodes.find(
+    const byFullPath = exactSourceFileMatches.find(
       (n) => n.sourceFile === filename && (n.id === stemId || n.id === stemIdLegacy)
-    );
+    ) ?? null;
     if (byFullPath) return byFullPath;
     // 5. Full path match against additionalSourceFiles (merged copies with different names)
-    return graphData.nodes.find((n) => (n.additionalSourceFiles || []).includes(filename)) ?? null;
-  }, [openFile, graphData.nodes]);
+    return byAdditional.get(filename) ?? null;
+  }, [nodeLookupsForResolve, isJournalWorkspace]);
+
+  const openNode = useMemo(() => {
+    if (!openFile) return null;
+    return resolveNodeFromFilename(openFile.filename);
+  }, [openFile, resolveNodeFromFilename]);
+
+  // Initialize orphaned state when node loads (so transitions are only triggered on actual state changes)
+  useEffect(() => {
+    if (openNode) {
+      const isOrphaned = !graphData.links.some((link) => {
+        const src = typeof link.source === "object" ? link.source.id : link.source;
+        const tgt = typeof link.target === "object" ? link.target.id : link.target;
+        return src === openNode.id || tgt === openNode.id;
+      });
+      setOrphanedStateRef(isOrphaned);
+    }
+  }, [openNode?.id, graphData.links]);
 
   const openNodeId = openNode?.id ?? null;
 
@@ -1817,30 +2034,12 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   // Map from filename → human-readable node name (for "show titles" mode in sidebar)
   const fileTitleMap = useMemo(() => {
     const map = new Map();
-    // Build sourceFile → node lookup.
-    // When multiple nodes share a sourceFile (e.g. a story-extract upload creates
-    // both a focused document node and many extracted entity nodes), prefer the
-    // documentNode — the node explicitly created to represent the file itself.
-    const sourceFileMap = new Map();
-    for (const node of graphData.nodes) {
-      if (!node.sourceFile) continue;
-      const key = node.sourceFile.toLowerCase();
-      if (!sourceFileMap.has(key) || node.documentNode) sourceFileMap.set(key, node);
-    }
     for (const f of files) {
-      const basename = f.filename.split("/").pop();
-      const rawStem = basename.replace(/\.(md|txt)$/i, "");
-      const stemId = normalizeToId(rawStem);
-      const stemIdLegacy = rawStem.replace(/-/g, "_");
-      // 1. Stem ID match
-      const byId = graphData.nodes.find((n) => n.id === stemId || n.id === stemIdLegacy);
-      if (byId) { map.set(f.filename, byId.name); continue; }
-      // 2. sourceFile match (content-title-derived nodes; documentNode preferred over extracted entities)
-      const bySrc = sourceFileMap.get(f.filename.toLowerCase());
-      if (bySrc) { map.set(f.filename, bySrc.name); }
+      const resolved = resolveNodeFromFilename(f.filename);
+      if (resolved?.name) map.set(f.filename, resolved.name);
     }
     return map;
-  }, [files, graphData.nodes]);
+  }, [files, resolveNodeFromFilename]);
 
   const sortedTree = useMemo(() => {
     const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
@@ -1932,33 +2131,85 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
   // Load aliases + title from graphData nodes (already fetched, no extra request needed)
   const [nodeTitle, setNodeTitle] = useState("");
+  const [isTitleDirty, setIsTitleDirty] = useState(false);
+  const nodeTitleRef = useRef("");
+  const lastTitleFilenameRef = useRef("");
+  const titleInputRef = useRef(null);
+  const titleAutosaveTimerRef = useRef(null);
+  const pendingNodeTitleRef = useRef(null);
+  const pendingNodeTitleFileRef = useRef("");
+  useEffect(() => { nodeTitleRef.current = nodeTitle; }, [nodeTitle]);
   useEffect(() => {
     setNodeInfoOpen(false); // close metadata popup whenever file or node changes
-    if (!openNode) { setAliases([]); setNodeTitle(""); setTags([]); setNodeTypeOverride(null); return; }
+    const activeFilename = openFile?.filename || "";
+    const fileChanged = activeFilename !== lastTitleFilenameRef.current;
+    if (fileChanged) {
+      lastTitleFilenameRef.current = activeFilename;
+      setIsTitleDirty(false);
+    }
+    const hasPendingForActiveFile =
+      pendingNodeTitleFileRef.current === activeFilename &&
+      typeof pendingNodeTitleRef.current === "string" &&
+      pendingNodeTitleRef.current.trim().length > 0;
+    const pendingTitle = hasPendingForActiveFile ? pendingNodeTitleRef.current : null;
+    if (!openNode) {
+      const fallbackTitle = extractTitleFromContent(openFile?.content || "")
+        || openFile?.filename?.split("/").pop()?.replace(/\.(md|txt)$/i, "")
+        || "";
+      setAliases([]);
+      if (fileChanged || !isTitleDirty) {
+        setNodeTitle(hotbarOnly && pendingTitle ? pendingTitle : fallbackTitle);
+      }
+      setTags([]);
+      setNodeTypeOverride(null);
+      return;
+    }
     setAliases(openNode.aliases || []);
     setTags(openNode.tags || []);
-    setNodeTitle(openNode.name ?? "");
+    const resolvedTitle = openNode.name ?? "";
+    if (hotbarOnly && pendingTitle && resolvedTitle.trim().toLowerCase() !== pendingTitle.trim().toLowerCase()) {
+      if (fileChanged || !isTitleDirty) setNodeTitle(pendingTitle);
+    } else {
+      if (fileChanged || !isTitleDirty) setNodeTitle(resolvedTitle);
+      if (pendingTitle && resolvedTitle.trim().toLowerCase() === pendingTitle.trim().toLowerCase()) {
+        pendingNodeTitleRef.current = null;
+        pendingNodeTitleFileRef.current = "";
+      }
+    }
     setNodeTypeOverride(null); // clear override — graphData now has the authoritative type
-  }, [openNode]);
+  }, [openNode, openFile, hotbarOnly, isTitleDirty]);
 
   const saveNodeTitle = useCallback((title) => {
     if (!openFile || !title.trim()) return;
     const trimmed = title.trim();
     const currentName = openNode?.name ?? "";
-    if (trimmed === currentName) return;
+    const shouldPropagate = !hotbarOnly;
+    if (trimmed === currentName) {
+      setIsTitleDirty(false);
+      pendingNodeTitleRef.current = null;
+      pendingNodeTitleFileRef.current = "";
+      return;
+    }
+
+    pendingNodeTitleRef.current = trimmed;
+    pendingNodeTitleFileRef.current = openFile.filename;
+    setNodeTitle(trimmed);
+    setIsTitleDirty(true);
 
     const commitChange = () => {
+      setSaveState("saving");
       requestJson("/api/notes-raw-file", {
         method: "PATCH",
         query: { filename: openFile.filename, workspace: workspace ?? "" },
-        body: { name: trimmed, propagate: true, affectedFiles: backlinks.map((b) => b.filename) },
+        body: { name: trimmed, propagate: shouldPropagate, affectedFiles: backlinks.map((b) => b.filename) },
       })
         .then((d) => {
+          const savedAt = Date.now();
           if (Array.isArray(d.filesUpdated) && d.filesUpdated.length > 0) {
             for (const rel of d.filesUpdated) {
               const key = rel.replace(/^[^/]+\//, "");
-              delete fileCacheRef.current[rel];
-              delete fileCacheRef.current[key];
+              deleteFileCacheEntry(rel);
+              deleteFileCacheEntry(key);
               delete backlinksCache.current[rel];
               delete backlinksCache.current[key];
             }
@@ -1966,9 +2217,29 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
             setPropagateMsg(`${count} file${count === 1 ? "" : "s"} updated`);
             setTimeout(() => setPropagateMsg(""), 3500);
           }
+
+          // Mirror content-save behavior: update file mtime so onFilesChange emits
+          // and journal timeline/listeners refresh immediately without reopening editor.
+          setFiles((prev) => prev.map((f) => (
+            f.filename === openFile.filename ? { ...f, mtime: savedAt } : f
+          )));
+          setTree((prev) => treeUpdateFileMtime(prev, openFile.filename, savedAt));
+
+          setIsTitleDirty(false);
+          setSaveState("saved");
+          setTimeout(() => setSaveState("idle"), 2000);
         })
-        .catch(() => {});
+        .catch(() => {
+          // Keep the user's edited draft in place; never snap back on transient failures.
+          setIsTitleDirty(true);
+          setSaveState("error");
+        });
     };
+
+    if (!shouldPropagate) {
+      commitChange();
+      return;
+    }
 
     // Compute impact client-side — no extra network call needed
     const oldTokens = currentName.split(/\s+/);
@@ -1989,12 +2260,36 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
         filesAffected,
         aliasesAffected,
         onConfirm: () => { setPropagateConfirm(null); commitChange(); },
-        onCancel: () => { setPropagateConfirm(null); setNodeTitle(currentName); },
+        onCancel: () => {
+          setPropagateConfirm(null);
+          setNodeTitle(currentName);
+          setIsTitleDirty(false);
+          pendingNodeTitleRef.current = null;
+          pendingNodeTitleFileRef.current = "";
+        },
       });
     } else {
       commitChange();
     }
-  }, [openFile, openNode, workspace, aliases, backlinks]);
+  }, [openFile, openNode, workspace, aliases, backlinks, hotbarOnly, deleteFileCacheEntry]);
+
+  // Title autosave: save shortly after edits, so title changes don't depend on blur.
+  useEffect(() => {
+    if (!openFile || !isTitleDirty) return;
+    if (titleAutosaveTimerRef.current) clearTimeout(titleAutosaveTimerRef.current);
+    titleAutosaveTimerRef.current = setTimeout(() => {
+      saveNodeTitle(nodeTitleRef.current);
+      titleAutosaveTimerRef.current = null;
+    }, 500);
+    return () => {
+      if (titleAutosaveTimerRef.current) {
+        clearTimeout(titleAutosaveTimerRef.current);
+        titleAutosaveTimerRef.current = null;
+      }
+    };
+  }, [openFile, isTitleDirty, nodeTitle, saveNodeTitle]);
+
+  saveNodeTitleRef.current = saveNodeTitle;
 
   const saveAliases = useCallback((next) => {
     if (!openFile) return;
@@ -2002,8 +2297,28 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       method: "PATCH",
       query: { filename: openFile.filename, workspace: workspaceRef.current ?? "" },
       body: { aliases: next },
+    }).then((data) => {
+      if (!data?.aliasesChanged) return;
+      const notices = [];
+      for (const added of (data.aliasesChanged.added || [])) {
+        notices.push({
+          id: `alias:add:${added}:${Date.now()}`,
+          sourceName: openNode?.name || openFile.filename,
+          type: "alias-added",
+          alias: added,
+        });
+      }
+      for (const removed of (data.aliasesChanged.removed || [])) {
+        notices.push({
+          id: `alias:remove:${removed}:${Date.now()}`,
+          sourceName: openNode?.name || openFile.filename,
+          type: "alias-removed",
+          alias: removed,
+        });
+      }
+      if (notices.length > 0) enqueueConnectionNotices(notices);
     }).catch(() => {});
-  }, [openFile]);
+  }, [openFile, enqueueConnectionNotices, openNode?.name]);
 
 
   const addAlias = useCallback(() => {
@@ -2161,10 +2476,13 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       autocompleteExtension,
       DoodleBlock,
       Image.configure({ inline: true, allowBase64: true }),
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
       Table.configure({ resizable: false }),
       TableRow,
       TableHeader,
       TableCell,
+      TaskList,
+      TaskItem.configure({ nested: true }),
     ],
     content: "",
     editorProps: {
@@ -2251,6 +2569,29 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       saveTimerRef.current = setTimeout(() => saveFileRef.current?.(), 1500);
     },
   });
+
+  useEffect(() => {
+    if (!editor) return;
+    const handleTocRefresh = () => setTocRevision((v) => v + 1);
+    handleTocRefresh();
+    editor.on("update", handleTocRefresh);
+    return () => {
+      editor.off("update", handleTocRefresh);
+    };
+  }, [editor, openFile?.filename]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const rerenderToolbar = () => setSelectionRenderTick((v) => (v + 1) % 1000000);
+    editor.on("selectionUpdate", rerenderToolbar);
+    editor.on("focus", rerenderToolbar);
+    editor.on("blur", rerenderToolbar);
+    return () => {
+      editor.off("selectionUpdate", rerenderToolbar);
+      editor.off("focus", rerenderToolbar);
+      editor.off("blur", rerenderToolbar);
+    };
+  }, [editor]);
 
   const getSelectionFontSizePx = useCallback(() => {
     if (!editor) return DEFAULT_FONT_SIZE_PX;
@@ -2390,15 +2731,30 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   }, [editor, getSelectionHighlightColor]);
 
   useEffect(() => {
-    if (!editor?.view?.dom) return;
-    editor.view.dom.setAttribute("spellcheck", spellCheckEnabled ? "true" : "false");
+    if (!editor) return;
+    let dom = null;
+    try {
+      dom = editor.view?.dom ?? null;
+    } catch {
+      dom = null;
+    }
+    if (!dom) return;
+    dom.setAttribute("spellcheck", spellCheckEnabled ? "true" : "false");
   }, [editor, spellCheckEnabled]);
 
   useEffect(() => {
     if (!editor || !showLineNumbers) return;
 
+    const getEditorDomSafe = () => {
+      try {
+        return editor.view?.dom ?? null;
+      } catch {
+        return null;
+      }
+    };
+
     const syncVisualLines = () => {
-      const dom = editor.view?.dom;
+      const dom = getEditorDomSafe();
       if (!dom) {
         setVisualLineTops([0]);
         setLineNumberGutterHeight(0);
@@ -2451,7 +2807,8 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     editor.on("selectionUpdate", syncVisualLines);
 
     const resizeObserver = new ResizeObserver(syncVisualLines);
-    resizeObserver.observe(editor.view.dom);
+    const editorDom = getEditorDomSafe();
+    if (editorDom) resizeObserver.observe(editorDom);
     if (editorContentWrapRef.current) resizeObserver.observe(editorContentWrapRef.current);
 
     window.addEventListener("resize", syncVisualLines);
@@ -2565,6 +2922,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
   useEffect(() => {
     fileCacheRef.current = {}; // clear cache when workspace changes
+    fileCacheOrderRef.current = [];
     backlinksCache.current = {};
     setSelectedPaths(new Set());
     lastClickedPathRef.current = null;
@@ -2578,9 +2936,37 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
   // ── Open a file ──────────────────────────────────────────────────────────────
   const openFileByName = useCallback((filename) => {
+    if (!workspaceRef.current) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     setIsDirty(false);
     setSaveState("idle");
+
+    const prefetchFileByName = (targetFilename) => {
+      if (!targetFilename || fileCacheRef.current[targetFilename] !== undefined) return;
+      requestJson("/api/notes-raw-file", {
+        query: { filename: targetFilename, workspace: workspaceRef.current ?? "" },
+      })
+        .then((d) => {
+          if (!d?.filename) return;
+          if (fileCacheRef.current[d.filename] === undefined) {
+            writeFileCache(d.filename, { content: d.content, json: null });
+          }
+        })
+        .catch(() => {});
+    };
+
+    const prefetchNearbyFiles = (activeFilename) => {
+      const localFiles = filesRef.current || [];
+      const idx = localFiles.findIndex((f) => f.filename === activeFilename);
+      if (idx < 0) return;
+
+      for (let delta = 1; delta <= PREFETCH_NEARBY_COUNT; delta++) {
+        const left = localFiles[idx - delta]?.filename;
+        const right = localFiles[idx + delta]?.filename;
+        if (left) prefetchFileByName(left);
+        if (right) prefetchFileByName(right);
+      }
+    };
 
     const applyContent = (filename, content, cachedJson) => {
       setOpenFile({ filename, content });
@@ -2589,6 +2975,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       // Use pre-parsed JSON when available — skips tiptap-markdown parsing (~1s on large files)
       editor?.commands.setContent(cachedJson ?? content, false);
       entityDataRef.current.currentFilename = filename;
+      const suppressMs = getProgrammaticSuppressMs(content, Boolean(cachedJson));
       setTimeout(() => {
         lastSavedContentRef.current = editor?.storage.markdown.getMarkdown() ?? content;
         suppressSaveRef.current = false;
@@ -2596,9 +2983,12 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
         // Store parsed JSON in cache so next open of this file skips parsing
         if (!cachedJson && editor) {
           const entry = fileCacheRef.current[filename];
-          if (entry) entry.json = editor.getJSON();
+          if (entry) {
+            writeFileCache(filename, { ...entry, json: editor.getJSON() });
+          }
         }
-      }, PROGRAMMATIC_LOAD_SUPPRESS_MS);
+      }, suppressMs);
+      prefetchNearbyFiles(filename);
     };
 
     // Serve from cache if available — no network round-trip needed
@@ -2611,12 +3001,39 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     setLoadingFile(true);
     requestJson("/api/notes-raw-file", { query: { filename, workspace: workspaceRef.current ?? "" } })
       .then((d) => {
-        fileCacheRef.current[d.filename] = { content: d.content, json: null };
+        writeFileCache(d.filename, { content: d.content, json: null });
         applyContent(d.filename, d.content, null);
       })
       .catch(console.error)
       .finally(() => setLoadingFile(false));
-  }, [editor]);
+  }, [editor, writeFileCache]);
+
+  const resolveNodeForFile = useCallback((filename) => {
+    return resolveNodeFromFilename(filename);
+  }, [resolveNodeFromFilename]);
+
+  const getFileContentForAction = useCallback(async (filename) => {
+    if (!filename) return { content: "", json: null };
+    if (openFile?.filename === filename) {
+      return {
+        content: editor ? editor.storage.markdown.getMarkdown() : openFile.content,
+        json: editor?.getJSON?.() ?? null,
+      };
+    }
+
+    const cached = fileCacheRef.current[filename];
+    if (cached) return { content: cached.content, json: cached.json ?? null };
+
+    const data = await requestJson("/api/notes-raw-file", {
+      query: { filename, workspace: workspaceRef.current ?? "" },
+    });
+    writeFileCache(data.filename, { content: data.content, json: null });
+    return { content: data.content, json: null };
+  }, [openFile, editor, writeFileCache]);
+
+  const openTreeFileMenu = useCallback((path, x, y) => {
+    setFileMenuOpen({ path, x, y });
+  }, []);
 
   // ── Docx import handler — defined here so loadFiles + openFileByName are in scope ──
   const handleDocxImport = useCallback(async (file) => {
@@ -2685,7 +3102,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
       // Keep in-memory cache aligned with the just-written upload so reopening
       // the same filename doesn't show stale pre-import content.
-      fileCacheRef.current[filePath] = { content: markdown, json: null };
+      writeFileCache(filePath, { content: markdown, json: null });
 
       if (currentFolder) setOpenFolders((prev) => new Set([...prev, currentFolder]));
       loadFiles();
@@ -2695,7 +3112,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     } finally {
       setDocxImporting(false);
     }
-  }, [workspace, loadFiles, openFileByName, files]);
+  }, [workspace, loadFiles, openFileByName, files, writeFileCache]);
 
   // When editor is ready and we already have openFile set, push content in
   useEffect(() => {
@@ -2703,11 +3120,12 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       userEditIntentRef.current = false;
       suppressSaveRef.current = true;
       editor.commands.setContent(openFile.content, false);
+      const suppressMs = getProgrammaticSuppressMs(openFile.content, false);
       setTimeout(() => {
         lastSavedContentRef.current = editor.storage.markdown.getMarkdown();
         suppressSaveRef.current = false;
         setIsDirty(false);
-      }, PROGRAMMATIC_LOAD_SUPPRESS_MS);
+      }, suppressMs);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
@@ -2731,74 +3149,74 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       query: { filename: currentFile.filename, workspace: workspaceRef.current ?? "" },
       body: { content },
     })
-      .then(() => {
+      .then((data) => {
         const savedAt = Date.now();
         lastSavedContentRef.current = content;
         // Update cache — store new content and capture the current parsed JSON
         // so the very next open also skips re-parsing.
-        fileCacheRef.current[currentFile.filename] = {
+        writeFileCache(currentFile.filename, {
           content,
           json: editor?.getJSON() ?? null,
-        };
+        });
         setOpenFile((prev) => (prev?.filename === currentFile.filename ? { ...prev, content } : prev));
         setFiles((prev) => prev.map((f) => (f.filename === currentFile.filename ? { ...f, mtime: savedAt } : f)));
         setTree((prev) => treeUpdateFileMtime(prev, currentFile.filename, savedAt));
+        const sourceName = data?.source?.name || openNode?.name || currentFile.filename.split("/").pop()?.replace(/\.(md|txt)$/i, "") || "current node";
+        const notices = (data?.addedConnections || []).map((target) => ({
+          id: `${currentFile.filename}:${target.id}:${savedAt}`,
+          sourceName,
+          targetId: target.id,
+          targetName: target.name || target.id,
+          targetFilename: target.filename || `${target.id.replace(/_/g, "-")}.md`,
+          type: "connection-added",
+        }));
+        enqueueConnectionNotices(notices);
+        
+        if (openNode) {
+          const isNowOrphaned = !graphData.links.some((link) => {
+            const src = typeof link.source === "object" ? link.source.id : link.source;
+            const tgt = typeof link.target === "object" ? link.target.id : link.target;
+            return src === openNode.id || tgt === openNode.id;
+          });
+          if (isNowOrphaned && !orphanedStateRef) {
+            setOrphanedStateRef(true);
+            enqueueConnectionNotices([{
+              id: `orphaned:${currentFile.filename}:${savedAt}`,
+              type: "orphaned",
+              sourceName: openNode.name || sourceName,
+            }]);
+          } else if (!isNowOrphaned && orphanedStateRef) {
+            setOrphanedStateRef(false);
+            enqueueConnectionNotices([{
+              id: `not-orphaned:${currentFile.filename}:${savedAt}`,
+              type: "not-orphaned",
+              sourceName: openNode.name || sourceName,
+            }]);
+          }
+        }
         setIsDirty(false);
         setSaveState("saved");
         setTimeout(() => setSaveState("idle"), 2000);
       })
       .catch(() => setSaveState("error"));
-  }, [editor]); // no openFile dep — reads from ref instead
+  }, [editor, enqueueConnectionNotices, openNode, graphData.links, orphanedStateRef, writeFileCache]); // no openFile dep — reads from ref instead
 
   // Keep saveFileRef pointing at the latest saveFile
   saveFileRef.current = saveFile;
 
   // Ctrl/Cmd+S to save
   useEffect(() => {
-    const onKey = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        saveFile();
+        saveNodeTitleRef.current?.(nodeTitleRef.current);
+        saveFileRef.current?.();
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [saveFile]);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
-  // ── Create note from selected text ─────────────────────────────────────────
-  const createNoteFromSelection = useCallback((selectedText) => {
-    if (!selectedText.trim() || !openFile) return;
-    const title = selectedText.trim();
-    // Slugify: lowercase, collapse whitespace to hyphens, strip non-alphanumeric (keep hyphens)
-    const slug = title
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, "")
-      .trim()
-      .replace(/[\s_]+/g, "-");
-    const filename = slug + ".md";
-    // Place the new file in the same folder as the current file
-    const currentFolder = openFile.filename.includes("/")
-      ? openFile.filename.split("/").slice(0, -1).join("/")
-      : "";
-    const filePath = currentFolder ? `${currentFolder}/${filename}` : filename;
-    const content = "";
-    requestJson("/api/notes-raw-file", {
-      method: "POST",
-      query: { filename: filePath, workspace: workspaceRef.current ?? "" },
-      body: { content, name: title },
-    })
-      .then(() => {
-        if (currentFolder) setOpenFolders((prev) => new Set([...prev, currentFolder]));
-        loadFiles();
-        // Save the current file immediately so syncConnectionsForFile picks up
-        // the reference to the newly created note and creates the graph connection.
-        saveFileRef.current?.();
-        openFileByName(filePath);
-      })
-      .catch(console.error);
-  }, [openFile, loadFiles, openFileByName]);
-
-  // ── Create new file ──────────────────────────────────────────────────────────
   const createFile = useCallback((parentPath, name) => {
     const trimmed = (name ?? "").trim();
     if (!trimmed) return;
@@ -2817,6 +3235,43 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
         openFileByName(filePath);
       })
       .catch(console.error);
+  }, [loadFiles, openFileByName, workspace]);
+
+  const createNoteFromSelection = useCallback((selectedTextRaw) => {
+    const selectedText = String(selectedTextRaw || "").trim();
+    if (!selectedText) return;
+
+    const stem = sanitizeNoteStem(selectedText);
+    if (!stem) return;
+
+    const hasExt = /\.(md|txt)$/i.test(stem);
+    const filename = hasExt ? stem : `${stem}.md`;
+    const nodeName = filename.replace(/\.(md|txt)$/i, "");
+    const currentFolder = openFileRef.current?.filename?.includes("/")
+      ? openFileRef.current.filename.split("/").slice(0, -1).join("/")
+      : "";
+    const filePath = currentFolder ? `${currentFolder}/${filename}` : filename;
+
+    requestJson("/api/notes-raw-file", {
+      method: "POST",
+      query: { filename: filePath, workspace: workspace ?? "" },
+      body: { content: "", name: nodeName },
+    })
+      .then(() => {
+        if (currentFolder) setOpenFolders((prev) => new Set([...prev, currentFolder]));
+        loadFiles();
+        openFileByName(filePath);
+      })
+      .catch((err) => {
+        const isAlreadyExists = String(err?.message || "").includes("File already exists");
+        if (isAlreadyExists) {
+          if (currentFolder) setOpenFolders((prev) => new Set([...prev, currentFolder]));
+          loadFiles();
+          openFileByName(filePath);
+          return;
+        }
+        console.error(err);
+      });
   }, [loadFiles, openFileByName, workspace]);
 
   // Expose openFileByName + createFile + loadFiles to the parent on every change.
@@ -2962,10 +3417,10 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
   }, [loadFiles]);
 
   // ── Download file ─────────────────────────────────────────────────────────────
-  const downloadFile = useCallback(() => {
-    if (!openFile) return;
-    const content = editor ? editor.storage.markdown.getMarkdown() : openFile.content;
-    const basename = openFile.filename.split("/").pop();
+  const downloadFile = useCallback(async (filename = openFile?.filename) => {
+    if (!filename) return;
+    const { content } = await getFileContentForAction(filename);
+    const basename = filename.split("/").pop();
     const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -2973,7 +3428,33 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
     a.download = basename;
     a.click();
     URL.revokeObjectURL(url);
-  }, [openFile, editor]);
+  }, [openFile, getFileContentForAction]);
+
+  const duplicateFile = useCallback(async (filename = openFile?.filename) => {
+    if (!filename) return;
+    const duplicatePath = buildDuplicateFilePath(files.map((f) => f.filename), filename);
+    const { content, json } = await getFileContentForAction(filename);
+    const basename = duplicatePath.split("/").pop() || duplicatePath;
+    const sourceNode = resolveNodeForFile(filename);
+    const duplicateName = extractTitleFromContent(content)
+      || sourceNode?.name
+      || basename.replace(/ \(\d+\)(?=\.(md|txt)$)/i, "").replace(/\.(md|txt)$/i, "");
+
+    try {
+      await requestJson("/api/notes-raw-file", {
+        method: "POST",
+        query: { filename: duplicatePath, workspace: workspaceRef.current ?? "" },
+        body: { content, name: duplicateName },
+      });
+    } catch (err) {
+      window.alert(err.message ?? "Duplicate failed");
+      return;
+    }
+
+    writeFileCache(duplicatePath, { content, json });
+    await loadFiles();
+    openFileByName(duplicatePath);
+  }, [openFile, files, getFileContentForAction, resolveNodeForFile, loadFiles, openFileByName, writeFileCache]);
 
   // ── AI writing assistant ──────────────────────────────────────────────────────
   const runAiAssist = useCallback(async (action, selectedText, customInstruction = "") => {
@@ -3212,16 +3693,14 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
       // Use entity.nodeId to look up the canonical node so aliases always display
       // with the node's proper name and color, even when linking to an additionalSourceFile
       // (e.g. "Shouyou" alias → dads/shouyou.md but node is sh_y_hinata).
+      const { byId: nodeById } = nodeLookupsForResolve;
       const node = entity.nodeId
-        ? graphData.nodes.find((n) => n.id === entity.nodeId)
-        : graphData.nodes.find((n) => {
-            const nid = entity.filename.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
-            return n.id === nid;
-          });
-      result.push({ ...entity, name: node?.name ?? entity.name });
+        ? nodeById.get(entity.nodeId)
+        : nodeById.get(entity.filename.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_"));
+      result.push({ ...entity, name: node?.name ?? entity.name, nodeType: node?.type });
     }
     return result.sort((a, b) => a.name.localeCompare(b.name));
-  }, [openFile, mentionableEntities, graphData.nodes]);
+  }, [openFile, mentionableEntities, nodeLookupsForResolve]);
 
   // Set of filenames that appear in both bibliography and backlinks (mutual / bidirectional)
   const mutualFilenames = useMemo(() => {
@@ -3277,7 +3756,52 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
   const isEditorReady = !!editor && !loadingFile;
   const canEdit = isEditorReady && !!openFile;
+  const hasPendingChanges = isDirty || isTitleDirty;
   const isPageLoading = loadingFile; // backlinks load in the background — don't block the editor
+  const isAlignCenterActive = !!editor?.isActive({ textAlign: "center" });
+  const isAlignRightActive = !!editor?.isActive({ textAlign: "right" });
+  const activeAlignment = isAlignCenterActive ? "center" : isAlignRightActive ? "right" : "left";
+  const tocDocumentTitle = useMemo(() => {
+    if (!openFile) return "No file open";
+    return fileTitleMap.get(openFile.filename)
+      || openFile.filename.split("/").pop()?.replace(/\.(md|txt)$/i, "")
+      || openFile.filename;
+  }, [openFile, fileTitleMap]);
+  const tocEntries = useMemo(() => {
+    if (!editor || !openFile) return [];
+    void tocRevision;
+    const headings = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type?.name !== "heading") return;
+      const level = Number(node.attrs?.level);
+      if (level < 1 || level > 3) return;
+      headings.push({
+        level,
+        pos,
+        text: node.textContent?.trim() || `Heading ${headings.length + 1}`,
+      });
+    });
+    if (headings.length === 0) return [];
+    const minLevel = Math.min(...headings.map((h) => h.level));
+    // Build nested section counters per depth level
+    const counters = [0, 0, 0]; // index 0 = top depth, 1 = one level in, 2 = two levels in
+    return headings.map((heading) => {
+      const depth = Math.max(0, heading.level - minLevel);
+      // Reset all deeper counters whenever we go up or stay at this level
+      counters[depth] = (counters[depth] || 0) + 1;
+      for (let d = depth + 1; d < counters.length; d++) counters[d] = 0;
+      const number = counters.slice(0, depth + 1).join(".");
+      return { ...heading, depth, number };
+    });
+  }, [editor, openFile, tocRevision]);
+
+  const jumpToTocPos = useCallback((targetPos) => {
+    if (!editor || !openFile) return;
+    const maxPos = Math.max(1, editor.state.doc.content.size);
+    // pos from descendants() points just before the node's opening tag; +1 moves inside the heading
+    const safePos = Math.max(1, Math.min(targetPos + 1, maxPos));
+    editor.chain().focus().setTextSelection(safePos).scrollIntoView().run();
+  }, [editor, openFile]);
 
   // Flat list of every folder path in the tree (for expand/collapse all)
   const allFolderPaths = useMemo(() => {
@@ -3475,6 +3999,11 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               className="group flex items-center gap-1.5 py-0.5 rounded-md cursor-pointer transition-colors"
               style={{ paddingLeft: indent + 20, paddingRight: 4, backgroundColor: rowBg }}
               onClick={(e) => handleFileClick(node.path, e)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openTreeFileMenu(node.path, e.clientX, e.clientY);
+              }}
               onMouseEnter={(e) => { if (!isActive && !isSelected && !dragItem) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)"; }}
               onMouseLeave={(e) => { if (!dragItem) e.currentTarget.style.backgroundColor = rowBg; }}
               onDragStart={(e) => {
@@ -3534,38 +4063,21 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               )}
               <span className="flex gap-0 opacity-0 group-hover:opacity-100 flex-shrink-0 relative">
                 <button
-                  onClick={(e) => { e.stopPropagation(); setFileMenuOpen((p) => p === node.path ? null : node.path); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setFileMenuOpen((current) => current?.path === node.path ? null : {
+                      path: node.path,
+                      x: rect.right - 8,
+                      y: rect.bottom + 4,
+                    });
+                  }}
                   className="p-0.5 rounded"
                   style={{ color: "rgba(255,255,255,0.4)" }}
                   onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
                   title="More options"
                 ><MoreHorizontal size={11} /></button>
-                {fileMenuOpen === node.path && (
-                  <div
-                    className="absolute z-50 py-1 rounded-lg shadow-xl"
-                    style={{
-                      top: "100%", right: 0, minWidth: 120,
-                      backgroundColor: "#1e1e2e",
-                      border: "1px solid rgba(255,255,255,0.12)",
-                    }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      className="w-full text-left px-3 py-1.5 text-xs transition-colors"
-                      style={{ color: "rgba(255,255,255,0.75)" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.07)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setFileMenuOpen(null);
-                        setInlineRename({ path: node.path, value: node.name });
-                      }}
-                    >
-                      Rename
-                    </button>
-                  </div>
-                )}
                 <button
                   onClick={(e) => deleteFile(node.path, e)}
                   className="p-0.5 rounded flex-shrink-0"
@@ -3588,12 +4100,17 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
   return (
     <>
-    <div className="flex flex-1 overflow-hidden min-h-0">
+    <div className="flex flex-1 overflow-hidden min-h-0 min-w-0">
 
       {/* ── File sidebar ────────────────────────────────────────────────────── */}
       <aside
         className="flex-shrink-0 flex flex-col border-r relative"
-        style={{ width: sidebarWidth, backgroundColor: "#13131f", borderColor: "rgba(255,255,255,0.07)" }}
+        style={{
+          width: hotbarOnly ? 0 : sidebarWidth,
+          backgroundColor: "#13131f",
+          borderColor: "rgba(255,255,255,0.07)",
+          display: hotbarOnly ? "none" : "flex",
+        }}
       >
         {/* Resize handle */}
         <div
@@ -3934,7 +4451,171 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
             </>
           )}
         </div>
+        {fileMenuOpen && (() => {
+          const menuPath = fileMenuOpen.path;
+          const menuName = menuPath.split("/").pop()?.replace(/\.(md|txt)$/i, "") || menuPath;
+          const itemStyle = { color: "rgba(255,255,255,0.7)" };
+          const destructiveStyle = { color: "#f87171" };
+          return (
+            <div
+              className="fixed z-[70] rounded-xl py-1 shadow-2xl"
+              style={{ left: fileMenuOpen.x, top: fileMenuOpen.y, backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)", minWidth: "170px" }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <button
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
+                style={itemStyle}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFileMenuOpen(null);
+                  setInlineRename({ path: menuPath, value: menuName });
+                }}
+              >
+                <Pencil size={12} style={{ color: "rgba(255,255,255,0.35)", flexShrink: 0 }} />
+                Rename
+              </button>
+              <button
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
+                style={itemStyle}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                onClick={() => {
+                  duplicateFile(menuPath);
+                  setFileMenuOpen(null);
+                }}
+              >
+                <Copy size={12} style={{ color: "rgba(255,255,255,0.35)", flexShrink: 0 }} />
+                Duplicate
+              </button>
+              <button
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
+                style={itemStyle}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                onClick={() => {
+                  downloadFile(menuPath);
+                  setFileMenuOpen(null);
+                }}
+              >
+                <Download size={12} style={{ color: "rgba(255,255,255,0.35)", flexShrink: 0 }} />
+                Download
+              </button>
+              <div className="my-1 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }} />
+              <button
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
+                style={destructiveStyle}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(248,113,113,0.07)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                onClick={(e) => {
+                  setFileMenuOpen(null);
+                  deleteFile(menuPath, e);
+                }}
+              >
+                <Trash2 size={12} style={{ flexShrink: 0 }} />
+                Delete
+              </button>
+            </div>
+          );
+        })()}
       </aside>
+
+      {/* ── TOC panel (between file tree and editor) ─────────────────── */}
+      <div
+        className="flex-shrink-0 flex min-h-0 relative"
+        style={{ backgroundColor: "#121222", display: hotbarOnly ? "none" : "flex" }}
+      >
+        {/* Tab button always tracks the right edge of the panel */}
+        <button
+          title={tocPanelOpen ? "Hide table of contents" : "Show table of contents"}
+          onClick={() => setTocPanelOpen((v) => !v)}
+          className="flex items-center transition-colors"
+          style={{
+            position: "absolute",
+            right: 0,
+            bottom: "32px",
+            transform: "translateX(100%)",
+            zIndex: 20,
+            padding: "10px 9px",
+            borderRadius: "0 8px 8px 0",
+            backgroundColor: tocPanelOpen ? "rgba(96,165,250,0.18)" : "#1a1a2e",
+            border: "1px solid rgba(255,255,255,0.09)",
+            borderLeft: "none",
+            color: tocPanelOpen ? "#93c5fd" : "rgba(255,255,255,0.45)",
+          }}
+          onMouseEnter={(e) => {
+            if (tocPanelOpen) return;
+            e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)";
+            e.currentTarget.style.color = "rgba(255,255,255,0.75)";
+          }}
+          onMouseLeave={(e) => {
+            if (tocPanelOpen) return;
+            e.currentTarget.style.backgroundColor = "#1a1a2e";
+            e.currentTarget.style.color = "rgba(255,255,255,0.45)";
+          }}
+        >
+          <ListTree size={18} />
+        </button>
+        <div
+          className="h-full overflow-hidden border-r transition-all duration-200 ease-out"
+          style={{
+            width: tocPanelOpen ? 260 : 0,
+            borderColor: tocPanelOpen ? "rgba(255,255,255,0.07)" : "transparent",
+            backgroundColor: "#13131f",
+          }}
+        >
+          <div className="h-full flex flex-col min-w-0">
+            <div
+              className="px-3 py-2 border-b"
+              style={{ borderColor: "rgba(255,255,255,0.07)", backgroundColor: "rgba(255,255,255,0.02)" }}
+            >
+              <p className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                Table Of Contents
+              </p>
+            </div>
+            <div className="flex-1 overflow-y-auto px-2 py-2">
+              <button
+                className="w-full text-left rounded-md px-2 py-1.5 mb-1 transition-colors"
+                style={{ color: "#e2e8f0", backgroundColor: "rgba(96,165,250,0.09)" }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.16)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.09)"; }}
+                onClick={() => jumpToTocPos(1)}
+                title={tocDocumentTitle}
+              >
+                <span className="block truncate text-xs font-medium">{tocDocumentTitle}</span>
+              </button>
+
+              {tocEntries.length === 0 ? (
+                <p className="text-xs px-2 py-1.5" style={{ color: "rgba(255,255,255,0.35)" }}>
+                  No headings (H1-H3) in this file.
+                </p>
+              ) : (
+                tocEntries.map((entry) => (
+                  <button
+                    key={`toc-${entry.pos}-${entry.level}`}
+                    className="w-full text-left rounded-md py-1 text-xs transition-colors"
+                    style={{
+                      color: entry.depth === 0 ? "rgba(255,255,255,0.82)" : "rgba(255,255,255,0.58)",
+                      paddingLeft: `${8 + entry.depth * 14}px`,
+                      paddingRight: 8,
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                    onClick={() => jumpToTocPos(entry.pos)}
+                    title={`H${entry.level}: ${entry.text}`}
+                  >
+                    <span className="flex items-baseline gap-1.5 min-w-0">
+                      <span className="flex-shrink-0 tabular-nums" style={{ color: "rgba(96,165,250,0.7)", fontSize: "0.7em" }}>{entry.number}</span>
+                      <span className="truncate">{entry.text}</span>
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* ── Editor pane ─────────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
@@ -3951,112 +4632,129 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
           className="flex items-center gap-0.5 px-2 py-0.5 border-b flex-shrink-0"
           style={{ backgroundColor: "#13131f", borderColor: "rgba(255,255,255,0.07)" }}
         >
-          {/* File menu */}
-          <div className="relative" ref={fileMenuToolbarRef}>
-            <button
-              onClick={() => {
-                setViewMenuToolbarOpen(false);
-                setInsertMenuToolbarOpen(false);
-                cancelInsertTableSubmenuClose();
-                setInsertTableSubmenuOpen(false);
-                setFileMenuToolbarOpen((v) => !v);
-              }}
-              disabled={!openFile}
-              className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors"
-              style={{
-                color: openFile ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.2)",
-                backgroundColor: fileMenuToolbarOpen ? "rgba(255,255,255,0.08)" : "transparent",
-              }}
-              onMouseEnter={(e) => { if (openFile) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = fileMenuToolbarOpen ? "rgba(255,255,255,0.08)" : "transparent"; }}
-            >
-              File
-              <ChevronDown size={11} style={{ opacity: 0.5, transform: fileMenuToolbarOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
-            </button>
+          {!hotbarOnly && (
+            <>
+              {/* File menu */}
+              <div className="relative" ref={fileMenuToolbarRef}>
+                <button
+                  onClick={() => {
+                    setViewMenuToolbarOpen(false);
+                    setInsertMenuToolbarOpen(false);
+                    cancelInsertTableSubmenuClose();
+                    setInsertTableSubmenuOpen(false);
+                    setFileMenuToolbarOpen((v) => !v);
+                  }}
+                  disabled={!openFile}
+                  className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors"
+                  style={{
+                    color: openFile ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.2)",
+                    backgroundColor: fileMenuToolbarOpen ? "rgba(255,255,255,0.08)" : "transparent",
+                  }}
+                  onMouseEnter={(e) => { if (openFile) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = fileMenuToolbarOpen ? "rgba(255,255,255,0.08)" : "transparent"; }}
+                >
+                  File
+                  <ChevronDown size={11} style={{ opacity: 0.5, transform: fileMenuToolbarOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+                </button>
 
-            {fileMenuToolbarOpen && openFile && (
-              <div
-                className="absolute left-0 top-full mt-1 z-50 rounded-xl py-1 shadow-2xl"
-                style={{ backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)", minWidth: "170px" }}
-              >
-                {fileMenuRename ? (
-                  <div className="px-3 py-2">
-                    <p className="text-xs mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>Rename file</p>
-                    <input
-                      ref={fileMenuRenameInputRef}
-                      type="text"
-                      value={fileMenuRename.value}
-                      onChange={(e) => setFileMenuRename({ value: e.target.value })}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          renameFile(openFile.filename, fileMenuRename.value);
-                          setFileMenuRename(null);
-                          setFileMenuToolbarOpen(false);
-                        }
-                        if (e.key === "Escape") { setFileMenuRename(null); }
-                      }}
-                      className="w-full bg-transparent outline-none text-xs rounded px-2 py-1"
-                      style={{ color: "rgba(255,255,255,0.85)", caretColor: "#60a5fa", border: "1px solid rgba(255,255,255,0.15)" }}
-                      autoFocus
-                    />
-                    <div className="flex gap-1.5 mt-1.5">
-                      <button
-                        className="text-xs px-2 py-0.5 rounded"
-                        style={{ backgroundColor: "rgba(96,165,250,0.2)", color: "#93c5fd" }}
-                        onClick={() => {
-                          renameFile(openFile.filename, fileMenuRename.value);
-                          setFileMenuRename(null);
-                          setFileMenuToolbarOpen(false);
-                        }}
-                      >Rename</button>
-                      <button
-                        className="text-xs px-2 py-0.5 rounded"
-                        style={{ color: "rgba(255,255,255,0.35)" }}
-                        onClick={() => setFileMenuRename(null)}
-                      >Cancel</button>
-                    </div>
+                {fileMenuToolbarOpen && openFile && (
+                  <div
+                    className="absolute left-0 top-full mt-1 z-50 rounded-xl py-1 shadow-2xl"
+                    style={{ backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)", minWidth: "170px" }}
+                  >
+                    {fileMenuRename ? (
+                      <div className="px-3 py-2">
+                        <p className="text-xs mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>Rename file</p>
+                        <input
+                          ref={fileMenuRenameInputRef}
+                          type="text"
+                          value={fileMenuRename.value}
+                          onChange={(e) => setFileMenuRename({ value: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              renameFile(openFile.filename, fileMenuRename.value);
+                              setFileMenuRename(null);
+                              setFileMenuToolbarOpen(false);
+                            }
+                            if (e.key === "Escape") { setFileMenuRename(null); }
+                          }}
+                          className="w-full bg-transparent outline-none text-xs rounded px-2 py-1"
+                          style={{ color: "rgba(255,255,255,0.85)", caretColor: "#60a5fa", border: "1px solid rgba(255,255,255,0.15)" }}
+                          autoFocus
+                        />
+                        <div className="flex gap-1.5 mt-1.5">
+                          <button
+                            className="text-xs px-2 py-0.5 rounded"
+                            style={{ backgroundColor: "rgba(96,165,250,0.2)", color: "#93c5fd" }}
+                            onClick={() => {
+                              renameFile(openFile.filename, fileMenuRename.value);
+                              setFileMenuRename(null);
+                              setFileMenuToolbarOpen(false);
+                            }}
+                          >Rename</button>
+                          <button
+                            className="text-xs px-2 py-0.5 rounded"
+                            style={{ color: "rgba(255,255,255,0.35)" }}
+                            onClick={() => setFileMenuRename(null)}
+                          >Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
+                          style={{ color: "rgba(255,255,255,0.7)" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                          onClick={() => {
+                            const basename = openFile.filename.split("/").pop().replace(/\.(md|txt)$/, "");
+                            setFileMenuRename({ value: basename });
+                          }}
+                        >
+                          <Pencil size={12} style={{ color: "rgba(255,255,255,0.35)", flexShrink: 0 }} />
+                          Rename
+                        </button>
+                        <button
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
+                          style={{ color: "rgba(255,255,255,0.7)" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                          onClick={() => {
+                            duplicateFile();
+                            setFileMenuToolbarOpen(false);
+                          }}
+                        >
+                          <Copy size={12} style={{ color: "rgba(255,255,255,0.35)", flexShrink: 0 }} />
+                          Duplicate
+                        </button>
+                        <button
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
+                          style={{ color: "rgba(255,255,255,0.7)" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                          onClick={() => { downloadFile(); setFileMenuToolbarOpen(false); }}
+                        >
+                          <Download size={12} style={{ color: "rgba(255,255,255,0.35)", flexShrink: 0 }} />
+                          Download
+                        </button>
+                        <div className="my-1 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }} />
+                        <button
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
+                          style={{ color: "#f87171" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(248,113,113,0.07)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                          onClick={(e) => { setFileMenuToolbarOpen(false); deleteFile(openFile.filename, e); }}
+                        >
+                          <Trash2 size={12} style={{ flexShrink: 0 }} />
+                          Delete
+                        </button>
+                      </>
+                    )}
                   </div>
-                ) : (
-                  <>
-                    <button
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
-                      style={{ color: "rgba(255,255,255,0.7)" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
-                      onClick={() => {
-                        const basename = openFile.filename.split("/").pop().replace(/\.(md|txt)$/, "");
-                        setFileMenuRename({ value: basename });
-                      }}
-                    >
-                      <Pencil size={12} style={{ color: "rgba(255,255,255,0.35)", flexShrink: 0 }} />
-                      Rename
-                    </button>
-                    <button
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
-                      style={{ color: "rgba(255,255,255,0.7)" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
-                      onClick={() => { downloadFile(); setFileMenuToolbarOpen(false); }}
-                    >
-                      <Download size={12} style={{ color: "rgba(255,255,255,0.35)", flexShrink: 0 }} />
-                      Download
-                    </button>
-                    <div className="my-1 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }} />
-                    <button
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
-                      style={{ color: "#f87171" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(248,113,113,0.07)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
-                      onClick={(e) => { setFileMenuToolbarOpen(false); deleteFile(openFile.filename, e); }}
-                    >
-                      <Trash2 size={12} style={{ flexShrink: 0 }} />
-                      Delete
-                    </button>
-                  </>
                 )}
               </div>
-            )}
-          </div>
+            </>
+          )}
 
           {/* View menu */}
           <div className="relative" ref={viewMenuToolbarRef}>
@@ -4326,13 +5024,13 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
             <Redo size={14} />
           </ToolbarBtn>
           <ToolbarDivider />
-          <ToolbarBtn title="Heading 1" disabled={!canEdit} active={editor?.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
+          <ToolbarBtn title="Heading 1" disabled={!canEdit} active={selectionRenderTick >= 0 && editor?.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
             <Heading1 size={14} />
           </ToolbarBtn>
-          <ToolbarBtn title="Heading 2" disabled={!canEdit} active={editor?.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
+          <ToolbarBtn title="Heading 2" disabled={!canEdit} active={selectionRenderTick >= 0 && editor?.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
             <Heading2 size={14} />
           </ToolbarBtn>
-          <ToolbarBtn title="Heading 3" disabled={!canEdit} active={editor?.isActive("heading", { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
+          <ToolbarBtn title="Heading 3" disabled={!canEdit} active={selectionRenderTick >= 0 && editor?.isActive("heading", { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
             <Heading3 size={14} />
           </ToolbarBtn>
           <ToolbarDivider />
@@ -4670,12 +5368,112 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
           <ToolbarBtn title="Clear formatting" disabled={!canEdit} onClick={clearFormatting}>
             <Eraser size={14} />
           </ToolbarBtn>
+          <div className="relative" ref={alignmentMenuRef}>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                if (!canEdit) return;
+                setAlignmentMenuOpen((v) => !v);
+              }}
+              disabled={!canEdit}
+              title="Alignment"
+              className="flex items-center gap-1 px-2 py-1 rounded-md transition-colors"
+              style={{
+                backgroundColor: alignmentMenuOpen
+                  ? "rgba(96,165,250,0.25)"
+                  : activeAlignment !== "left"
+                    ? "rgba(96,165,250,0.2)"
+                    : "transparent",
+                color: canEdit ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.3)",
+              }}
+              onMouseEnter={(e) => {
+                if (!canEdit || alignmentMenuOpen || activeAlignment !== "left") return;
+                e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)";
+              }}
+              onMouseLeave={(e) => {
+                if (alignmentMenuOpen || activeAlignment !== "left") {
+                  e.currentTarget.style.backgroundColor = alignmentMenuOpen ? "rgba(96,165,250,0.25)" : "rgba(96,165,250,0.2)";
+                  return;
+                }
+                e.currentTarget.style.backgroundColor = "transparent";
+              }}
+            >
+              {activeAlignment === "left" && <AlignLeft size={14} />}
+              {activeAlignment === "center" && <AlignCenter size={14} />}
+              {activeAlignment === "right" && <AlignRight size={14} />}
+              <ChevronDown size={11} style={{ opacity: 0.55, transform: alignmentMenuOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+            </button>
+
+            {alignmentMenuOpen && canEdit && (
+              <div
+                className="absolute left-0 top-full mt-1 z-50 rounded-lg py-1 shadow-2xl"
+                style={{ backgroundColor: "#1a1a2e", minWidth: 148 }}
+              >
+                <button
+                  className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs"
+                  style={{
+                    color: activeAlignment === "left" ? "#fff" : "rgba(255,255,255,0.75)",
+                    backgroundColor: activeAlignment === "left" ? "rgba(255,255,255,0.09)" : "transparent",
+                  }}
+                  onMouseEnter={(e) => { if (activeAlignment !== "left") e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                  onMouseLeave={(e) => { if (activeAlignment !== "left") e.currentTarget.style.backgroundColor = "transparent"; }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    editor?.chain().focus().setTextAlign("left").run();
+                    setAlignmentMenuOpen(false);
+                  }}
+                >
+                  <span className="flex items-center gap-2"><AlignLeft size={13} /> Left</span>
+                  {activeAlignment === "left" && <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>✓</span>}
+                </button>
+
+                <button
+                  className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs"
+                  style={{
+                    color: activeAlignment === "center" ? "#fff" : "rgba(255,255,255,0.75)",
+                    backgroundColor: activeAlignment === "center" ? "rgba(255,255,255,0.09)" : "transparent",
+                  }}
+                  onMouseEnter={(e) => { if (activeAlignment !== "center") e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                  onMouseLeave={(e) => { if (activeAlignment !== "center") e.currentTarget.style.backgroundColor = "transparent"; }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    editor?.chain().focus().setTextAlign("center").run();
+                    setAlignmentMenuOpen(false);
+                  }}
+                >
+                  <span className="flex items-center gap-2"><AlignCenter size={13} /> Middle</span>
+                  {activeAlignment === "center" && <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>✓</span>}
+                </button>
+
+                <button
+                  className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs"
+                  style={{
+                    color: activeAlignment === "right" ? "#fff" : "rgba(255,255,255,0.75)",
+                    backgroundColor: activeAlignment === "right" ? "rgba(255,255,255,0.09)" : "transparent",
+                  }}
+                  onMouseEnter={(e) => { if (activeAlignment !== "right") e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                  onMouseLeave={(e) => { if (activeAlignment !== "right") e.currentTarget.style.backgroundColor = "transparent"; }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    editor?.chain().focus().setTextAlign("right").run();
+                    setAlignmentMenuOpen(false);
+                  }}
+                >
+                  <span className="flex items-center gap-2"><AlignRight size={13} /> Right</span>
+                  {activeAlignment === "right" && <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>✓</span>}
+                </button>
+              </div>
+            )}
+          </div>
           <ToolbarDivider />
           <ToolbarBtn title="Bullet list" disabled={!canEdit} active={editor?.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()}>
             <List size={14} />
           </ToolbarBtn>
           <ToolbarBtn title="Numbered list" disabled={!canEdit} active={editor?.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
             <ListOrdered size={14} />
+          </ToolbarBtn>
+          <ToolbarBtn title="Checkbox list" disabled={!canEdit} active={editor?.isActive("taskList")} onClick={() => editor.chain().focus().toggleTaskList().run()}>
+            <ListTodo size={14} />
           </ToolbarBtn>
           <ToolbarBtn title="Outdent (Shift+Tab)" disabled={!canEdit} onClick={outdentSelection}>
             <span className="text-[12px] font-semibold leading-none">⇤</span>
@@ -4711,17 +5509,20 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                 <AlertCircle size={11} /> Save failed
               </span>
             )}
-            {isDirty && saveState === "idle" && (
+            {hasPendingChanges && saveState === "idle" && (
               <span className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>Unsaved</span>
             )}
             <button
-              onClick={saveFile}
-              disabled={!canEdit || !isDirty}
+              onClick={() => {
+                saveNodeTitle(nodeTitleRef.current);
+                saveFile();
+              }}
+              disabled={!canEdit || !hasPendingChanges}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
               style={{
-                backgroundColor: canEdit && isDirty ? "rgba(96,165,250,0.15)" : "rgba(255,255,255,0.05)",
-                color: canEdit && isDirty ? "#93c5fd" : "rgba(255,255,255,0.2)",
-                cursor: canEdit && isDirty ? "pointer" : "not-allowed",
+                backgroundColor: canEdit && hasPendingChanges ? "rgba(96,165,250,0.15)" : "rgba(255,255,255,0.05)",
+                color: canEdit && hasPendingChanges ? "#93c5fd" : "rgba(255,255,255,0.2)",
+                cursor: canEdit && hasPendingChanges ? "pointer" : "not-allowed",
               }}
               title="Save (Ctrl+S)"
             >
@@ -4741,274 +5542,283 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto px-8 py-6 relative">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-8 py-6 relative">
             {/* ── Flex row: editor content (left) + minimap (right) ── */}
             <div style={{ display: "flex", alignItems: "flex-start", gap: 20 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-            {/* Editable node title */}
-            {openNode ? (
-              <input
-                type="text"
-                value={nodeTitle}
-                onChange={(e) => setNodeTitle(e.target.value)}
-                onBlur={(e) => saveNodeTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                placeholder="Untitled"
-                className="w-full bg-transparent outline-none block mb-1"
-                style={{ fontSize: "1.6rem", fontWeight: 700, lineHeight: 1.25, color: "#fff", caretColor: "#60a5fa", border: "none" }}
-                spellCheck={false}
-              />
-            ) : (
-              <p className="text-xl font-bold mb-1" style={{ color: "#fff" }}>
-                {openFile.filename.split("/").pop().replace(/\.(md|txt)$/i, "")}
-              </p>
-            )}
-            {/* File path + (i) metadata/connections popup */}
-            <div className="mb-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.25)" }}>
-                  {openFile.filename}
-                </span>
-                {propagateMsg && (
-                  <span className="text-xs" style={{ color: "#4ade80" }}>{propagateMsg}</span>
-                )}
+            {/* Editable title is available in all modes, including hotbar-only journal view */}
+            <input
+              ref={titleInputRef}
+              type="text"
+              value={nodeTitle}
+              onChange={(e) => {
+                setNodeTitle(e.target.value);
+                setIsTitleDirty(true);
+              }}
+              onBlur={(e) => saveNodeTitle(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+              placeholder="Untitled"
+              className="w-full bg-transparent outline-none block mb-1"
+              style={{
+                fontSize: hotbarOnly ? "1.2rem" : "1.6rem",
+                fontWeight: 700,
+                lineHeight: 1.25,
+                color: "#fff",
+                caretColor: "#60a5fa",
+                border: "none",
+              }}
+              spellCheck={false}
+            />
+            {!hotbarOnly && (
+              <>
+                {/* File path + (i) metadata/connections popup */}
+                <div className="mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.25)" }}>
+                      {openFile.filename}
+                    </span>
+                    {propagateMsg && (
+                      <span className="text-xs" style={{ color: "#4ade80" }}>{propagateMsg}</span>
+                    )}
+                    {openNode && (
+                      <button
+                        onClick={() => setNodeInfoOpen((v) => !v)}
+                        title="Node metadata & connections"
+                        style={{
+                          color: nodeInfoOpen ? "#60a5fa" : "rgba(255,255,255,0.2)",
+                          background: "none", border: "none", padding: 0,
+                          cursor: "pointer", lineHeight: 1, display: "inline-flex", flexShrink: 0,
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = "#60a5fa")}
+                        onMouseLeave={(e) => { if (!nodeInfoOpen) e.currentTarget.style.color = "rgba(255,255,255,0.2)"; }}
+                      >
+                        <Info size={12} />
+                      </button>
+                    )}
+                  </div>
+                  {nodeInfoOpen && openNode && (() => {
+                    // Collect immediate neighbors — mirrors the minimap subgraph logic
+                    const connections = [];
+                    for (const link of graphData.links) {
+                      const src = typeof link.source === "object" ? link.source.id : link.source;
+                      const tgt = typeof link.target === "object" ? link.target.id : link.target;
+                      if (src === openNodeId) {
+                        const neighbor = graphData.nodes.find((n) => n.id === tgt);
+                        if (neighbor) connections.push({ node: neighbor, label: link.label });
+                      } else if (tgt === openNodeId) {
+                        const neighbor = graphData.nodes.find((n) => n.id === src);
+                        if (neighbor) connections.push({ node: neighbor, label: link.label });
+                      }
+                    }
+                    // JSON lines — exactly the fields the user requested
+                    const createdAtFormatted = openNode.createdAt
+                      ? new Date(openNode.createdAt).toLocaleString(undefined, {
+                          year: "numeric", month: "short", day: "numeric",
+                          hour: "2-digit", minute: "2-digit",
+                        })
+                      : null;
+                    const jsonText = [
+                      `{`,
+                      `  "id": ${JSON.stringify(openNode.id)},`,
+                      `  "type": ${JSON.stringify(openNode.type)},`,
+                      `  "aliases": ${JSON.stringify(openNode.aliases || [])},`,
+                      `  "tags": ${JSON.stringify(openNode.tags || [])},`,
+                      `  "createdAt": ${openNode.createdAt ?? "null"}${createdAtFormatted ? `  // ${createdAtFormatted}` : ""}`,
+                      `}`,
+                    ].join("\n");
+                    return (
+                      <div
+                        className="mt-2 rounded-lg text-xs overflow-hidden"
+                        style={{ border: "1px solid rgba(255,255,255,0.1)", backgroundColor: "#090913" }}
+                      >
+                        {/* Metadata JSON */}
+                        <div
+                          className="px-3 py-2.5"
+                          style={{ borderBottom: connections.length ? "1px solid rgba(255,255,255,0.07)" : "none" }}
+                        >
+                          <p className="text-[10px] uppercase tracking-widest mb-1.5 font-semibold" style={{ color: "rgba(255,255,255,0.2)" }}>
+                            metadata
+                          </p>
+                          <pre style={{ color: "rgba(255,255,255,0.6)", fontFamily: "ui-monospace, monospace", lineHeight: 1.8, margin: 0, whiteSpace: "pre" }}>
+                            {jsonText}
+                          </pre>
+                        </div>
+                        {/* Direct connections */}
+                        {connections.length > 0 && (
+                          <div className="px-3 py-2.5">
+                            <p className="text-[10px] uppercase tracking-widest mb-1.5 font-semibold" style={{ color: "rgba(255,255,255,0.2)" }}>
+                              connections · {connections.length}
+                            </p>
+                            <div className="flex flex-col gap-1">
+                              {connections.map((conn, i) => {
+                                const cfg = NODE_TYPE_CONFIG[conn.node.type] || nodeTypeFallback;
+                                return (
+                                  <div key={i} className="flex items-center gap-2 min-w-0">
+                                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
+                                    <span style={{ color: cfg.color, fontWeight: 500 }}>{conn.node.name}</span>
+                                    {conn.label && (
+                                      <span className="truncate" style={{ color: "rgba(255,255,255,0.25)" }}>· {conn.label}</span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+                {/* Tags */}
                 {openNode && (
-                  <button
-                    onClick={() => setNodeInfoOpen((v) => !v)}
-                    title="Node metadata & connections"
-                    style={{
-                      color: nodeInfoOpen ? "#60a5fa" : "rgba(255,255,255,0.2)",
-                      background: "none", border: "none", padding: 0,
-                      cursor: "pointer", lineHeight: 1, display: "inline-flex", flexShrink: 0,
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "#60a5fa")}
-                    onMouseLeave={(e) => { if (!nodeInfoOpen) e.currentTarget.style.color = "rgba(255,255,255,0.2)"; }}
-                  >
-                    <Info size={12} />
-                  </button>
+                  <div className="flex flex-wrap items-center gap-1.5 mb-1 min-h-[22px]">
+                    {tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs"
+                        style={{ backgroundColor: "rgba(96,165,250,0.12)", color: "#93c5fd", border: "1px solid rgba(96,165,250,0.2)" }}
+                      >
+                        #{tag}
+                        <button
+                          onClick={() => removeTag(tag)}
+                          style={{ color: "rgba(147,197,253,0.5)", lineHeight: 1 }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "#93c5fd")}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(147,197,253,0.5)")}
+                          title="Remove tag"
+                        ><X size={9} /></button>
+                      </span>
+                    ))}
+                    <input
+                      type="text"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(tagInput); }
+                        if (e.key === "Escape") setTagInput("");
+                      }}
+                      onBlur={() => { if (tagInput.trim()) addTag(tagInput); }}
+                      placeholder={tags.length === 0 ? "Add tag…" : "+"}
+                      className="bg-transparent outline-none text-xs"
+                      style={{ color: "rgba(255,255,255,0.4)", caretColor: "#60a5fa", width: tags.length === 0 ? 70 : 28, minWidth: 20 }}
+                      spellCheck={false}
+                    />
+                  </div>
                 )}
-              </div>
-              {nodeInfoOpen && openNode && (() => {
-                // Collect immediate neighbors — mirrors the minimap subgraph logic
-                const connections = [];
-                for (const link of graphData.links) {
-                  const src = typeof link.source === "object" ? link.source.id : link.source;
-                  const tgt = typeof link.target === "object" ? link.target.id : link.target;
-                  if (src === openNodeId) {
-                    const neighbor = graphData.nodes.find((n) => n.id === tgt);
-                    if (neighbor) connections.push({ node: neighbor, label: link.label });
-                  } else if (tgt === openNodeId) {
-                    const neighbor = graphData.nodes.find((n) => n.id === src);
-                    if (neighbor) connections.push({ node: neighbor, label: link.label });
-                  }
-                }
-                // JSON lines — exactly the fields the user requested
-                const createdAtFormatted = openNode.createdAt
-                  ? new Date(openNode.createdAt).toLocaleString(undefined, {
-                      year: "numeric", month: "short", day: "numeric",
-                      hour: "2-digit", minute: "2-digit",
-                    })
-                  : null;
-                const jsonText = [
-                  `{`,
-                  `  "id": ${JSON.stringify(openNode.id)},`,
-                  `  "type": ${JSON.stringify(openNode.type)},`,
-                  `  "aliases": ${JSON.stringify(openNode.aliases || [])},`,
-                  `  "tags": ${JSON.stringify(openNode.tags || [])},`,
-                  `  "createdAt": ${openNode.createdAt ?? "null"}${createdAtFormatted ? `  // ${createdAtFormatted}` : ""}`,
-                  `}`,
-                ].join("\n");
-                return (
-                  <div
-                    className="mt-2 rounded-lg text-xs overflow-hidden"
-                    style={{ border: "1px solid rgba(255,255,255,0.1)", backgroundColor: "#090913" }}
-                  >
-                    {/* Metadata JSON */}
-                    <div
-                      className="px-3 py-2.5"
-                      style={{ borderBottom: connections.length ? "1px solid rgba(255,255,255,0.07)" : "none" }}
+                {/* Node type selector */}
+                {openNode && (() => {
+                  const activeType = nodeTypeOverride ?? openNode.type;
+                  const activeCfg = NODE_TYPE_CONFIG[activeType] || nodeTypeFallback;
+                  return (
+                  <div className="relative mb-1" ref={typeDropdownRef}>
+                    <button
+                      onClick={() => { setTypeDropdownOpen((v) => !v); setNewTypeInput(""); }}
+                      className="flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors"
+                      style={{
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        backgroundColor: typeDropdownOpen ? "rgba(255,255,255,0.08)" : "transparent",
+                        color: "rgba(255,255,255,0.5)",
+                      }}
+                      onMouseEnter={(e) => { if (!typeDropdownOpen) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"; }}
+                      onMouseLeave={(e) => { if (!typeDropdownOpen) e.currentTarget.style.backgroundColor = "transparent"; }}
                     >
-                      <p className="text-[10px] uppercase tracking-widest mb-1.5 font-semibold" style={{ color: "rgba(255,255,255,0.2)" }}>
-                        metadata
-                      </p>
-                      <pre style={{ color: "rgba(255,255,255,0.6)", fontFamily: "ui-monospace, monospace", lineHeight: 1.8, margin: 0, whiteSpace: "pre" }}>
-                        {jsonText}
-                      </pre>
-                    </div>
-                    {/* Direct connections */}
-                    {connections.length > 0 && (
-                      <div className="px-3 py-2.5">
-                        <p className="text-[10px] uppercase tracking-widest mb-1.5 font-semibold" style={{ color: "rgba(255,255,255,0.2)" }}>
-                          connections · {connections.length}
-                        </p>
-                        <div className="flex flex-col gap-1">
-                          {connections.map((conn, i) => {
-                            const cfg = NODE_TYPE_CONFIG[conn.node.type] || nodeTypeFallback;
-                            return (
-                              <div key={i} className="flex items-center gap-2 min-w-0">
-                                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
-                                <span style={{ color: cfg.color, fontWeight: 500 }}>{conn.node.name}</span>
-                                {conn.label && (
-                                  <span className="truncate" style={{ color: "rgba(255,255,255,0.25)" }}>· {conn.label}</span>
-                                )}
-                              </div>
-                            );
-                          })}
+                      <span
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: activeCfg.color }}
+                      />
+                      <span>{activeCfg.label}</span>
+                      <ChevronDown size={10} style={{ opacity: 0.5, transform: typeDropdownOpen ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.15s" }} />
+                    </button>
+
+                    {typeDropdownOpen && (
+                      <div
+                        className="absolute z-50 rounded-lg overflow-hidden mt-1"
+                        style={{
+                          top: "100%", left: 0, minWidth: 160,
+                          backgroundColor: "rgba(20,20,32,0.98)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+                        }}
+                      >
+                        {/* Existing types */}
+                        {Object.entries(NODE_TYPE_CONFIG).map(([typeKey, cfg]) => {
+                          const isActive = activeType === typeKey;
+                          return (
+                            <button
+                              key={typeKey}
+                              onMouseDown={(e) => { e.preventDefault(); saveNodeType(typeKey); setTypeDropdownOpen(false); }}
+                              className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs"
+                              style={{
+                                backgroundColor: isActive ? "rgba(255,255,255,0.08)" : "transparent",
+                                color: isActive ? "#fff" : "rgba(255,255,255,0.7)",
+                              }}
+                              onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                              onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = isActive ? "rgba(255,255,255,0.08)" : "transparent"; }}
+                            >
+                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
+                              <span className="flex-1">{cfg.label}</span>
+                              {isActive && <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>✓</span>}
+                            </button>
+                          );
+                        })}
+                        {/* Divider + add new type */}
+                        <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", margin: "4px 0" }} />
+                        <div className="px-3 py-1.5 flex items-center gap-1.5">
+                          <input
+                            ref={newTypeInputRef}
+                            type="text"
+                            value={newTypeInput}
+                            onChange={(e) => setNewTypeInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") { e.preventDefault(); if (newTypeInput.trim()) addWorkspaceType(newTypeInput); }
+                              if (e.key === "Escape") { setTypeDropdownOpen(false); setNewTypeInput(""); }
+                            }}
+                            placeholder="Add new type…"
+                            className="flex-1 bg-transparent outline-none text-xs"
+                            style={{ color: "rgba(255,255,255,0.6)", caretColor: "#60a5fa" }}
+                            spellCheck={false}
+                            autoFocus
+                          />
+                          {newTypeInput.trim() && (
+                            <button
+                              onMouseDown={(e) => { e.preventDefault(); addWorkspaceType(newTypeInput); }}
+                              className="text-xs px-1.5 py-0.5 rounded"
+                              style={{ backgroundColor: "rgba(96,165,250,0.2)", color: "#93c5fd" }}
+                            >Add</button>
+                          )}
                         </div>
                       </div>
                     )}
                   </div>
-                );
-              })()}
-            </div>
-            {/* Tags */}
-            {openNode && (
-              <div className="flex flex-wrap items-center gap-1.5 mb-1 min-h-[22px]">
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs"
-                    style={{ backgroundColor: "rgba(96,165,250,0.12)", color: "#93c5fd", border: "1px solid rgba(96,165,250,0.2)" }}
-                  >
-                    #{tag}
-                    <button
-                      onClick={() => removeTag(tag)}
-                      style={{ color: "rgba(147,197,253,0.5)", lineHeight: 1 }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = "#93c5fd")}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(147,197,253,0.5)")}
-                      title="Remove tag"
-                    ><X size={9} /></button>
-                  </span>
-                ))}
-                <input
-                  type="text"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(tagInput); }
-                    if (e.key === "Escape") setTagInput("");
-                  }}
-                  onBlur={() => { if (tagInput.trim()) addTag(tagInput); }}
-                  placeholder={tags.length === 0 ? "Add tag…" : "+"}
-                  className="bg-transparent outline-none text-xs"
-                  style={{ color: "rgba(255,255,255,0.4)", caretColor: "#60a5fa", width: tags.length === 0 ? 70 : 28, minWidth: 20 }}
-                  spellCheck={false}
-                />
-              </div>
-            )}
-            {/* Node type selector */}
-            {openNode && (() => {
-              const activeType = nodeTypeOverride ?? openNode.type;
-              const activeCfg = NODE_TYPE_CONFIG[activeType] || nodeTypeFallback;
-              return (
-              <div className="relative mb-1" ref={typeDropdownRef}>
-                <button
-                  onClick={() => { setTypeDropdownOpen((v) => !v); setNewTypeInput(""); }}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors"
-                  style={{
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    backgroundColor: typeDropdownOpen ? "rgba(255,255,255,0.08)" : "transparent",
-                    color: "rgba(255,255,255,0.5)",
-                  }}
-                  onMouseEnter={(e) => { if (!typeDropdownOpen) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"; }}
-                  onMouseLeave={(e) => { if (!typeDropdownOpen) e.currentTarget.style.backgroundColor = "transparent"; }}
-                >
-                  <span
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: activeCfg.color }}
-                  />
-                  <span>{activeCfg.label}</span>
-                  <ChevronDown size={10} style={{ opacity: 0.5, transform: typeDropdownOpen ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.15s" }} />
-                </button>
-
-                {typeDropdownOpen && (
-                  <div
-                    className="absolute z-50 rounded-lg overflow-hidden mt-1"
-                    style={{
-                      top: "100%", left: 0, minWidth: 160,
-                      backgroundColor: "rgba(20,20,32,0.98)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
-                    }}
-                  >
-                    {/* Existing types */}
-                    {Object.entries(NODE_TYPE_CONFIG).map(([typeKey, cfg]) => {
-                      const isActive = activeType === typeKey;
+                  );
+                })()}
+                {/* Duplicate / supplemental file indicator */}
+                {supplementalFiles.length > 0 && (
+                  <div className="text-xs mb-4 flex flex-col gap-0.5">
+                    {supplementalFiles.map((f) => {
+                      const parts = f.filename.split("/");
+                      const filename = parts.pop();
+                      const folder = parts.length > 0 ? parts.join("/") + "/" : "root/";
                       return (
                         <button
-                          key={typeKey}
-                          onMouseDown={(e) => { e.preventDefault(); saveNodeType(typeKey); setTypeDropdownOpen(false); }}
-                          className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs"
-                          style={{
-                            backgroundColor: isActive ? "rgba(255,255,255,0.08)" : "transparent",
-                            color: isActive ? "#fff" : "rgba(255,255,255,0.7)",
-                          }}
-                          onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
-                          onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = isActive ? "rgba(255,255,255,0.08)" : "transparent"; }}
+                          key={f.filename}
+                          onClick={() => openFileByName(f.filename)}
+                          className="text-left"
+                          style={{ color: "#fbbf24", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "#fde68a")}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = "#fbbf24")}
                         >
-                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
-                          <span className="flex-1">{cfg.label}</span>
-                          {isActive && <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>✓</span>}
+                          <span style={{ opacity: 0.6 }}>Also in: </span>
+                          <span className="underline underline-offset-2">{folder}</span>
+                          <span style={{ opacity: 0.6 }}> as </span>
+                          <span className="font-mono underline underline-offset-2">{filename}</span>
                         </button>
                       );
                     })}
-                    {/* Divider + add new type */}
-                    <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", margin: "4px 0" }} />
-                    <div className="px-3 py-1.5 flex items-center gap-1.5">
-                      <input
-                        ref={newTypeInputRef}
-                        type="text"
-                        value={newTypeInput}
-                        onChange={(e) => setNewTypeInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") { e.preventDefault(); if (newTypeInput.trim()) addWorkspaceType(newTypeInput); }
-                          if (e.key === "Escape") { setTypeDropdownOpen(false); setNewTypeInput(""); }
-                        }}
-                        placeholder="Add new type…"
-                        className="flex-1 bg-transparent outline-none text-xs"
-                        style={{ color: "rgba(255,255,255,0.6)", caretColor: "#60a5fa" }}
-                        spellCheck={false}
-                        autoFocus
-                      />
-                      {newTypeInput.trim() && (
-                        <button
-                          onMouseDown={(e) => { e.preventDefault(); addWorkspaceType(newTypeInput); }}
-                          className="text-xs px-1.5 py-0.5 rounded"
-                          style={{ backgroundColor: "rgba(96,165,250,0.2)", color: "#93c5fd" }}
-                        >Add</button>
-                      )}
-                    </div>
                   </div>
                 )}
-              </div>
-              );
-            })()}
-            {/* Duplicate / supplemental file indicator */}
-            {supplementalFiles.length > 0 && (
-              <div className="text-xs mb-4 flex flex-col gap-0.5">
-                {supplementalFiles.map((f) => {
-                  const parts = f.filename.split("/");
-                  const filename = parts.pop();
-                  const folder = parts.length > 0 ? parts.join("/") + "/" : "root/";
-                  return (
-                    <button
-                      key={f.filename}
-                      onClick={() => openFileByName(f.filename)}
-                      className="text-left"
-                      style={{ color: "#fbbf24", background: "none", border: "none", padding: 0, cursor: "pointer" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = "#fde68a")}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = "#fbbf24")}
-                    >
-                      <span style={{ opacity: 0.6 }}>Also in: </span>
-                      <span className="underline underline-offset-2">{folder}</span>
-                      <span style={{ opacity: 0.6 }}> as </span>
-                      <span className="font-mono underline underline-offset-2">{filename}</span>
-                    </button>
-                  );
-                })}
-              </div>
+                {supplementalFiles.length === 0 && <div className="mb-4" />}
+              </>
             )}
-            {supplementalFiles.length === 0 && <div className="mb-4" />}
             <div
               className="relative"
               onContextMenu={(e) => {
@@ -5746,6 +6556,99 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                 </div>
               );
             })()}
+            {connectionNotices.length > 0 && (
+              <div
+                className="fixed z-50"
+                style={{ right: 16, bottom: 16, display: "flex", flexDirection: "column-reverse", gap: 10, maxWidth: 360 }}
+              >
+                {connectionNotices.map((notice) => {
+                  const isConnectionNotice = notice.type === "connection-added";
+                  const isAliasNotice = notice.type === "alias-added" || notice.type === "alias-removed";
+                  const isOrphanedNotice = notice.type === "orphaned";
+                  const isNotOrphanedNotice = notice.type === "not-orphaned";
+                  
+                  const targetNode = isConnectionNotice ? (graphData.nodes.find((n) => n.id === notice.targetId) || null) : null;
+                  const targetCfg = targetNode ? (NODE_TYPE_CONFIG[targetNode.type] || nodeTypeFallback) : nodeTypeFallback;
+                  const isEntering = notice.phase === "entering";
+                  const isLeaving = notice.phase === "leaving";
+                  
+                  return (
+                    <div
+                      key={notice.id}
+                      style={{
+                        backgroundColor: isOrphanedNotice ? "rgba(217,119,6,0.12)" : "rgba(15,15,26,0.96)",
+                        border: isOrphanedNotice ? "1px solid rgba(217,119,6,0.28)" : "1px solid rgba(96,165,250,0.28)",
+                        borderRadius: 12,
+                        padding: "10px 12px",
+                        boxShadow: "0 14px 30px rgba(0,0,0,0.45)",
+                        opacity: isEntering ? 0 : isLeaving ? 0 : 1,
+                        transform: isEntering ? "translateY(12px) scale(0.96)" : isLeaving ? "translateY(10px) scale(0.98)" : "translateY(0) scale(1)",
+                        filter: isEntering ? "blur(2px)" : isLeaving ? "blur(1px)" : "blur(0px)",
+                        transition: "opacity 320ms cubic-bezier(0.22, 1, 0.36, 1), transform 320ms cubic-bezier(0.22, 1, 0.36, 1), filter 320ms cubic-bezier(0.22, 1, 0.36, 1)",
+                        willChange: "opacity, transform, filter",
+                      }}
+                    >
+                      {isConnectionNotice && (
+                        <p className="text-xs font-medium" style={{ color: "#bfdbfe", lineHeight: 1.5 }}>
+                          <span style={{ color: "rgba(255,255,255,0.88)" }}>Connection made from {notice.sourceName} to </span>
+                          <button
+                            type="button"
+                            onClick={() => openFileByName(notice.targetFilename)}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.color = targetCfg.color;
+                              if (targetNode) {
+                                setEntityTooltip({ node: targetNode, x: window.innerWidth - 220, y: window.innerHeight - 72 });
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.color = targetCfg.color;
+                              setEntityTooltip(null);
+                            }}
+                            style={{
+                              color: targetCfg.color,
+                              cursor: "pointer",
+                              textDecoration: "underline",
+                              textUnderlineOffset: "2px",
+                              textDecorationColor: `${targetCfg.color}55`,
+                              background: "none",
+                              border: "none",
+                              padding: 0,
+                              font: "inherit",
+                            }}
+                          >
+                            {notice.targetName}
+                          </button>
+                          <span style={{ color: "rgba(255,255,255,0.88)" }}>.</span>
+                        </p>
+                      )}
+                      {isAliasNotice && (
+                        <p className="text-xs font-medium" style={{ color: "#bfdbfe", lineHeight: 1.5 }}>
+                          <span style={{ color: "rgba(255,255,255,0.88)" }}>
+                            Alias {notice.type === "alias-added" ? "added" : "removed"} to {notice.sourceName}: 
+                          </span>
+                          <span style={{ color: "#93c5fd", fontWeight: 600 }}> "{notice.alias}"</span>
+                        </p>
+                      )}
+                      {isOrphanedNotice && (
+                        <p className="text-xs font-medium flex items-center gap-1.5" style={{ color: "#f59e0b", lineHeight: 1.5 }}>
+                          <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+                          <span style={{ color: "rgba(255,255,255,0.88)" }}>
+                            {notice.sourceName} is now orphaned
+                          </span>
+                        </p>
+                      )}
+                      {isNotOrphanedNotice && (
+                        <p className="text-xs font-medium" style={{ color: "#10b981", lineHeight: 1.5 }}>
+                          <span style={{ color: "rgba(255,255,255,0.88)" }}>
+                            {notice.sourceName} is no longer orphaned
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             {/* Word count + last edited */}
             {editor && (
               <p className="mt-6 text-xs" style={{ color: "rgba(255,255,255,0.18)" }}>
@@ -5770,7 +6673,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               </p>
             )}
             </div>{/* end left content column */}
-            {openNodeId && graphData.nodes.some((n) => n.id === openNodeId) && (
+            {!hotbarOnly && openNodeId && graphData.nodes.some((n) => n.id === openNodeId) && (
               <div style={{ width: 320, flexShrink: 0, borderRadius: 10, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", background: "#0f0f1a" }}>
                 <NodeMinimap
                   nodeId={openNodeId}
@@ -5784,90 +6687,94 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
             )}
             </div>{/* end flex row */}
 
-            {/* ── Aliases ──────────────────────────────────────────── */}
-            <div className="mt-8 pt-6" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-              <div className="flex items-center gap-2 mb-3">
-                <Tag size={11} style={{ color: "rgba(255,255,255,0.3)" }} />
-                <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
-                  Names &amp; Aliases
-                </h2>
-              </div>
-              {/* Primary name */}
-              {(() => {
-                const node = graphData.nodes.find((n) => n.id === openNodeId);
-                const cfg = NODE_TYPE_CONFIG[node?.type] || nodeTypeFallback;
-                return node ? (
+            {!hotbarOnly && (
+              <>
+                {/* ── Aliases ──────────────────────────────────────────── */}
+                <div className="mt-8 pt-6" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
                   <div className="flex items-center gap-2 mb-3">
-                    <span
-                      className="px-2 py-0.5 rounded-md text-xs font-semibold"
-                      style={{ backgroundColor: cfg.color + "22", color: cfg.color, border: `1px solid ${cfg.color}44` }}
-                    >
-                      {node.name}
-                    </span>
-                    <span className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>primary</span>
+                    <Tag size={11} style={{ color: "rgba(255,255,255,0.3)" }} />
+                    <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
+                      Names &amp; Aliases
+                    </h2>
                   </div>
-                ) : null;
-              })()}
-              {/* Alias chips */}
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {aliases.map((alias) => (
-                  <span
-                    key={alias}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs"
-                    style={{ backgroundColor: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.6)" }}
-                  >
-                    {alias}
+                  {/* Primary name */}
+                  {(() => {
+                    const node = graphData.nodes.find((n) => n.id === openNodeId);
+                    const cfg = NODE_TYPE_CONFIG[node?.type] || nodeTypeFallback;
+                    return node ? (
+                      <div className="flex items-center gap-2 mb-3">
+                        <span
+                          className="px-2 py-0.5 rounded-md text-xs font-semibold"
+                          style={{ backgroundColor: cfg.color + "22", color: cfg.color, border: `1px solid ${cfg.color}44` }}
+                        >
+                          {node.name}
+                        </span>
+                        <span className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>primary</span>
+                      </div>
+                    ) : null;
+                  })()}
+                  {/* Alias chips */}
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {aliases.map((alias) => (
+                      <span
+                        key={alias}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs"
+                        style={{ backgroundColor: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.6)" }}
+                      >
+                        {alias}
+                        <button
+                          onClick={() => removeAlias(alias)}
+                          className="ml-0.5 opacity-50 hover:opacity-100 transition-opacity"
+                          style={{ color: "rgba(255,255,255,0.6)" }}
+                          title="Remove alias"
+                        >
+                          <X size={10} />
+                        </button>
+                      </span>
+                    ))}
+                    {aliases.length === 0 && (
+                      <p className="text-xs" style={{ color: "rgba(255,255,255,0.18)" }}>No aliases yet</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      ref={aliasInputRef}
+                      type="text"
+                      placeholder="Add alias…"
+                      value={aliasInput}
+                      onChange={(e) => setAliasInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); addAlias(); }
+                        if (e.key === "Escape") setAliasInput("");
+                      }}
+                      className="flex-1 px-2 py-1 rounded-md text-xs outline-none bg-transparent"
+                      style={{
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        color: "rgba(255,255,255,0.75)",
+                        caretColor: "#60a5fa",
+                      }}
+                      spellCheck={false}
+                    />
                     <button
-                      onClick={() => removeAlias(alias)}
-                      className="ml-0.5 opacity-50 hover:opacity-100 transition-opacity"
-                      style={{ color: "rgba(255,255,255,0.6)" }}
-                      title="Remove alias"
+                      onClick={addAlias}
+                      disabled={!aliasInput.trim()}
+                      className="px-2 py-1 rounded-md text-xs transition-colors"
+                      style={{
+                        backgroundColor: aliasInput.trim() ? "rgba(96,165,250,0.15)" : "rgba(255,255,255,0.05)",
+                        color: aliasInput.trim() ? "#93c5fd" : "rgba(255,255,255,0.2)",
+                        cursor: aliasInput.trim() ? "pointer" : "not-allowed",
+                      }}
                     >
-                      <X size={10} />
+                      Add
                     </button>
-                  </span>
-                ))}
-                {aliases.length === 0 && (
-                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.18)" }}>No aliases yet</p>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5">
-                <input
-                  ref={aliasInputRef}
-                  type="text"
-                  placeholder="Add alias…"
-                  value={aliasInput}
-                  onChange={(e) => setAliasInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") { e.preventDefault(); addAlias(); }
-                    if (e.key === "Escape") setAliasInput("");
-                  }}
-                  className="flex-1 px-2 py-1 rounded-md text-xs outline-none bg-transparent"
-                  style={{
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    color: "rgba(255,255,255,0.75)",
-                    caretColor: "#60a5fa",
-                  }}
-                  spellCheck={false}
-                />
-                <button
-                  onClick={addAlias}
-                  disabled={!aliasInput.trim()}
-                  className="px-2 py-1 rounded-md text-xs transition-colors"
-                  style={{
-                    backgroundColor: aliasInput.trim() ? "rgba(96,165,250,0.15)" : "rgba(255,255,255,0.05)",
-                    color: aliasInput.trim() ? "#93c5fd" : "rgba(255,255,255,0.2)",
-                    cursor: aliasInput.trim() ? "pointer" : "not-allowed",
-                  }}
-                >
-                  Add
-                </button>
-              </div>
-              <p className="text-xs mt-1.5" style={{ color: "rgba(255,255,255,0.2)" }}>Enter to add · click × to remove</p>
-            </div>
+                  </div>
+                  <p className="text-xs mt-1.5" style={{ color: "rgba(255,255,255,0.2)" }}>Enter to add · click × to remove</p>
+                </div>
+              </>
+            )}
 
             {/* ── Merge node ───────────────────────────────────────── */}
-            {openNode && (
+            {!hotbarOnly && openNode && (
               <div className="mt-5">
                 <button
                   onClick={openMergeModal}
@@ -5905,15 +6812,8 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                   }}
                 >
                   {bibliography.map((entity, i) => {
-                    // Use entity.nodeId (set by mentionableEntities) for reliable node lookup,
-                    // falling back to the old stem-from-filename derivation for legacy entries.
-                    const node = entity.nodeId
-                      ? graphData.nodes.find((n) => n.id === entity.nodeId)
-                      : graphData.nodes.find((n) => {
-                          const nid = entity.filename.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
-                          return n.id === nid;
-                        });
-                    const cfg = NODE_TYPE_CONFIG[node?.type] || nodeTypeFallback;
+                    // entity.nodeType was pre-computed by the bibliography memo (O(1) map lookup)
+                    const cfg = NODE_TYPE_CONFIG[entity.nodeType] || nodeTypeFallback;
                     const isMutual = mutualFilenames.has(entity.filename);
                     const bibFolderParts = entity.filename.split("/");
                     const bibFolderLabel = bibFolderParts.length > 1 ? bibFolderParts.slice(0, -1).join("/") : null;

@@ -1,0 +1,13 @@
+{
+  "id": "new_york",
+  "name": "New York",
+  "type": "character",
+  "excerpt": "",
+  "notes": "",
+  "aliases": [],
+  "connections": [],
+  "originSourceFile": "chapter_1/New+York.md",
+  "sourceFile": "chapter_1/New+York.md",
+  "createdAt": 1777349536721,
+  "updatedAt": 1777349551778
+}

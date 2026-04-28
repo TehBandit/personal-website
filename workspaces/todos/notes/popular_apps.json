@@ -1,0 +1,18 @@
+{
+  "id": "popular_apps",
+  "name": "popular apps",
+  "type": "entity",
+  "excerpt": "",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "oneyear",
+      "label": "references"
+    }
+  ],
+  "originSourceFile": "popular+apps.md",
+  "sourceFile": "popular+apps.md",
+  "createdAt": 1777256230621,
+  "updatedAt": 1777256263981
+}

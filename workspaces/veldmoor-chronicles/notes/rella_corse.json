@@ -8,22 +8,18 @@
   "connections": [
     {
       "target": "admiralty",
-      "label": "former navigator"
-    },
-    {
-      "target": "tide_compact",
-      "label": "logistics manager"
-    },
-    {
-      "target": "14th_lowland",
-      "label": "current residence near"
-    },
-    {
-      "target": "bokuto",
       "label": "references"
     },
     {
-      "target": "akaashi",
+      "target": "tide_compact",
+      "label": "references"
+    },
+    {
+      "target": "14th_lowland",
+      "label": "references"
+    },
+    {
+      "target": "bokuto",
       "label": "references"
     }
   ],
@@ -33,5 +29,5 @@
     "new",
     "thing"
   ],
-  "updatedAt": 1777064778917
+  "updatedAt": 1777254689941
 }

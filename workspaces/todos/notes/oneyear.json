@@ -5,9 +5,14 @@
   "excerpt": "",
   "notes": "",
   "aliases": [],
-  "connections": [],
+  "connections": [
+    {
+      "target": "popular_apps",
+      "label": "references"
+    }
+  ],
   "originSourceFile": "oneyear.md",
   "sourceFile": "oneyear.md",
   "createdAt": 1777130627214,
-  "updatedAt": 1777130631756
+  "updatedAt": 1777256262989
 }

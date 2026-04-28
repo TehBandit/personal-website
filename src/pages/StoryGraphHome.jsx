@@ -1,8 +1,22 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Network, FileText, Clock, Flame, Link2, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { Network, FileText, Clock, Flame, Link2, TrendingUp } from "lucide-react";
 import Header from "../components/Header.jsx";
+import CalendarHeatmap from "../components/CalendarHeatmap.jsx";
+import { requestJson } from "../utils/storygraphApi.js";
+import {
+  JOURNAL_ENTRY_DIR,
+  JOURNAL_FILE_PATH,
+  JOURNAL_WORKSPACE_NAME,
+  JOURNAL_WORKSPACE_SLUG,
+  buildJournalEntryTitle,
+  extractDateFromJournalFilename,
+  formatJournalDateKey,
+  getJournalEntryByDate,
+  parseJournalEntryFileContent,
+  serializeJournalEntryFileContent,
+} from "../utils/journal.js";
 
 const BG        = "#0f0f1a";
 const CARD_BG   = "#161624";
@@ -11,6 +25,8 @@ const MUTED     = "rgba(255,255,255,0.35)";
 const TEXT      = "rgba(255,255,255,0.88)";
 const PREVIEW_LIMIT = 300;
 const CACHE_TTL     = 60_000; // 60 s
+const JOURNAL_AUTOSAVE_MS = 900;
+const TOP_ROW_PANEL_MIN_HEIGHT = 280;
 
 function startOfDay(ts) {
   const d = new Date(ts);
@@ -18,126 +34,17 @@ function startOfDay(ts) {
   return d.getTime();
 }
 
-function computeStreak(timestamps) {
-  const daysSet = new Set(timestamps.map(startOfDay));
-  if (!daysSet.size) return { current: 0, longest: 0 };
-  const sorted = [...daysSet].sort((a, b) => a - b);
-  let longest = 1, run = 1;
-  for (let i = 1; i < sorted.length; i++) {
-    run = sorted[i] - sorted[i - 1] === 86400000 ? run + 1 : 1;
-    if (run > longest) longest = run;
-  }
-  const today = startOfDay(Date.now());
-  let cur = 0, check = daysSet.has(today) ? today : today - 86400000;
-  while (daysSet.has(check)) { cur++; check -= 86400000; }
-  return { current: cur, longest };
-}
-
-const HEAT_LEVELS = [
-  "rgba(255,255,255,0.06)",
-  "rgba(96,165,250,0.28)",
-  "rgba(96,165,250,0.55)",
-  "rgba(96,165,250,0.78)",
-  "#60a5fa",
-];
-function heatColor(count) {
-  if (!count) return HEAT_LEVELS[0];
-  if (count === 1) return HEAT_LEVELS[1];
-  if (count <= 3) return HEAT_LEVELS[2];
-  if (count <= 6) return HEAT_LEVELS[3];
-  return HEAT_LEVELS[4];
-}
-
 // Module-level cache — survives SPA navigation, cleared on demand
 const _cache = { data: null, fetchedAt: 0 };
 export function invalidateHomeCache() { _cache.fetchedAt = 0; }
 
 async function fetchHomeData() {
-  const wsRes  = await fetch("/api/workspaces");
-  const wsJson = await wsRes.json();
-  const workspaces = wsJson.workspaces || [];
-
-  // For each workspace fetch the file list (mtimes) and graph cache (previews) in
-  // parallel — two requests per workspace instead of N+1 file-content fetches.
-  const wsData = await Promise.all(
-    workspaces.map(async (ws) => {
-      const [files, graphJson] = await Promise.all([
-        fetch(`/api/notes-raw-list?workspace=${encodeURIComponent(ws.slug)}`)
-          .then((r) => r.json())
-          .then((d) => d.files || [])
-          .catch(() => []),
-        fetch(`/api/story-notes?workspace=${encodeURIComponent(ws.slug)}&summary=1`)
-          .then((r) => r.ok ? r.json() : { nodes: [] })
-          .catch(() => ({ nodes: [] })),
-      ]);
-
-      // Build filename → filePreview map from the graph cache.
-      // Only nodes that own a dedicated raw file carry filePreview; others are skipped.
-      const previewMap = new Map();
-      const activityTimestamps = [];
-      const wsCreatedTimestamps = [];
-      let wsNodeCount = 0;
-      let wsLinkCount = (graphJson.links || []).length;
-      let wsNodesThisWeek = 0;
-      let wsEditsThisWeek = 0;
-      const weekAgo = Date.now() - 7 * 86400000;
-      for (const node of (graphJson.nodes || [])) {
-        wsNodeCount++;
-        const ts = Math.max(node.createdAt || 0, node.updatedAt || 0);
-        if (ts) activityTimestamps.push(ts);
-        if (node.createdAt) wsCreatedTimestamps.push(node.createdAt);
-        if (node.createdAt && node.createdAt >= weekAgo) wsNodesThisWeek++;
-        else if (node.updatedAt && node.updatedAt >= weekAgo) wsEditsThisWeek++;
-        if (node.filePreview === undefined) continue;
-        if (node.sourceFile && !previewMap.has(node.sourceFile))
-          previewMap.set(node.sourceFile, node.filePreview);
-        for (const sf of (node.additionalSourceFiles || []))
-          if (!previewMap.has(sf)) previewMap.set(sf, node.filePreview);
-      }
-
-      const wsFilesThisWeek = files.filter((f) => f.mtime >= weekAgo).length;
-      return { ws, files, previewMap, activityTimestamps, wsCreatedTimestamps, wsNodeCount, wsLinkCount, wsNodesThisWeek, wsEditsThisWeek, wsFilesThisWeek };
-    })
-  );
-
-  // Aggregate stats across all workspaces
-  const allTimestamps = wsData.flatMap((d) => d.activityTimestamps);
-  const totalNodes = wsData.reduce((s, d) => s + d.wsNodeCount, 0);
-  const totalLinks = wsData.reduce((s, d) => s + d.wsLinkCount, 0);
-  const totalFiles = wsData.reduce((s, d) => s + d.files.length, 0);
-  const streak = computeStreak(allTimestamps);
-  const weeklyNodesAdded = wsData.reduce((s, d) => s + d.wsNodesThisWeek, 0);
-  const weeklyEdits = wsData.reduce((s, d) => s + d.wsEditsThisWeek, 0);
-  const weeklyFilesModified = wsData.reduce((s, d) => s + d.wsFilesThisWeek, 0);
-  const weekly = { nodesAdded: weeklyNodesAdded, edits: weeklyEdits, filesModified: weeklyFilesModified };
-
-  // Build createdAt day map across all workspaces (plain object for serialisability)
-  const createdAtMap = {};
-  for (const ts of wsData.flatMap((d) => d.wsCreatedTimestamps)) {
-    const day = startOfDay(ts);
-    createdAtMap[day] = (createdAtMap[day] || 0) + 1;
-  }
-
-  const stats = { totalNodes, totalLinks, totalFiles, streak, weekly, createdAtMap };
-
-  // Flatten, sort by mtime, take top 12
-  const top = wsData
-    .flatMap(({ ws, files, previewMap }) =>
-      files.map((f) => ({ wsSlug: ws.slug, wsName: ws.name, ...f, previewMap }))
-    )
-    .sort((a, b) => b.mtime - a.mtime)
-    .slice(0, 12);
-
-  // Resolve previews from cache — no per-doc network requests
-  const docs = top.map(({ wsSlug, wsName, filename, mtime, previewMap }) => {
-    const raw = previewMap.get(filename);
-    const preview = raw !== undefined
-      ? (raw.length > PREVIEW_LIMIT ? raw.slice(0, PREVIEW_LIMIT).trimEnd() + "…" : raw)
-      : "";
-    return { wsSlug, wsName, filename, mtime, preview };
-  });
-
-  return { workspaces, docs, stats };
+  const data = await requestJson("/api/storygraph-home");
+  return {
+    workspaces: Array.isArray(data?.workspaces) ? data.workspaces : [],
+    docs: Array.isArray(data?.docs) ? data.docs : [],
+    stats: data?.stats ?? null,
+  };
 }
 
 function timeAgo(ms) {
@@ -165,117 +72,13 @@ function pathLabel(wsName, filename) {
   return dir ? `${wsName}/${dir}` : wsName;
 }
 
-// ── Compact calendar heatmap (inline with stats strip) ────────────────────
-const MONTH_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-const DOW_SHORT  = ["S","M","T","W","T","F","S"];
-const CELL = 20; // px per day cell
-const CELL_GAP = 3;
-
-function CalendarHeatmap({ createdAtMap }) {
-  const today   = new Date();
-  const curYear = today.getFullYear();
-  const [month, setMonth] = useState(today.getMonth());
-  const [hover, setHover] = useState(null);
-
-  const todayTs   = startOfDay(today.getTime());
-  const firstDow  = new Date(curYear, month, 1).getDay();
-  const totalDays = new Date(curYear, month + 1, 0).getDate();
-
-  const cells = [];
-  for (let i = 0; i < firstDow; i++) cells.push(null);
-  for (let d = 1; d <= totalDays; d++) {
-    const ts       = startOfDay(new Date(curYear, month, d).getTime());
-    const isFuture = ts > todayTs;
-    const count    = isFuture ? 0 : (createdAtMap?.[ts] || 0);
-    cells.push({ day: d, ts, count, isFuture });
-  }
-
-  const gridWidth = 7 * CELL + 6 * CELL_GAP;
-
-  return (
-    <div
-      style={{
-        backgroundColor: CARD_BG,
-        border: `1px solid ${BORDER}`,
-        borderRadius: 12,
-        padding: "12px 14px",
-        flexShrink: 0,
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
-      }}
-    >
-      {/* Month nav */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: gridWidth }}>
-        <button
-          onClick={() => setMonth((m) => (m === 0 ? 11 : m - 1))}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", padding: "0 2px", display: "flex", alignItems: "center" }}
-        ><ChevronLeft size={13} /></button>
-        <span style={{ fontSize: 11, fontWeight: 600, color: TEXT, textAlign: "center", flex: 1, letterSpacing: "0.02em" }}>
-          {MONTH_FULL[month]} {curYear}
-        </span>
-        <button
-          onClick={() => setMonth((m) => (m === 11 ? 0 : m + 1))}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", padding: "0 2px", display: "flex", alignItems: "center" }}
-        ><ChevronRight size={13} /></button>
-      </div>
-
-      {/* Day-of-week headers */}
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(7, ${CELL}px)`, gap: CELL_GAP }}>
-        {DOW_SHORT.map((d, i) => (
-          <div key={i} style={{ width: CELL, textAlign: "center", fontSize: 9, color: "rgba(255,255,255,0.22)", userSelect: "none", fontWeight: 600 }}>{d}</div>
-        ))}
-      </div>
-
-      {/* Day cells */}
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(7, ${CELL}px)`, gap: CELL_GAP }}>
-        {cells.map((cell, i) => {
-          if (!cell) return <div key={`e-${i}`} style={{ width: CELL, height: CELL }} />;
-          const isToday   = cell.ts === todayTs;
-          const dateLabel = new Date(curYear, month, cell.day).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
-          return (
-            <div
-              key={cell.ts}
-              style={{
-                width: CELL, height: CELL, borderRadius: 3,
-                backgroundColor: cell.isFuture ? "rgba(255,255,255,0.03)" : heatColor(cell.count),
-                border: isToday ? "1px solid rgba(96,165,250,0.7)" : "1px solid transparent",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 9,
-                fontWeight: isToday ? 700 : 400,
-                color: cell.isFuture
-                  ? "rgba(255,255,255,0.12)"
-                  : cell.count > 2
-                  ? "rgba(255,255,255,0.9)"
-                  : "rgba(255,255,255,0.38)",
-                userSelect: "none",
-                cursor: "default",
-              }}
-              onMouseEnter={(e) => {
-                if (cell.isFuture) return;
-                setHover({
-                  label: cell.count
-                    ? `${cell.count} node${cell.count !== 1 ? "s" : ""} added on ${dateLabel}`
-                    : `No nodes on ${dateLabel}`,
-                  x: e.clientX, y: e.clientY,
-                });
-              }}
-              onMouseLeave={() => setHover(null)}
-            >
-              {cell.day}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Hover tooltip */}
-      {hover && (
-        <div style={{ position: "fixed", left: hover.x + 12, top: hover.y - 36, backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "5px 10px", fontSize: 12, color: "#fff", pointerEvents: "none", zIndex: 9999, whiteSpace: "nowrap" }}>
-          {hover.label}
-        </div>
-      )}
-    </div>
-  );
+function formatJournalHeadingDate(dateInput = new Date()) {
+  return new Date(dateInput).toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 export default function StoryGraphHome() {
@@ -284,13 +87,23 @@ export default function StoryGraphHome() {
   const [recentDocs, setRecentDocs] = useState(_cache.data?.docs ?? []);
   const [stats, setStats] = useState(_cache.data?.stats ?? null);
   const [loadingDocs, setLoadingDocs] = useState(!_cache.data);
+  const [journalWorkspaceReady, setJournalWorkspaceReady] = useState(false);
+  const [todayJournalFilename, setTodayJournalFilename] = useState("");
+  const [journalText, setJournalText] = useState("");
+  const [journalLoading, setJournalLoading] = useState(false);
+  const [journalSaving, setJournalSaving] = useState(false);
+  const [journalError, setJournalError] = useState("");
+  const [journalSavedAt, setJournalSavedAt] = useState(0);
+  const journalHydratedRef = useRef(false);
+  const journalLastSavedTextRef = useRef("");
+  const journalAutosaveTimerRef = useRef(null);
   const mounted = useRef(true);
 
   useEffect(() => {
     mounted.current = true;
     const age = Date.now() - _cache.fetchedAt;
-    // Re-fetch if stale OR if cache is missing createdAtMap (old format)
-    if (_cache.data && age < CACHE_TTL && _cache.data.stats?.createdAtMap) return;
+    // Re-fetch if stale OR if cache is missing calendar maps (old format)
+    if (_cache.data && age < CACHE_TTL && _cache.data.stats?.createdAtMap && _cache.data.stats?.journalEntryMap) return;
 
     setLoadingDocs(true);
     fetchHomeData()
@@ -308,10 +121,245 @@ export default function StoryGraphHome() {
     return () => { mounted.current = false; };
   }, []);
 
+  const ensureJournalWorkspace = useCallback(async () => {
+    try {
+      const existing = await requestJson("/api/workspaces", {
+        query: { includeHidden: "1" },
+      }).catch(() => null);
+      const found = Array.isArray(existing?.workspaces)
+        && existing.workspaces.some((ws) => ws?.slug === JOURNAL_WORKSPACE_SLUG);
+      if (found) return true;
+
+      await requestJson("/api/workspaces", {
+        method: "POST",
+        body: {
+          name: JOURNAL_WORKSPACE_NAME,
+          desiredSlug: JOURNAL_WORKSPACE_SLUG,
+          preset: "journaling",
+          hidden: true,
+        },
+      });
+      return true;
+    } catch (err) {
+      const alreadyExists = String(err?.message || "").includes("already exists");
+      return alreadyExists;
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    ensureJournalWorkspace().then((ok) => {
+      if (!active) return;
+      setJournalWorkspaceReady(ok);
+      if (!ok) setJournalError("Unable to initialize private journal workspace.");
+    });
+    return () => {
+      active = false;
+    };
+  }, [ensureJournalWorkspace]);
+
+  // Fast path: load today's entry directly from a dedicated endpoint.
+  // This avoids the full notes-raw-list scan on hard refresh when today's file exists.
+  useEffect(() => {
+    let active = true;
+    const todayKey = formatJournalDateKey();
+
+    setJournalLoading(true);
+    setJournalError("");
+    setJournalSavedAt(0);
+
+    requestJson("/api/journal-today", {
+      query: { workspace: JOURNAL_WORKSPACE_SLUG, date: todayKey },
+    })
+      .then((data) => {
+        if (!active) return;
+        if (!data?.found) return;
+
+        const filename = String(data?.filename || "");
+        const raw = String(data?.content || "");
+        const parsed = parseJournalEntryFileContent(raw, todayKey, filename);
+        const loadedText = parsed.content || "";
+
+        setTodayJournalFilename(filename);
+        setJournalText(loadedText);
+        journalLastSavedTextRef.current = loadedText;
+        journalHydratedRef.current = true;
+        setJournalLoading(false);
+      })
+      .catch(() => {
+        // Non-fatal: legacy/list fallback below will still hydrate.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!journalWorkspaceReady) return;
+    if (journalHydratedRef.current) {
+      setJournalLoading(false);
+      return;
+    }
+    let active = true;
+    const todayKey = formatJournalDateKey();
+
+    setJournalLoading(true);
+    setJournalError("");
+    setJournalSavedAt(0);
+
+    (async () => {
+      try {
+        const list = await requestJson("/api/notes-raw-list", {
+          query: { workspace: JOURNAL_WORKSPACE_SLUG },
+        }).catch(() => ({ files: [] }));
+
+        const files = Array.isArray(list?.files) ? list.files : [];
+        const todaysFiles = files
+          .filter((file) => {
+            const filename = String(file?.filename || "");
+            if (!filename.startsWith(`${JOURNAL_ENTRY_DIR}/`)) return false;
+            if (!/\.(md|txt)$/i.test(filename)) return false;
+            return extractDateFromJournalFilename(filename) === todayKey;
+          })
+          .sort((a, b) => Number(b?.mtime || 0) - Number(a?.mtime || 0));
+
+        if (todaysFiles.length > 0) {
+          const filename = String(todaysFiles[0]?.filename || "");
+          const data = await requestJson("/api/notes-raw-file", {
+            query: { workspace: JOURNAL_WORKSPACE_SLUG, filename },
+          });
+          if (!active) return;
+          const raw = String(data?.content || "");
+          const parsed = parseJournalEntryFileContent(raw, todayKey, filename);
+          const loadedText = parsed.content || "";
+          setTodayJournalFilename(filename);
+          setJournalText(loadedText);
+          journalLastSavedTextRef.current = loadedText;
+          journalHydratedRef.current = true;
+          setJournalLoading(false);
+          return;
+        }
+
+        // Legacy fallback: read aggregate journal file and migrate today's entry
+        // into a per-day file so all screens stay aligned on the same source of truth.
+        // Avoid a guaranteed 404 by checking whether the legacy file exists first.
+        const hasLegacyJournalFile = files.some((f) => String(f?.filename || "") === JOURNAL_FILE_PATH);
+        const legacy = hasLegacyJournalFile
+          ? await requestJson("/api/notes-raw-file", {
+              query: { workspace: JOURNAL_WORKSPACE_SLUG, filename: JOURNAL_FILE_PATH },
+            }).catch(() => null)
+          : null;
+        const legacyRaw = String(legacy?.content || "");
+        const todayEntry = legacy ? getJournalEntryByDate(legacyRaw, todayKey) : null;
+        const loadedText = todayEntry?.content || "";
+
+        if (todayEntry) {
+          const filename = `${JOURNAL_ENTRY_DIR}/journal-entry-${todayKey}.md`;
+          const content = serializeJournalEntryFileContent(todayKey, loadedText);
+          await requestJson("/api/notes-raw-file", {
+            method: "POST",
+            query: { workspace: JOURNAL_WORKSPACE_SLUG, filename },
+            body: { content, name: buildJournalEntryTitle(todayKey) },
+          }).catch(async (err) => {
+            const alreadyExists = String(err?.message || "").includes("already exists");
+            if (!alreadyExists) throw err;
+            await requestJson("/api/notes-raw-file", {
+              method: "PUT",
+              query: { workspace: JOURNAL_WORKSPACE_SLUG, filename },
+              body: { content },
+            });
+          });
+          if (!active) return;
+          setTodayJournalFilename(filename);
+        } else {
+          if (!active) return;
+          setTodayJournalFilename("");
+        }
+
+        if (!active) return;
+        setJournalText(loadedText);
+        journalLastSavedTextRef.current = loadedText;
+        journalHydratedRef.current = true;
+        setJournalLoading(false);
+      } catch {
+        if (!active) return;
+        setJournalError("Unable to load journal entry.");
+        setJournalLoading(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [journalWorkspaceReady]);
+
+  const saveTodayJournalEntry = useCallback(async (nextText = journalText) => {
+    if (!journalWorkspaceReady) return;
+
+    const ready = await ensureJournalWorkspace();
+    if (!ready) {
+      setJournalError("Unable to initialize private journal workspace.");
+      return;
+    }
+
+    const todayKey = formatJournalDateKey();
+    const filename = todayJournalFilename || `${JOURNAL_ENTRY_DIR}/journal-entry-${todayKey}.md`;
+    const nextContent = serializeJournalEntryFileContent(todayKey, nextText);
+
+    setJournalSaving(true);
+    setJournalError("");
+    setJournalSavedAt(0);
+    try {
+      if (todayJournalFilename) {
+        await requestJson("/api/notes-raw-file", {
+          method: "PUT",
+          query: { workspace: JOURNAL_WORKSPACE_SLUG, filename },
+          body: { content: nextContent },
+        });
+      } else {
+        await requestJson("/api/notes-raw-file", {
+          method: "POST",
+          query: { workspace: JOURNAL_WORKSPACE_SLUG, filename },
+          body: { content: nextContent, name: buildJournalEntryTitle(todayKey) },
+        });
+      }
+      invalidateHomeCache();
+      setTodayJournalFilename(filename);
+      journalLastSavedTextRef.current = nextText;
+      setJournalSavedAt(Date.now());
+    } catch {
+      setJournalError("Unable to save journal entry.");
+    } finally {
+      setJournalSaving(false);
+    }
+  }, [journalWorkspaceReady, todayJournalFilename, journalText, ensureJournalWorkspace]);
+
+  useEffect(() => {
+    if (!journalWorkspaceReady || journalLoading || !journalHydratedRef.current) return;
+    if (journalSaving) return;
+    if (journalText === journalLastSavedTextRef.current) return;
+
+    if (journalAutosaveTimerRef.current) clearTimeout(journalAutosaveTimerRef.current);
+    journalAutosaveTimerRef.current = setTimeout(() => {
+      saveTodayJournalEntry(journalText);
+    }, JOURNAL_AUTOSAVE_MS);
+
+    return () => {
+      if (journalAutosaveTimerRef.current) clearTimeout(journalAutosaveTimerRef.current);
+    };
+  }, [journalWorkspaceReady, journalLoading, journalSaving, journalText, saveTodayJournalEntry]);
+
   const openWorkspace = (slug) => navigate(`/storygraph/graph?workspace=${encodeURIComponent(slug)}`);
   const openDoc = (wsSlug, filename) => navigate(
     `/storygraph/graph?workspace=${encodeURIComponent(wsSlug)}&file=${encodeURIComponent(filename)}`
   );
+  const openJournalPage = () => {
+    navigate("/storygraph/journal");
+  };
+  const openJournalPageForDate = useCallback((dateKey) => {
+    navigate(`/storygraph/journal?date=${encodeURIComponent(dateKey)}`);
+  }, [navigate]);
 
   return (
     <div className="dark-scroll min-h-screen flex flex-col" style={{ backgroundColor: BG, color: TEXT }}>
@@ -336,19 +384,23 @@ export default function StoryGraphHome() {
 
         {/* Stats strip + inline calendar */}
         {stats && (
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 40 }}>
-            {/* Left: 2×2 stat grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, flexShrink: 0 }}>
-              {/* Streak */}
-              <div
-                style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}
-              >
+          <div className="grid grid-cols-1 xl:grid-cols-12" style={{ gap: 22, marginBottom: 40, alignItems: "stretch" }}>
+            <div className="xl:col-span-3" style={{ minHeight: TOP_ROW_PANEL_MIN_HEIGHT, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, alignContent: "start" }}>
+                <div
+                  style={{
+                    padding: "6px 0",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 10,
+                    minHeight: 76,
+                  }}
+                >
                 <Flame size={18} style={{ color: stats.streak.current > 0 ? "#fb923c" : "rgba(255,255,255,0.2)", flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 18, fontWeight: 700, lineHeight: 1, color: stats.streak.current > 0 ? "#fb923c" : "rgba(255,255,255,0.25)" }}>
                     {stats.streak.current > 0 ? `${stats.streak.current}d` : "—"}
                   </p>
-                  <p style={{ fontSize: 11, marginTop: 3, color: MUTED }}>Writing streak</p>
+                  <p style={{ fontSize: 11, marginTop: 4, color: MUTED }}>Writing streak</p>
                   {stats.streak.longest > 0 && (
                     <p style={{ fontSize: 10, color: "rgba(255,255,255,0.18)" }}>Best: {stats.streak.longest}d</p>
                   )}
@@ -391,44 +443,175 @@ export default function StoryGraphHome() {
                     );
                   })()}
                 </div>
-              </div>
+                </div>
 
-              {/* Nodes */}
-              <div
-                style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}
-              >
+                <div
+                  style={{
+                    padding: "6px 0",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 10,
+                    minHeight: 76,
+                  }}
+                >
                 <Network size={18} style={{ color: "#60a5fa", flexShrink: 0 }} />
                 <div>
                   <p style={{ fontSize: 18, fontWeight: 700, lineHeight: 1, color: "#60a5fa" }}>{stats.totalNodes.toLocaleString()}</p>
                   <p style={{ fontSize: 11, marginTop: 3, color: MUTED }}>Total nodes</p>
                 </div>
-              </div>
+                </div>
 
-              {/* Connections */}
-              <div
-                style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}
-              >
+                <div
+                  style={{
+                    padding: "6px 0",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 10,
+                    minHeight: 76,
+                  }}
+                >
                 <Link2 size={18} style={{ color: "#a78bfa", flexShrink: 0 }} />
                 <div>
                   <p style={{ fontSize: 18, fontWeight: 700, lineHeight: 1, color: "#a78bfa" }}>{stats.totalLinks.toLocaleString()}</p>
                   <p style={{ fontSize: 11, marginTop: 3, color: MUTED }}>Connections</p>
                 </div>
-              </div>
+                </div>
 
-              {/* Files */}
-              <div
-                style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}
-              >
+                <div
+                  style={{
+                    padding: "6px 0",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 10,
+                    minHeight: 76,
+                  }}
+                >
                 <FileText size={18} style={{ color: "#34d399", flexShrink: 0 }} />
                 <div>
                   <p style={{ fontSize: 18, fontWeight: 700, lineHeight: 1, color: "#34d399" }}>{stats.totalFiles.toLocaleString()}</p>
                   <p style={{ fontSize: 11, marginTop: 3, color: MUTED }}>Files</p>
                 </div>
-              </div>
+                </div>
             </div>
 
-            {/* Right: compact calendar */}
-            <CalendarHeatmap createdAtMap={stats.createdAtMap} />
+            <div className="xl:col-span-3" style={{ minHeight: TOP_ROW_PANEL_MIN_HEIGHT, display: "flex", alignItems: "flex-start" }}>
+              <CalendarHeatmap
+                createdAtMap={stats.createdAtMap}
+                journalEntryMap={stats.journalEntryMap}
+                onJournalDayClick={openJournalPageForDate}
+              />
+            </div>
+
+            <div className="xl:col-span-6">
+              <div
+                style={{
+                  minHeight: TOP_ROW_PANEL_MIN_HEIGHT,
+                  padding: "6px 0",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 14,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <button
+                      onClick={openJournalPage}
+                      disabled={!journalWorkspaceReady}
+                      className="text-left"
+                      style={{
+                        fontSize: 24,
+                        fontWeight: 600,
+                        lineHeight: 1.15,
+                        color: "rgba(255,255,255,0.94)",
+                        letterSpacing: "-0.02em",
+                        cursor: journalWorkspaceReady ? "pointer" : "default",
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                      }}
+                    >
+                      <span>Journal Entry - </span>
+                      <span style={{ fontStyle: "italic" }}>{formatJournalHeadingDate()}</span>
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={openJournalPage}
+                    disabled={!journalWorkspaceReady}
+                    className="text-xs"
+                    style={{
+                      color: "rgba(255,255,255,0.48)",
+                      backgroundColor: "transparent",
+                      border: "none",
+                      padding: "4px 0",
+                      cursor: journalWorkspaceReady ? "pointer" : "default",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Open Journal Page
+                  </button>
+                </div>
+
+                <div style={{ height: 1, backgroundColor: "rgba(255,255,255,0.12)" }} />
+
+                <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
+                  {!journalLoading && !journalText.trim() && (
+                    <p
+                      style={{
+                        position: "absolute",
+                        top: 2,
+                        left: 0,
+                        right: 0,
+                        margin: 0,
+                        color: "rgba(255,255,255,0.3)",
+                        fontSize: 15,
+                        lineHeight: 1.7,
+                        fontStyle: "italic",
+                        pointerEvents: "none",
+                      }}
+                    >
+                      No journal entry yet for today. Add one now...
+                    </p>
+                  )}
+                  <textarea
+                    value={journalText}
+                    onChange={(e) => setJournalText(e.target.value)}
+                    disabled={journalLoading || !journalWorkspaceReady}
+                    spellCheck={false}
+                    style={{
+                      width: "100%",
+                      minHeight: 168,
+                      maxHeight: 204,
+                      overflowY: "auto",
+                      resize: "none",
+                      backgroundColor: "transparent",
+                      border: "none",
+                      padding: "0 0 6px",
+                      color: "rgba(255,255,255,0.92)",
+                      fontSize: 15,
+                      lineHeight: 1.7,
+                      outline: "none",
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ marginLeft: "auto", fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+                    {journalLoading
+                      ? "Loading..."
+                      : journalSaving
+                      ? "Autosaving..."
+                      : journalSavedAt
+                      ? `Saved ${timeAgo(journalSavedAt)}`
+                      : ""}
+                  </span>
+                </div>
+
+                {journalError && (
+                  <p style={{ fontSize: 11, color: "#fca5a5", margin: 0 }}>{journalError}</p>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

@@ -1,0 +1,31 @@
+{
+  "id": "boundaries",
+  "name": "Boundaries",
+  "type": "theme",
+  "excerpt": "Establishing boundaries to manage stress and maintain balance.",
+  "notes": "Discussions about boundaries frequently occur during conversations at Maple Street Cafe, especially with Maya and Jordan. Boundaries help the writer maintain a balance between work and personal life, and they are a crucial part of managing work stress and sleep issues.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "work_stress",
+      "label": "helps mitigate"
+    },
+    {
+      "target": "maple_street_cafe",
+      "label": "discussed at"
+    },
+    {
+      "target": "journal_entry_2026_04_18",
+      "label": "mentioned in"
+    }
+  ],
+  "originSourceFile": "journal/journal-entry-2026-04-18.md",
+  "sourceFile": "journal/journal-entry-2026-04-18.md",
+  "createdAt": 1777349397725,
+  "updatedAt": 1777349397730,
+  "context_summary": [
+    "- Establishing boundaries is crucial for managing stress and maintaining balance.",
+    "- Discussions about boundaries occur at Maple Street Cafe with Maya and Jordan.",
+    "- Boundaries help balance work and personal life, addressing work stress and sleep issues."
+  ]
+}

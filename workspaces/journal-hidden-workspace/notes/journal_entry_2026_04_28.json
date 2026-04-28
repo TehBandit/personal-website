@@ -1,0 +1,20 @@
+{
+  "id": "journal_entry_2026_04_28",
+  "name": "late night jornaling, la dee da",
+  "type": "entry",
+  "excerpt": "",
+  "notes": "",
+  "aliases": [],
+  "tags": [],
+  "connections": [
+    {
+      "target": "deep_work_mornings",
+      "label": "mentions"
+    }
+  ],
+  "originSourceFile": "journal/journal-entry-2026-04-28.md",
+  "sourceFile": "journal/journal-entry-2026-04-28.md",
+  "documentNode": true,
+  "createdAt": 1777349385212,
+  "updatedAt": 1777349397721
+}

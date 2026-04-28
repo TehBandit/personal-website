@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { syncWorkspaceAfterWrite } from "./bump-version.js";
 import { updateBacklinksIndexForFiles } from "./_backlinks-index.js";
+import { rebuildWorkspaceSummary } from "./_workspace-summary.js";
 import { resolveWorkspaceDirs } from "./_storygraph-paths.js";
 import { ensureDir } from "./_storygraph-io.js";
 
@@ -98,6 +99,12 @@ export default function handler(req, res) {
 
   try {
     updateBacklinksIndexForFiles(req.query.workspace, { removedFiles: [from], upsertFiles: [to] });
+  } catch {
+    // non-fatal
+  }
+
+  try {
+    rebuildWorkspaceSummary(req.query.workspace);
   } catch {
     // non-fatal
   }

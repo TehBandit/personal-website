@@ -1,0 +1,5 @@
+* text=auto
+
+# Keep generated workspace documents stable across OSes.
+workspaces/**/*.json text eol=lf
+workspaces/**/*.md text eol=lf

@@ -15,11 +15,11 @@
       "label": "operates from"
     },
     {
-      "target": "rella_corse",
+      "target": "tide_compact",
       "label": "references"
     },
     {
-      "target": "tide_compact",
+      "target": "rella_corse",
       "label": "references"
     }
   ],
@@ -37,5 +37,5 @@
   "tags": [
     "new"
   ],
-  "updatedAt": 1777129711561
+  "updatedAt": 1777254689942
 }

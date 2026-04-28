@@ -1,0 +1,25 @@
+{
+  "id": "graphics",
+  "name": "graphics",
+  "type": "entity",
+  "excerpt": "",
+  "notes": "",
+  "aliases": [
+    "moxie",
+    "swag"
+  ],
+  "connections": [
+    {
+      "target": "juice",
+      "label": "references"
+    },
+    {
+      "target": "popular_apps",
+      "label": "references"
+    }
+  ],
+  "originSourceFile": "graphics.md",
+  "sourceFile": "graphics.md",
+  "createdAt": 1777254942843,
+  "updatedAt": 1777256230635
+}

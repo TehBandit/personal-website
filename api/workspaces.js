@@ -40,50 +40,63 @@ const WORKSPACE_PRESETS = {
   },
 };
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
 
   // ── GET: list all workspaces ──────────────────────────────────────────────
   if (req.method === "GET") {
+    const includeHidden = req.query?.includeHidden === "1";
     if (!fs.existsSync(WORKSPACES_DIR)) {
       return res.status(200).json({ workspaces: [] });
     }
 
-    const workspaces = fs
+    const dirs = fs
       .readdirSync(WORKSPACES_DIR, { withFileTypes: true })
-      .filter((d) => d.isDirectory() && validSlug(d.name))
-      .map((d) => {
-        const metaPath = path.join(WORKSPACES_DIR, d.name, "workspace.json");
-        let name = d.name.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-        let nodeTypes = null;
-        if (fs.existsSync(metaPath)) {
-          try {
-            const meta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
-            if (typeof meta.name === "string" && meta.name.trim()) name = meta.name.trim();
-            if (meta.nodeTypes && typeof meta.nodeTypes === "object") nodeTypes = meta.nodeTypes;
-          } catch { /* use derived name */ }
-        }
-        return { slug: d.name, name, nodeTypes };
-      });
+      .filter((d) => d.isDirectory() && validSlug(d.name));
+
+    const workspaces = (await Promise.all(dirs.map(async (d) => {
+      const metaPath = path.join(WORKSPACES_DIR, d.name, "workspace.json");
+      let name = d.name.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      let nodeTypes = null;
+      let hidden = false;
+      try {
+        const raw = await fs.promises.readFile(metaPath, "utf-8");
+        const meta = JSON.parse(raw);
+        if (typeof meta.name === "string" && meta.name.trim()) name = meta.name.trim();
+        if (meta.nodeTypes && typeof meta.nodeTypes === "object") nodeTypes = meta.nodeTypes;
+        hidden = meta.hidden === true;
+      } catch { /* use derived name */ }
+      return { slug: d.name, name, nodeTypes, hidden };
+    })))
+      .filter((ws) => includeHidden || !ws.hidden)
+      .map((ws) => ({
+        slug: ws.slug,
+        name: ws.name,
+        nodeTypes: ws.nodeTypes,
+        ...(ws.hidden ? { hidden: true } : {}),
+      }));
 
     return res.status(200).json({ workspaces });
   }
 
   // ── POST: create a new workspace ─────────────────────────────────────────
   if (req.method === "POST") {
-    const { name, preset = "narrative" } = req.body || {};
+    const { name, preset = "narrative", hidden = false, desiredSlug } = req.body || {};
     if (!name || typeof name !== "string" || !name.trim()) {
       return res.status(400).json({ error: "name is required" });
     }
 
     const trimmed = name.trim().substring(0, 80);
     // Derive slug: lowercase, replace spaces/underscores with hyphens, strip other chars
-    const slug = trimmed
+    const derivedSlug = trimmed
       .toLowerCase()
       .replace(/[\s_]+/g, "-")
       .replace(/[^a-z0-9-]/g, "")
       .replace(/-+/g, "-")
       .replace(/^-|-$/g, "");
+    const slug = typeof desiredSlug === "string" && desiredSlug.trim()
+      ? desiredSlug.trim().toLowerCase()
+      : derivedSlug;
 
     if (!validSlug(slug)) {
       return res.status(400).json({ error: "Could not derive a valid slug from that name" });
@@ -98,7 +111,7 @@ export default function handler(req, res) {
     const nodeTypes = WORKSPACE_PRESETS[preset] ?? WORKSPACE_PRESETS.narrative;
     fs.writeFileSync(
       path.join(workspaceDir, "workspace.json"),
-      JSON.stringify({ name: trimmed, slug, nodeTypes }, null, 2),
+      JSON.stringify({ name: trimmed, slug, nodeTypes, hidden: hidden === true }, null, 2),
       "utf-8"
     );
 

@@ -6,6 +6,7 @@ import { WORKSPACES_DIR } from "./_storygraph-paths.js";
 
 const INDEX_VERSION = 1;
 const INDEX_FILE = "backlinks-index.json";
+const NOTES_VERSION_FILE = "notes-version.json";
 
 function collectGreedyMentionedNodeIds(content, candidates) {
   const mentioned = new Set();
@@ -26,6 +27,11 @@ function listRawFiles(wsDir, notesDir) {
     .sort();
 }
 
+function buildNoteFileList(notesDir) {
+  if (!fs.existsSync(notesDir)) return [];
+  return fs.readdirSync(notesDir).filter((f) => f.endsWith(".json")).sort();
+}
+
 function buildRawMtimes(wsDir, files) {
   const mtimes = {};
   for (const relPath of files) {
@@ -41,8 +47,7 @@ function buildRawMtimes(wsDir, files) {
 
 function buildNoteMtimes(notesDir) {
   const mtimes = {};
-  if (!fs.existsSync(notesDir)) return mtimes;
-  const files = fs.readdirSync(notesDir).filter((f) => f.endsWith(".json")).sort();
+  const files = buildNoteFileList(notesDir);
   for (const file of files) {
     try {
       mtimes[file] = fs.statSync(path.join(notesDir, file)).mtimeMs;
@@ -51,6 +56,14 @@ function buildNoteMtimes(notesDir) {
     }
   }
   return mtimes;
+}
+
+function hasListDrift(savedList, currentList) {
+  if (savedList.length !== currentList.length) return true;
+  for (let i = 0; i < currentList.length; i += 1) {
+    if (savedList[i] !== currentList[i]) return true;
+  }
+  return false;
 }
 
 function loadNodeCandidates(notesDir) {
@@ -95,7 +108,19 @@ function getWorkspacePaths(workspace) {
     wsDir,
     notesDir: path.join(wsDir, "notes"),
     indexPath: path.join(wsDir, INDEX_FILE),
+    notesVersionPath: path.join(wsDir, NOTES_VERSION_FILE),
   };
+}
+
+function readWorkspaceVersion(notesVersionPath) {
+  if (!fs.existsSync(notesVersionPath)) return null;
+  try {
+    const raw = JSON.parse(fs.readFileSync(notesVersionPath, "utf-8"));
+    if (raw?.version === undefined || raw?.version === null) return null;
+    return String(raw.version);
+  } catch {
+    return null;
+  }
 }
 
 function readIndex(indexPath) {
@@ -108,6 +133,19 @@ function readIndex(indexPath) {
   } catch {
     return null;
   }
+}
+
+const pendingBacklinksRebuilds = new Map();
+
+function scheduleBacklinksRebuild(workspace) {
+  if (!workspace || pendingBacklinksRebuilds.has(workspace)) return;
+  const task = Promise.resolve()
+    .then(() => rebuildBacklinksIndex(workspace))
+    .catch(() => null)
+    .finally(() => {
+      pendingBacklinksRebuilds.delete(workspace);
+    });
+  pendingBacklinksRebuilds.set(workspace, task);
 }
 
 function writeIndex(indexPath, index) {
@@ -133,7 +171,7 @@ function compactAndSortBacklinks(backlinksByNodeId) {
 }
 
 export function rebuildBacklinksIndex(workspace) {
-  const { wsDir, notesDir, indexPath } = getWorkspacePaths(workspace);
+  const { wsDir, notesDir, indexPath, notesVersionPath } = getWorkspacePaths(workspace);
   if (!fs.existsSync(wsDir)) return null;
 
   const { candidates } = loadNodeCandidates(notesDir);
@@ -157,6 +195,7 @@ export function rebuildBacklinksIndex(workspace) {
   const index = {
     version: INDEX_VERSION,
     builtAt: new Date().toISOString(),
+    workspaceVersion: readWorkspaceVersion(notesVersionPath),
     rawFileMtimes: buildRawMtimes(wsDir, rawFiles),
     noteMtimes: buildNoteMtimes(notesDir),
     backlinksByNodeId: compactAndSortBacklinks(backlinksByNodeId),
@@ -166,42 +205,34 @@ export function rebuildBacklinksIndex(workspace) {
   return index;
 }
 
-function isIndexStale(index, wsDir, notesDir) {
-  if (!index || index.version !== INDEX_VERSION) return true;
-
-  const currentRawFiles = listRawFiles(wsDir, notesDir);
-  const savedRawMtimes = index.rawFileMtimes || {};
-  if (currentRawFiles.length !== Object.keys(savedRawMtimes).length) return true;
-
-  for (const relPath of currentRawFiles) {
-    const absPath = path.join(wsDir, ...relPath.split("/"));
-    let mtime;
-    try {
-      mtime = fs.statSync(absPath).mtimeMs;
-    } catch {
-      return true;
-    }
-    if (savedRawMtimes[relPath] !== mtime) return true;
-  }
-
-  const currentNoteMtimes = buildNoteMtimes(notesDir);
-  const savedNoteMtimes = index.noteMtimes || {};
-  const noteFiles = Object.keys(currentNoteMtimes);
-  if (noteFiles.length !== Object.keys(savedNoteMtimes).length) return true;
-  for (const file of noteFiles) {
-    if (savedNoteMtimes[file] !== currentNoteMtimes[file]) return true;
-  }
-
-  return false;
-}
-
 export function ensureFreshBacklinksIndex(workspace) {
-  const { wsDir, notesDir, indexPath } = getWorkspacePaths(workspace);
+  const { wsDir, notesDir, indexPath, notesVersionPath } = getWorkspacePaths(workspace);
   if (!fs.existsSync(wsDir)) return null;
 
   const current = readIndex(indexPath);
-  if (!current) return rebuildBacklinksIndex(workspace);
-  if (isIndexStale(current, wsDir, notesDir)) return rebuildBacklinksIndex(workspace);
+  if (!current) {
+    scheduleBacklinksRebuild(workspace);
+    return null;
+  }
+  const workspaceVersion = readWorkspaceVersion(notesVersionPath);
+
+  // Fast path: when notes-version.json is available, freshness is O(1).
+  // On version mismatch we rebuild once from token drift (no per-file stat scan).
+  if (workspaceVersion !== null) {
+    if (current.workspaceVersion !== workspaceVersion) return rebuildBacklinksIndex(workspace);
+    return current;
+  }
+
+  // Lightweight fallback when version token is unavailable:
+  // detect only add/remove/rename drift (no per-file stat calls).
+  const rawFiles = listRawFiles(wsDir, notesDir);
+  const savedRawFiles = Object.keys(current.rawFileMtimes || {}).sort();
+  if (hasListDrift(savedRawFiles, rawFiles)) return rebuildBacklinksIndex(workspace);
+
+  const noteFiles = buildNoteFileList(notesDir);
+  const savedNoteFiles = Object.keys(current.noteMtimes || {}).sort();
+  if (hasListDrift(savedNoteFiles, noteFiles)) return rebuildBacklinksIndex(workspace);
+
   return current;
 }
 
@@ -217,7 +248,7 @@ export function getBacklinksForNode(workspace, nodeId) {
  * Falls back to a full rebuild if the index is missing or invalid.
  */
 export function updateBacklinksIndexForFiles(workspace, { upsertFiles = [], removedFiles = [] } = {}) {
-  const { wsDir, notesDir, indexPath } = getWorkspacePaths(workspace);
+  const { wsDir, notesDir, indexPath, notesVersionPath } = getWorkspacePaths(workspace);
   if (!fs.existsSync(wsDir)) return null;
 
   let index = readIndex(indexPath);
@@ -265,6 +296,7 @@ export function updateBacklinksIndexForFiles(workspace, { upsertFiles = [], remo
   const nextIndex = {
     version: INDEX_VERSION,
     builtAt: new Date().toISOString(),
+    workspaceVersion: readWorkspaceVersion(notesVersionPath),
     rawFileMtimes: buildRawMtimes(wsDir, rawFiles),
     noteMtimes: buildNoteMtimes(notesDir),
     backlinksByNodeId: compactAndSortBacklinks(backlinksByNodeId),

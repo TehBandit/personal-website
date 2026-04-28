@@ -1,0 +1,24 @@
+{
+  "id": "journal_entry_2026_03_31",
+  "name": "Journal Entry - Tuesday, March 31, 2026",
+  "type": "entry",
+  "excerpt": "",
+  "notes": "",
+  "aliases": [],
+  "tags": [],
+  "connections": [
+    {
+      "target": "running",
+      "label": "mentions"
+    },
+    {
+      "target": "intention",
+      "label": "mentions"
+    }
+  ],
+  "originSourceFile": "journal/journal-entry-2026-03-31.md",
+  "sourceFile": "journal/journal-entry-2026-03-31.md",
+  "documentNode": true,
+  "createdAt": 1777349385206,
+  "updatedAt": 1777349397715
+}

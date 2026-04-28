@@ -125,7 +125,7 @@ export default async function handler(req, res) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return res.status(500).json({ error: "Server misconfiguration" });
 
-    const { text, base64, type, workspace, folderName, filename } = req.body;
+    const { text, base64, type, workspace, folderName, filename, force } = req.body;
 
     // ── Validate workspace ────────────────────────────────────────────────────
     if (!workspace || !/^[a-z0-9-]+$/.test(workspace)) {
@@ -160,6 +160,10 @@ export default async function handler(req, res) {
 
     // ── Path+hash dedupe / relink policy ─────────────────────────────────────
     const deriveIndex = loadDeriveIndex(deriveIndexPath);
+    // When force=true, strip existing derive-meta for this path so we re-derive from scratch
+    if (force) {
+      deriveIndex.items = deriveIndex.items.filter((i) => i.inputPath !== inputPath);
+    }
     const pathMatch = deriveIndex.items.find((i) => i.inputPath === inputPath);
     if (pathMatch && pathMatch.sourceHash === contentHash) {
       return res.status(200).json({

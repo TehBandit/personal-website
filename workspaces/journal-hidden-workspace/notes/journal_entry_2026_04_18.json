@@ -1,0 +1,20 @@
+{
+  "id": "journal_entry_2026_04_18",
+  "name": "Journal Entry - Saturday, April 18, 2026",
+  "type": "entry",
+  "excerpt": "",
+  "notes": "",
+  "aliases": [],
+  "tags": [],
+  "connections": [
+    {
+      "target": "boundaries",
+      "label": "mentions"
+    }
+  ],
+  "originSourceFile": "journal/journal-entry-2026-04-18.md",
+  "sourceFile": "journal/journal-entry-2026-04-18.md",
+  "documentNode": true,
+  "createdAt": 1777349385209,
+  "updatedAt": 1777349397729
+}

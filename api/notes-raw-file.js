@@ -3,6 +3,7 @@ import path from "path";
 import { findDuplicate } from "./dedup-nodes.js";
 import { syncWorkspaceAfterWrite } from "./bump-version.js";
 import { updateBacklinksIndexForFiles } from "./_backlinks-index.js";
+import { rebuildWorkspaceSummary } from "./_workspace-summary.js";
 import { walkRelPaths, walkAbsPaths, walkNodeIds, normalizeSourceFile, extractTitleFromContent } from "./_walk.js";
 import { buildWordBoundaryPattern, collectGreedyMatches } from "../shared/story-rules.js";
 import { resolveWorkspaceDirs, WORKSPACES_DIR } from "./_storygraph-paths.js";
@@ -20,6 +21,14 @@ function resolveDirs(workspace) {
     dir: dirs.wsDir,
     notesDir: dirs.notesDir,
   };
+}
+
+function refreshWorkspaceSummarySafe(workspace) {
+  try {
+    rebuildWorkspaceSummary(workspace);
+  } catch {
+    // non-fatal
+  }
 }
 
 // Preserve inline span styles when a client serializer strips them to plain text
@@ -179,8 +188,9 @@ function getDefaultNodeType(workspace) {
  * connections on each mentioned node.
  */
 function syncConnectionsForFile(filename, content, sourceId, notesDir) {
-  if (!fs.existsSync(notesDir)) return;
+  if (!fs.existsSync(notesDir)) return { source: null, addedConnections: [] };
   const jsonFiles = fs.readdirSync(notesDir).filter((f) => f.endsWith(".json")).sort();
+  const workspaceDir = path.dirname(notesDir);
 
   // Build lookup: id → { data, path, patterns }
   const nodeMap = new Map();
@@ -203,7 +213,7 @@ function syncConnectionsForFile(filename, content, sourceId, notesDir) {
     nodeMap.set(data.id, { data, path: jPath, terms });
   }
 
-  if (!nodeMap.has(sourceId)) return;
+  if (!nodeMap.has(sourceId)) return { source: null, addedConnections: [] };
 
   // Determine which nodes are mentioned in content (excluding self)
   const mentionedIds = collectGreedyMentionedNodeIds(content, nodeMap, sourceId);
@@ -211,8 +221,14 @@ function syncConnectionsForFile(filename, content, sourceId, notesDir) {
   // Update source node: set connections to exactly the mentioned set, preserving labels
   const { data: srcData, path: srcPath } = nodeMap.get(sourceId);
   const existingConns = new Map((srcData.connections || []).map((c) => [c.target, c]));
+  const addedConnections = [];
   const newConns = [];
   for (const id of mentionedIds) {
+    if (!existingConns.has(id)) {
+      const targetData = nodeMap.get(id)?.data;
+      const targetFilename = targetData?.sourceFile || targetData?.additionalSourceFiles?.[0] || `${id.replace(/_/g, "-")}.md`;
+      addedConnections.push({ id, name: targetData?.name || id, filename: targetFilename });
+    }
     newConns.push(existingConns.get(id) ?? { target: id, label: "references" });
   }
   // Keep connections to nodes NOT in the map (external refs), keep manual ones not in content
@@ -222,6 +238,39 @@ function syncConnectionsForFile(filename, content, sourceId, notesDir) {
   srcData.connections = newConns;
   srcData.updatedAt = Date.now();
   fs.writeFileSync(srcPath, JSON.stringify(srcData, null, 2), "utf-8");
+
+  const staleMentionIds = [...existingConns.keys()].filter((id) => nodeMap.has(id) && !mentionedIds.has(id));
+
+  const targetStillMentionsSource = (targetId) => {
+    const targetEntry = nodeMap.get(targetId);
+    if (!targetEntry) return false;
+    const candidateFiles = [targetEntry.data.sourceFile, ...(targetEntry.data.additionalSourceFiles || [])].filter(Boolean);
+    for (const relPath of candidateFiles) {
+      const absPath = path.join(workspaceDir, ...String(relPath).split(/[\\/]/));
+      if (!fs.existsSync(absPath)) continue;
+      try {
+        const targetContent = fs.readFileSync(absPath, "utf-8");
+        const targetMentions = collectGreedyMentionedNodeIds(targetContent, nodeMap, targetId);
+        if (targetMentions.has(sourceId)) return true;
+      } catch {
+        // ignore unreadable file and keep checking other candidate files
+      }
+    }
+    return false;
+  };
+
+  for (const id of staleMentionIds) {
+    if (targetStillMentionsSource(id)) continue;
+    const targetEntry = nodeMap.get(id);
+    if (!targetEntry) continue;
+    const nextConnections = (targetEntry.data.connections || []).filter(
+      (conn) => !(conn.target === sourceId && (conn.label || "") === "references")
+    );
+    if (nextConnections.length === (targetEntry.data.connections || []).length) continue;
+    targetEntry.data.connections = nextConnections;
+    targetEntry.data.updatedAt = Date.now();
+    fs.writeFileSync(targetEntry.path, JSON.stringify(targetEntry.data, null, 2), "utf-8");
+  }
 
   // Add reverse reference on each mentioned target (don't remove existing ones)
   for (const id of mentionedIds) {
@@ -233,9 +282,14 @@ function syncConnectionsForFile(filename, content, sourceId, notesDir) {
       fs.writeFileSync(tgtPath, JSON.stringify(tgtData, null, 2), "utf-8");
     }
   }
+
+  return {
+    source: { id: sourceId, name: srcData.name || sourceId },
+    addedConnections,
+  };
 }
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   const dirs = resolveDirs(req.query.workspace);
   if (!dirs) return res.status(400).json({ error: "Invalid workspace" });
   const { dir, notesDir } = dirs;
@@ -267,8 +321,12 @@ export default function handler(req, res) {
 
   // ── GET: read file ──────────────────────────────────────────────────────────
   if (req.method === "GET") {
-    if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found" });
-    const content = fs.readFileSync(filePath, "utf-8");
+    let content;
+    try {
+      content = await fs.promises.readFile(filePath, "utf-8");
+    } catch {
+      return res.status(404).json({ error: "File not found" });
+    }
     appendWriteTrace(dir, req, "GET-read", {
       contentFlags: hasFormattingTags(content),
       contentSnippet: snippetAroundFormatting(content),
@@ -384,19 +442,16 @@ export default function handler(req, res) {
       nodeData.updatedAt = Date.now();
       fs.writeFileSync(nodeJsonPath, JSON.stringify(nodeData, null, 2), "utf-8");
 
-      // Seed/refresh connections by syncing each raw file through the same
-      // greedy matcher used on normal saves, so longer phrases always win.
-      const allRawFiles = scanRawFiles(dir, dir, notesDir);
-
-      for (const relPath of allRawFiles) {
-        const mentionerStem = relPath.split("/").pop().replace(/\.(md|txt)$/i, "").replace(/-/g, "_");
-        const mentionerJsonPath = path.join(notesDir, `${mentionerStem}.json`);
-        if (!fs.existsSync(mentionerJsonPath)) continue;
-
-        let rawContent;
-        try { rawContent = fs.readFileSync(path.join(dir, relPath), "utf-8"); } catch { continue; }
-        syncConnectionsForFile(relPath, rawContent, mentionerStem, notesDir);
-      }
+      // Seed connections for the newly created file only. Scanning all files
+      // (the previous approach) was O(N) on every create; since only this file
+      // is new, syncing just it is sufficient.
+      try {
+        const newFileStem = path.basename(filename).replace(/\.(md|txt)$/i, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+        const newFileJsonPath = path.join(notesDir, `${newFileStem}.json`);
+        if (fs.existsSync(newFileJsonPath)) {
+          syncConnectionsForFile(filename, postContent, newFileStem, notesDir);
+        }
+      } catch { /* non-fatal */ }
 
       syncWorkspaceAfterWrite(req.query.workspace, notesDir);
     }
@@ -407,6 +462,7 @@ export default function handler(req, res) {
     } catch {
       // non-fatal
     }
+    refreshWorkspaceSummarySafe(req.query.workspace);
 
     return res.status(201).json({ filename });
   }
@@ -432,33 +488,67 @@ export default function handler(req, res) {
     fs.writeFileSync(filePath, content, "utf-8");
     const rawStem = path.basename(filename).replace(/\.(md|txt)$/i, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
     const rawNodeJsonPath = path.join(notesDir, `${rawStem}.json`);
+    let connectionSyncResult = { source: null, addedConnections: [] };
     if (fs.existsSync(rawNodeJsonPath)) {
       try {
-        syncConnectionsForFile(filename, content, rawStem, notesDir);
+        connectionSyncResult = syncConnectionsForFile(filename, content, rawStem, notesDir) || connectionSyncResult;
         syncWorkspaceAfterWrite(req.query.workspace, notesDir);
       } catch { /* non-fatal */ }
     }
     try {
       updateBacklinksIndexForFiles(req.query.workspace, { upsertFiles: [filename] });
     } catch { /* non-fatal */ }
-    return res.status(200).json({ filename });
+    refreshWorkspaceSummarySafe(req.query.workspace);
+    return res.status(200).json({ filename, ...connectionSyncResult });
   }
 
   // ── PATCH: update aliases in the corresponding notes/ JSON ─────────────────
   if (req.method === "PATCH") {
     const nodeId = path.basename(filename).replace(/\.(md|txt)$/i, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
     const jsonPath = path.join(notesDir, `${nodeId}.json`);
-    if (!fs.existsSync(jsonPath)) return res.status(404).json({ error: "Node JSON not found" });
     const { aliases, tags, name, type, propagate } = req.body || {};
     if (aliases !== undefined && !Array.isArray(aliases)) return res.status(400).json({ error: "aliases must be an array" });
     if (tags !== undefined && !Array.isArray(tags)) return res.status(400).json({ error: "tags must be an array" });
     if (name !== undefined && (typeof name !== "string" || !name.trim())) return res.status(400).json({ error: "name must be a non-empty string" });
     if (type !== undefined && (typeof type !== "string" || !type.trim())) return res.status(400).json({ error: "type must be a non-empty string" });
-    const data = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+    ensureDir(notesDir);
+    let data = null;
+    if (fs.existsSync(jsonPath)) {
+      data = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+    } else if (name !== undefined) {
+      // Support title editing even when a file's node JSON hasn't been materialized yet.
+      data = {
+        id: nodeId,
+        name: name.trim().substring(0, 120),
+        type: getDefaultNodeType(req.query.workspace),
+        excerpt: "",
+        notes: "",
+        aliases: [],
+        tags: [],
+        connections: [],
+        originSourceFile: filename,
+        sourceFile: filename,
+        documentNode: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+    } else {
+      return res.status(404).json({ error: "Node JSON not found" });
+    }
+    let aliasesChanged = { added: [], removed: [] };
     if (aliases !== undefined) {
-      data.aliases = aliases
+      const oldAliases = new Set((data.aliases || []).map((a) => a.toLowerCase()));
+      const newAliases = aliases
         .filter((a) => typeof a === "string" && a.trim().length > 0)
         .map((a) => a.trim().substring(0, 60));
+      const newAliasesSet = new Set(newAliases.map((a) => a.toLowerCase()));
+      for (const a of newAliases) {
+        if (!oldAliases.has(a.toLowerCase())) aliasesChanged.added.push(a);
+      }
+      for (const a of (data.aliases || [])) {
+        if (!newAliasesSet.has(a.toLowerCase())) aliasesChanged.removed.push(a);
+      }
+      data.aliases = newAliases;
     }
     if (tags !== undefined) {
       data.tags = tags
@@ -544,7 +634,8 @@ export default function handler(req, res) {
         updateBacklinksIndexForFiles(req.query.workspace, { upsertFiles: filesUpdated });
       } catch { /* non-fatal */ }
     }
-    return res.status(200).json({ aliases: data.aliases, tags: data.tags, name: data.name, type: data.type, filesUpdated });
+    refreshWorkspaceSummarySafe(req.query.workspace);
+    return res.status(200).json({ aliases: data.aliases, tags: data.tags, name: data.name, type: data.type, filesUpdated, aliasesChanged });
   }
 
   // ── DELETE: remove file or empty folder ────────────────────────────────────
@@ -571,6 +662,7 @@ export default function handler(req, res) {
             updateBacklinksIndexForFiles(req.query.workspace, { removedFiles: removedRawFiles });
           } catch { /* non-fatal */ }
         }
+        refreshWorkspaceSummarySafe(req.query.workspace);
       } else {
         // Non-recursive: only removes if already empty (safe for "move files first" flow)
         try { fs.rmdirSync(filePath); } catch { /* ignore */ }
@@ -587,6 +679,7 @@ export default function handler(req, res) {
     try {
       updateBacklinksIndexForFiles(req.query.workspace, { removedFiles: [filename] });
     } catch { /* non-fatal */ }
+    refreshWorkspaceSummarySafe(req.query.workspace);
     return res.status(200).json({ filename });
   }
 
