@@ -4,6 +4,7 @@ import { Network, GitFork, X } from "lucide-react";
 import FilesEditor from "../components/FilesEditor.jsx";
 import CalendarHeatmap from "../components/CalendarHeatmap.jsx";
 import { requestJson } from "../utils/storygraphApi.js";
+import { useStoryGraphTheme } from "../contexts/StoryGraphThemeContext.jsx";
 import {
   JOURNAL_ENTRY_DIR,
   JOURNAL_GRAPH_WORKSPACE_NAME,
@@ -18,11 +19,6 @@ import {
   serializeJournalEntryFileContent,
 } from "../utils/journal.js";
 
-const BG = "#0f0f1a";
-const CARD_BG = "#161624";
-const TEXT = "rgba(255,255,255,0.88)";
-const MUTED = "rgba(255,255,255,0.4)";
-const BORDER = "rgba(255,255,255,0.08)";
 const EMPTY_GRAPH = { nodes: [], links: [] };
 const JOURNAL_TIMELINE_PAGE_SIZE = 60;
 
@@ -41,6 +37,14 @@ function formatDateLong(dateKey) {
 }
 
 export default function StoryGraphJournal() {
+  const { theme } = useStoryGraphTheme();
+  const { colors } = theme;
+  const BG = colors.bg;
+  const CARD_BG = colors.surface;
+  const TEXT = colors.text;
+  const MUTED = colors.muted;
+  const BORDER = colors.border;
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [workspaceReady, setWorkspaceReady] = useState(false);
   const [loadingTimeline, setLoadingTimeline] = useState(false);
@@ -485,16 +489,16 @@ export default function StoryGraphJournal() {
   }, []);
 
   return (
-    <div className="dark-scroll min-h-screen flex flex-col" style={{ backgroundColor: BG, color: TEXT }}>
+    <div className="dark-scroll min-h-screen flex flex-col" style={{ backgroundColor: BG, color: TEXT, fontFamily: theme.fontFamily }}>
 
       {/* Visualize loading overlay */}
       {visualizing && (
         <div
           className="fixed inset-0 z-50 flex flex-col items-center justify-center"
-          style={{ backgroundColor: "rgba(10,10,20,0.88)", backdropFilter: "blur(8px)" }}
+          style={{ backgroundColor: colors.overlay, backdropFilter: "blur(8px)" }}
         >
-          <GitFork size={36} className="text-blue-400 mb-6" style={{ transform: "rotate(180deg)" }} />
-          <p className="text-lg font-semibold text-white mb-2">Visualizing Journal</p>
+          <GitFork size={36} className="mb-6" style={{ transform: "rotate(180deg)", color: colors.accent }} />
+          <p className="text-lg font-semibold mb-2" style={{ color: colors.textStrong }}>Visualizing Journal</p>
           <p style={{ fontSize: 13, color: MUTED }}>{visualizeProgress}</p>
           <div
             style={{
@@ -502,7 +506,7 @@ export default function StoryGraphJournal() {
               width: 200,
               height: 3,
               borderRadius: 99,
-              backgroundColor: "rgba(255,255,255,0.08)",
+              backgroundColor: colors.border,
               overflow: "hidden",
             }}
           >
@@ -510,7 +514,7 @@ export default function StoryGraphJournal() {
               style={{
                 height: "100%",
                 borderRadius: 99,
-                backgroundColor: "#60a5fa",
+                backgroundColor: colors.accent,
                 animation: "journal-progress-pulse 1.8s ease-in-out infinite",
                 width: "60%",
               }}
@@ -522,21 +526,21 @@ export default function StoryGraphJournal() {
 
       <div
         className="flex items-center gap-3 px-6 py-3 border-b"
-        style={{ borderColor: "rgba(255,255,255,0.08)" }}
+        style={{ borderColor: BORDER }}
       >
         <Link
           to="/storygraph"
           className="flex items-center gap-2 transition-opacity hover:opacity-75"
           title="Back to Story Graph home"
         >
-          <Network size={20} className="text-blue-400" />
-          <h1 className="text-lg font-semibold text-white tracking-tight">Story Graph</h1>
+          <Network size={20} style={{ color: colors.accent }} />
+          <h1 className="text-lg font-semibold tracking-tight" style={{ color: colors.textStrong }}>Story Graph</h1>
         </Link>
       </div>
 
       <div className="flex-1 w-full px-16 py-10">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold tracking-tight text-white">Journal</h1>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: colors.textStrong }}>Journal</h1>
         </div>
 
         <div
@@ -573,7 +577,7 @@ export default function StoryGraphJournal() {
                 fontSize: 13,
                 padding: "6px 0",
                 border: "none",
-                borderBottom: "1px solid rgba(255,255,255,0.2)",
+                borderBottom: `1px solid ${BORDER}`,
                 outline: "none",
               }}
             />
@@ -587,7 +591,7 @@ export default function StoryGraphJournal() {
                 background: "transparent",
                 color: TEXT,
                 border: "none",
-                borderBottom: "1px solid rgba(255,255,255,0.2)",
+                borderBottom: `1px solid ${BORDER}`,
                 cursor: "pointer",
                 width: "100%",
                 textAlign: "left",
@@ -610,15 +614,15 @@ export default function StoryGraphJournal() {
                 fontSize: 13,
                 fontWeight: 600,
                 borderRadius: 8,
-                border: "1px solid rgba(96,165,250,0.3)",
-                backgroundColor: "rgba(96,165,250,0.1)",
-                color: "#93c5fd",
+                border: `1px solid ${colors.accent}`,
+                backgroundColor: colors.accentSoft,
+                color: colors.accentStrong,
                 cursor: visualizing || sortedEntries.length === 0 ? "default" : "pointer",
                 opacity: sortedEntries.length === 0 ? 0.4 : 1,
                 transition: "background-color 150ms ease",
               }}
-              onMouseEnter={(e) => { if (!visualizing && sortedEntries.length > 0) e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.2)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.1)"; }}
+              onMouseEnter={(e) => { if (!visualizing && sortedEntries.length > 0) e.currentTarget.style.backgroundColor = colors.accent; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = colors.accentSoft; }}
             >
               <GitFork size={14} style={{ transform: "rotate(180deg)" }} />
               Visualize Journal
@@ -655,7 +659,7 @@ export default function StoryGraphJournal() {
             )}
 
             {visualizeError && (
-              <p style={{ fontSize: 11, color: "#fca5a5", marginTop: 8, textAlign: "center" }}>{visualizeError}</p>
+              <p style={{ fontSize: 11, color: colors.danger, marginTop: 8, textAlign: "center" }}>{visualizeError}</p>
             )}
           </section>
 
@@ -768,7 +772,7 @@ export default function StoryGraphJournal() {
               </p>
             )}
 
-            {error && <p style={{ fontSize: 11, color: "#fca5a5", marginTop: 10 }}>{error}</p>}
+            {error && <p style={{ fontSize: 11, color: colors.danger, marginTop: 10 }}>{error}</p>}
           </section>
         </div>
 
@@ -776,7 +780,7 @@ export default function StoryGraphJournal() {
           <>
             <div
               className="fixed inset-0 z-40"
-              style={{ backgroundColor: "rgba(8,10,18,0.22)" }}
+              style={{ backgroundColor: colors.overlay }}
               onMouseDown={() => setIsEditorOpen(false)}
             />
             <aside

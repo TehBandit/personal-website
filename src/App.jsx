@@ -9,10 +9,11 @@ import Contact from "./pages/Contact.jsx";
 import StoryGraph from "./pages/StoryGraph.jsx";
 import StoryGraphHome from "./pages/StoryGraphHome.jsx";
 import StoryGraphJournal from "./pages/StoryGraphJournal.jsx";
+import { StoryGraphThemeProvider } from "./contexts/StoryGraphThemeContext.jsx";
 
 function App() {
   return (
-    <>
+    <StoryGraphThemeProvider>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/blog" element={<Blog />} />
@@ -25,7 +26,7 @@ function App() {
         <Route path="/storygraph/graph" element={<StoryGraph />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </>
+    </StoryGraphThemeProvider>
   );
 }
 

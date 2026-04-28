@@ -93,6 +93,7 @@ import {
 } from "lucide-react";
 import { TYPE_PRESETS } from "../constants/nodeTypes.js";
 import { useNodeTypeConfig } from "../contexts/NodeTypeContext.jsx";
+import { useStoryGraphTheme } from "../contexts/StoryGraphThemeContext.jsx";
 import { darkenHex } from "../utils/color.js";
 import { computeOwnFileIds, normalizeToId, extractTitleFromContent } from "../utils/graphHelpers.js";
 import { buildWordBoundaryPattern, collectGreedyMatches } from "../../shared/story-rules.js";
@@ -1472,12 +1473,12 @@ function ToolbarBtn({ onClick, active, disabled, title, children }) {
       title={title}
       className="p-1.5 rounded-md transition-colors flex items-center justify-center"
       style={{
-        color: active ? "#fff" : disabled ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.55)",
-        backgroundColor: active ? "rgba(96,165,250,0.25)" : "transparent",
+        color: active ? "var(--sg-text-strong, #fff)" : disabled ? "var(--sg-soft-text, rgba(255,255,255,0.2))" : "var(--sg-muted, rgba(255,255,255,0.55))",
+        backgroundColor: active ? "var(--sg-accent-soft, rgba(96,165,250,0.25))" : "transparent",
         cursor: disabled ? "not-allowed" : "pointer",
       }}
-      onMouseEnter={(e) => { if (!disabled && !active) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.07)"; }}
-      onMouseLeave={(e) => { if (!active) e.currentTarget.style.backgroundColor = active ? "rgba(96,165,250,0.25)" : "transparent"; }}
+      onMouseEnter={(e) => { if (!disabled && !active) e.currentTarget.style.backgroundColor = "var(--sg-border-soft, rgba(255,255,255,0.07))"; }}
+      onMouseLeave={(e) => { if (!active) e.currentTarget.style.backgroundColor = active ? "var(--sg-accent-soft, rgba(96,165,250,0.25))" : "transparent"; }}
     >
       {children}
     </button>
@@ -1488,7 +1489,7 @@ function ToolbarDivider() {
   return (
     <span
       className="mx-1 h-4 w-px"
-      style={{ backgroundColor: "rgba(255,255,255,0.14)" }}
+      style={{ backgroundColor: "var(--sg-border, rgba(255,255,255,0.14))" }}
       aria-hidden="true"
     />
   );
@@ -1542,6 +1543,8 @@ const EMPTY_ARR = [];
 const TYPE_COLOR_PALETTE = ["#60a5fa","#34d399","#fb923c","#c084fc","#f472b6","#facc15","#38bdf8","#a78bfa","#4ade80","#f87171"];
 
 export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null, nodeTransparent = false, nodeBorder = false, disallowedAliases = EMPTY_SET, onReady = null, onOpenFileChange = null, onFilesChange = null, onWorkspaceNodeTypesChanged = null, hotbarOnly = false }) {
+  const { theme } = useStoryGraphTheme();
+  const { colors } = theme;
   const NODE_TYPE_CONFIG = useNodeTypeConfig();
   const nodeTypeFallback = Object.values(NODE_TYPE_CONFIG)[0];
   const [files, setFiles] = useState([]);
@@ -3921,8 +3924,8 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               style={{
                 paddingLeft: indent + 4,
                 paddingRight: 4,
-                backgroundColor: isDropTarget ? "rgba(96,165,250,0.12)" : "transparent",
-                outline: isDropTarget ? "1px solid rgba(96,165,250,0.35)" : "none",
+                backgroundColor: isDropTarget ? colors.accentSoft : "transparent",
+                outline: isDropTarget ? `1px solid ${colors.accent}` : "none",
                 outlineOffset: "1px",
               }}
               onClick={() => setOpenFolders((prev) => {
@@ -3930,39 +3933,39 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                 next.has(node.path) ? next.delete(node.path) : next.add(node.path);
                 return next;
               })}
-              onMouseEnter={(e) => { if (!dragItem) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)"; }}
-              onMouseLeave={(e) => { if (!dragItem) e.currentTarget.style.backgroundColor = isDropTarget ? "rgba(96,165,250,0.12)" : "transparent"; }}
+              onMouseEnter={(e) => { if (!dragItem) e.currentTarget.style.backgroundColor = colors.borderSoft; }}
+              onMouseLeave={(e) => { if (!dragItem) e.currentTarget.style.backgroundColor = isDropTarget ? colors.accentSoft : "transparent"; }}
             >
               <ChevronRight
                 size={12}
-                style={{ transition: "transform 0.15s ease", transform: isExpanded ? "rotate(90deg)" : "none", color: "rgba(255,255,255,0.3)", flexShrink: 0 }}
+                style={{ transition: "transform 0.15s ease", transform: isExpanded ? "rotate(90deg)" : "none", color: colors.softText, flexShrink: 0 }}
               />
               {isExpanded
-                ? <FolderOpen size={13} style={{ color: "#fbbf24", flexShrink: 0 }} />
-                : <Folder size={13} style={{ color: "#fbbf24", flexShrink: 0 }} />
+                ? <FolderOpen size={13} style={{ color: colors.warning, flexShrink: 0 }} />
+                : <Folder size={13} style={{ color: colors.warning, flexShrink: 0 }} />
               }
-              <span className="text-sm truncate flex-1 ml-1" style={{ color: "rgba(255,255,255,0.65)" }}>{node.name}</span>
+              <span className="text-sm truncate flex-1 ml-1" style={{ color: colors.text }}>{node.name}</span>
               <span className="flex gap-0.5 opacity-0 group-hover:opacity-100">
                 <button
                   title="New file"
                   onClick={(e) => { e.stopPropagation(); setOpenFolders((p) => new Set([...p, node.path])); setInlineNew({ parentPath: node.path, type: "file", value: "" }); }}
-                  className="p-0.5 rounded" style={{ color: "rgba(255,255,255,0.4)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
+                  className="p-0.5 rounded" style={{ color: colors.muted }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = colors.textStrong)}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = colors.muted)}
                 ><FilePlus size={11} /></button>
                 <button
                   title="New folder"
                   onClick={(e) => { e.stopPropagation(); setOpenFolders((p) => new Set([...p, node.path])); setInlineNew({ parentPath: node.path, type: "folder", value: "" }); }}
-                  className="p-0.5 rounded" style={{ color: "rgba(255,255,255,0.4)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
+                  className="p-0.5 rounded" style={{ color: colors.muted }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = colors.textStrong)}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = colors.muted)}
                 ><FolderPlus size={11} /></button>
                 <button
                   title="Delete folder"
                   onClick={(e) => deleteFolder(node.path, e)}
-                  className="p-0.5 rounded" style={{ color: "rgba(255,255,255,0.4)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#f87171")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
+                  className="p-0.5 rounded" style={{ color: colors.muted }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = colors.danger)}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = colors.muted)}
                 ><Trash2 size={11} /></button>
               </span>
             </div>
@@ -3982,7 +3985,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                       }}
                       onBlur={() => setInlineNew(null)}
                       className="w-full px-1.5 py-0.5 rounded text-sm outline-none bg-transparent"
-                      style={{ border: "1px solid rgba(255,255,255,0.18)", color: "rgba(255,255,255,0.85)", caretColor: "#60a5fa" }}
+                      style={{ border: `1px solid ${colors.border}`, color: colors.text, caretColor: colors.accent }}
                       spellCheck={false}
                     />
                   </div>
@@ -4001,15 +4004,15 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
         const isLineBefore = dropIndicator?.type === "line" && dropIndicator.path === node.path && dropIndicator.position === "before";
         const isLineAfter = dropIndicator?.type === "line" && dropIndicator.path === node.path && dropIndicator.position === "after";
         const rowBg = isSelected
-          ? "rgba(96,165,250,0.22)"
+          ? colors.accentSoft
           : isActive
-          ? "rgba(96,165,250,0.12)"
+          ? colors.borderSoft
           : "transparent";
 
         items.push(
           <div key={node.path} style={{ opacity: isDragging ? 0.4 : 1 }}>
             {isLineBefore && (
-              <div style={{ height: 2, margin: `1px 4px 1px ${indent + 20}px`, borderRadius: 1, backgroundColor: "#60a5fa" }} />
+              <div style={{ height: 2, margin: `1px 4px 1px ${indent + 20}px`, borderRadius: 1, backgroundColor: colors.accent }} />
             )}
             <div
               draggable={true}
@@ -4021,7 +4024,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                 e.stopPropagation();
                 openTreeFileMenu(node.path, e.clientX, e.clientY);
               }}
-              onMouseEnter={(e) => { if (!isActive && !isSelected && !dragItem) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)"; }}
+              onMouseEnter={(e) => { if (!isActive && !isSelected && !dragItem) e.currentTarget.style.backgroundColor = colors.borderSoft; }}
               onMouseLeave={(e) => { if (!dragItem) e.currentTarget.style.backgroundColor = rowBg; }}
               onDragStart={(e) => {
                 e.stopPropagation();
@@ -4053,7 +4056,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                 if (di.paths) { bulkMoveFiles(di.paths, parentPath); } else { moveFile(di.path, parentPath); }
               }}
             >
-              <FileText size={13} style={{ color: (isActive || isSelected) ? "#60a5fa" : "rgba(255,255,255,0.3)", flexShrink: 0 }} />
+              <FileText size={13} style={{ color: (isActive || isSelected) ? colors.accent : colors.softText, flexShrink: 0 }} />
               {inlineRename?.path === node.path ? (
                 <input
                   autoFocus
@@ -4067,16 +4070,16 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                   onBlur={() => setInlineRename(null)}
                   onClick={(e) => e.stopPropagation()}
                   className="flex-1 px-1 py-0 rounded text-sm outline-none bg-transparent"
-                  style={{ border: "1px solid rgba(255,255,255,0.18)", color: "rgba(255,255,255,0.85)", caretColor: "#60a5fa" }}
+                  style={{ border: `1px solid ${colors.border}`, color: colors.text, caretColor: colors.accent }}
                   spellCheck={false}
                 />
               ) : (
-                <span className="text-sm truncate flex-1" style={{ color: (isActive || isSelected) ? "#e2e8f0" : "rgba(255,255,255,0.6)" }}>
+                <span className="text-sm truncate flex-1" style={{ color: (isActive || isSelected) ? colors.textStrong : colors.text }}>
                   {showTitles ? (fileTitleMap.get(node.path) ?? node.name) : node.name}
                 </span>
               )}
               {duplicateBasenames.has(node.name) && !inlineRename && (
-                <Copy size={10} title="Appears in multiple folders" style={{ color: "#fbbf24", flexShrink: 0, opacity: 0.75, marginRight: 2 }} />
+                <Copy size={10} title="Appears in multiple folders" style={{ color: colors.warning, flexShrink: 0, opacity: 0.75, marginRight: 2 }} />
               )}
               <span className="flex gap-0 opacity-0 group-hover:opacity-100 flex-shrink-0 relative">
                 <button
@@ -4090,23 +4093,23 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                     });
                   }}
                   className="p-0.5 rounded"
-                  style={{ color: "rgba(255,255,255,0.4)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
+                  style={{ color: colors.muted }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = colors.textStrong)}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = colors.muted)}
                   title="More options"
                 ><MoreHorizontal size={11} /></button>
                 <button
                   onClick={(e) => deleteFile(node.path, e)}
                   className="p-0.5 rounded flex-shrink-0"
-                  style={{ color: "rgba(248,113,113,0.7)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#f87171")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(248,113,113,0.7)")}
+                  style={{ color: colors.danger }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = colors.danger)}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = colors.danger)}
                   title="Delete file"
                 ><Trash2 size={11} /></button>
               </span>
             </div>
             {isLineAfter && (
-              <div style={{ height: 2, margin: `1px 4px 1px ${indent + 20}px`, borderRadius: 1, backgroundColor: "#60a5fa" }} />
+              <div style={{ height: 2, margin: `1px 4px 1px ${indent + 20}px`, borderRadius: 1, backgroundColor: colors.accent }} />
             )}
           </div>
         );
@@ -4124,8 +4127,8 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
         className="flex-shrink-0 flex flex-col border-r relative"
         style={{
           width: hotbarOnly ? 0 : sidebarWidth,
-          backgroundColor: "#13131f",
-          borderColor: "rgba(255,255,255,0.07)",
+          backgroundColor: colors.surfaceAlt,
+          borderColor: colors.borderSoft,
           display: hotbarOnly ? "none" : "flex",
         }}
       >
@@ -4134,29 +4137,29 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
           onMouseDown={startSidebarResize}
           className="absolute top-0 right-0 w-1 h-full z-10 cursor-col-resize"
           style={{ background: "transparent" }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.12)")}
+          onMouseEnter={(e) => (e.currentTarget.style.background = colors.border)}
           onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
         />
         {/* Sidebar toolbar: new file, new folder, expand/collapse */}
         <div
           className="flex items-center gap-1 px-2 py-2 border-b flex-shrink-0"
-          style={{ borderColor: "rgba(255,255,255,0.07)" }}
+          style={{ borderColor: colors.borderSoft }}
         >
           <button
             title="New file"
             onClick={() => setInlineNew({ parentPath: "", type: "file", value: "" })}
             className="p-1 rounded-md flex-shrink-0"
-            style={{ color: "rgba(255,255,255,0.35)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
+            style={{ color: colors.softText }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = colors.textStrong)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = colors.softText)}
           ><FilePlus size={14} /></button>
           <button
             title="New folder"
             onClick={() => setInlineNew({ parentPath: "", type: "folder", value: "" })}
             className="p-1 rounded-md flex-shrink-0"
-            style={{ color: "rgba(255,255,255,0.35)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
+            style={{ color: colors.softText }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = colors.textStrong)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = colors.softText)}
           ><FolderPlus size={14} /></button>
           <input
             ref={docxImportRef}
@@ -4173,9 +4176,9 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
             onClick={() => docxImportRef.current?.click()}
             disabled={docxImporting}
             className="p-1 rounded-md flex-shrink-0"
-            style={{ color: docxImporting ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.35)" }}
-            onMouseEnter={(e) => { if (!docxImporting) e.currentTarget.style.color = "#fff"; }}
-            onMouseLeave={(e) => { if (!docxImporting) e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}
+            style={{ color: docxImporting ? colors.border : colors.softText }}
+            onMouseEnter={(e) => { if (!docxImporting) e.currentTarget.style.color = colors.textStrong; }}
+            onMouseLeave={(e) => { if (!docxImporting) e.currentTarget.style.color = colors.softText; }}
           >{docxImporting ? <Loader size={14} className="animate-spin" /> : <Upload size={14} />}</button>
           {allFolderPaths.length > 0 && (
             openFolders.size >= allFolderPaths.length ? (
@@ -4183,27 +4186,27 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                 title="Collapse all folders"
                 onClick={() => setOpenFolders(new Set())}
                 className="p-1 rounded-md flex-shrink-0"
-                style={{ color: "rgba(255,255,255,0.35)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
+                style={{ color: colors.softText }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = colors.textStrong)}
+                onMouseLeave={(e) => (e.currentTarget.style.color = colors.softText)}
               ><ChevronsDownUp size={14} /></button>
             ) : (
               <button
                 title="Expand all folders"
                 onClick={() => setOpenFolders(new Set(allFolderPaths))}
                 className="p-1 rounded-md flex-shrink-0"
-                style={{ color: "rgba(255,255,255,0.35)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
+                style={{ color: colors.softText }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = colors.textStrong)}
+                onMouseLeave={(e) => (e.currentTarget.style.color = colors.softText)}
               ><ChevronsUpDown size={14} /></button>
             )
           )}
         </div>
 
         {/* File search */}
-        <div className="px-2 py-1.5 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md" style={{ backgroundColor: "rgba(255,255,255,0.05)" }}>
-            <Search size={11} style={{ color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />
+        <div className="px-2 py-1.5 border-b flex-shrink-0" style={{ borderColor: colors.borderSoft }}>
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md" style={{ backgroundColor: colors.borderSoft }}>
+            <Search size={11} style={{ color: colors.softText, flexShrink: 0 }} />
             <input
               ref={fileSearchRef}
               type="text"
@@ -4212,11 +4215,11 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               onKeyDown={(e) => { if (e.key === "Escape") { setFileSearchQuery(""); fileSearchRef.current?.blur(); } }}
               placeholder="Search files…"
               className="flex-1 bg-transparent outline-none text-xs"
-              style={{ color: "rgba(255,255,255,0.8)", caretColor: "#60a5fa" }}
+              style={{ color: colors.text, caretColor: colors.accent }}
               spellCheck={false}
             />
             {fileSearchQuery && (
-              <button onMouseDown={(e) => { e.preventDefault(); setFileSearchQuery(""); }} style={{ color: "rgba(255,255,255,0.3)" }} onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")} onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}>
+              <button onMouseDown={(e) => { e.preventDefault(); setFileSearchQuery(""); }} style={{ color: colors.softText }} onMouseEnter={(e) => (e.currentTarget.style.color = colors.textStrong)} onMouseLeave={(e) => (e.currentTarget.style.color = colors.softText)}>
                 <X size={11} />
               </button>
             )}
@@ -4224,7 +4227,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
         </div>
 
         {/* Explorer display/sort menu */}
-        <div className="px-2 py-1 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+        <div className="px-2 py-1 border-b flex-shrink-0" style={{ borderColor: colors.borderSoft }}>
           <div className="flex items-center" style={{ fontSize: 11, gap: explorerUltraCompact ? 4 : 6 }}>
             <button
               type="button"
@@ -4234,19 +4237,19 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               className="flex-1 min-w-0 flex items-center justify-center rounded-md"
               style={{
                 backgroundColor: showTitles ? "rgba(96,165,250,0.18)" : "rgba(255,255,255,0.06)",
-                color: showTitles ? "#bfdbfe" : "rgba(255,255,255,0.72)",
-                border: `1px solid ${showTitles ? "rgba(96,165,250,0.35)" : "rgba(255,255,255,0.12)"}`,
+                color: showTitles ? colors.accentStrong : colors.text,
+                border: `1px solid ${showTitles ? colors.accent : colors.border}`,
                 whiteSpace: "nowrap",
                 gap: explorerUltraCompact ? 3 : 6,
                 padding: explorerUltraCompact ? "4px 6px" : "4px 8px",
               }}
               onMouseEnter={(e) => {
                 if (showTitles) e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.24)";
-                else e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)";
+                else e.currentTarget.style.backgroundColor = colors.border;
               }}
               onMouseLeave={(e) => {
                 if (showTitles) e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.18)";
-                else e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)";
+                else e.currentTarget.style.backgroundColor = colors.borderSoft;
               }}
             >
               <Type size={explorerUltraCompact ? 10 : 11} style={{ flexShrink: 0, opacity: 0.85 }} />
@@ -4269,19 +4272,19 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               className="flex-1 min-w-0 flex items-center justify-center rounded-md"
               style={{
                 backgroundColor: fileSortMode === "recent" ? "rgba(96,165,250,0.18)" : "rgba(255,255,255,0.06)",
-                color: fileSortMode === "recent" ? "#bfdbfe" : "rgba(255,255,255,0.72)",
-                border: `1px solid ${fileSortMode === "recent" ? "rgba(96,165,250,0.35)" : "rgba(255,255,255,0.12)"}`,
+                color: fileSortMode === "recent" ? colors.accentStrong : colors.text,
+                border: `1px solid ${fileSortMode === "recent" ? colors.accent : colors.border}`,
                 whiteSpace: "nowrap",
                 gap: explorerUltraCompact ? 3 : 6,
                 padding: explorerUltraCompact ? "4px 6px" : "4px 8px",
               }}
               onMouseEnter={(e) => {
                 if (fileSortMode === "recent") e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.24)";
-                else e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)";
+                else e.currentTarget.style.backgroundColor = colors.border;
               }}
               onMouseLeave={(e) => {
                 if (fileSortMode === "recent") e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.18)";
-                else e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)";
+                else e.currentTarget.style.backgroundColor = colors.borderSoft;
               }}
             >
               <ChevronsUpDown size={explorerUltraCompact ? 10 : 11} style={{ flexShrink: 0, opacity: 0.85 }} />
@@ -4300,8 +4303,8 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
         {/* Bulk action bar — shown when 2+ files are selected */}
         {selectedPaths.size > 0 && (
-          <div className="flex items-center gap-1.5 px-2 py-1.5 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)", backgroundColor: "rgba(96,165,250,0.07)" }}>
-            <span className="text-xs flex-1" style={{ color: "rgba(255,255,255,0.5)" }}>
+          <div className="flex items-center gap-1.5 px-2 py-1.5 border-b flex-shrink-0" style={{ borderColor: colors.borderSoft, backgroundColor: colors.accentSoft }}>
+            <span className="text-xs flex-1" style={{ color: colors.muted }}>
               {selectedPaths.size} selected
             </span>
             <div className="relative">
@@ -4309,22 +4312,22 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                 title="Move to folder…"
                 onClick={() => setBulkMoveOpen((v) => !v)}
                 className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs"
-                style={{ color: "#93c5fd", backgroundColor: "rgba(96,165,250,0.12)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.22)")}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.12)")}
+                style={{ color: colors.accentStrong, backgroundColor: colors.accentSoft }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.accent)}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = colors.accentSoft)}
               >
                 <FolderOpen size={11} />Move
               </button>
               {bulkMoveOpen && (
                 <div
                   className="absolute left-0 top-full mt-1 z-50 py-1 rounded-lg shadow-xl"
-                  style={{ minWidth: 160, backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)" }}
+                  style={{ minWidth: 160, backgroundColor: colors.surface, border: `1px solid ${colors.border}` }}
                   onMouseDown={(e) => e.stopPropagation()}
                 >
                   <button
                     className="w-full text-left px-3 py-1.5 text-xs"
-                    style={{ color: "rgba(255,255,255,0.6)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.07)")}
+                    style={{ color: colors.text }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.borderSoft)}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                     onClick={() => bulkMoveFiles(selectedPaths, "")}
                   >
@@ -4334,8 +4337,8 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                     <button
                       key={fp}
                       className="w-full text-left px-3 py-1.5 text-xs truncate"
-                      style={{ color: "rgba(255,255,255,0.6)" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.07)")}
+                        style={{ color: colors.text }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.borderSoft)}
                       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                       onClick={() => bulkMoveFiles(selectedPaths, fp)}
                     >
@@ -4349,9 +4352,9 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               title="Delete selected"
               onClick={() => bulkDeleteFiles(selectedPaths)}
               className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs"
-              style={{ color: "#f87171", backgroundColor: "rgba(248,113,113,0.1)" }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(248,113,113,0.2)")}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgba(248,113,113,0.1)")}
+              style={{ color: colors.danger, backgroundColor: `${colors.danger}26` }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = `${colors.danger}40`)}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = `${colors.danger}26`)}
             >
               <Trash2 size={11} />Delete
             </button>
@@ -4652,7 +4655,16 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
         {/* Menubar */}
         <div
           className="flex items-center gap-0.5 px-2 py-0.5 border-b flex-shrink-0"
-          style={{ backgroundColor: "#13131f", borderColor: "rgba(255,255,255,0.07)" }}
+          style={{
+            backgroundColor: colors.surfaceAlt,
+            borderColor: colors.borderSoft,
+            "--sg-text-strong": colors.textStrong,
+            "--sg-muted": colors.muted,
+            "--sg-soft-text": colors.softText,
+            "--sg-accent-soft": colors.accentSoft,
+            "--sg-border-soft": colors.borderSoft,
+            "--sg-border": colors.border,
+          }}
         >
           {!hotbarOnly && (
             <>
@@ -4669,11 +4681,11 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                   disabled={!openFile}
                   className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors"
                   style={{
-                    color: openFile ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.2)",
-                    backgroundColor: fileMenuToolbarOpen ? "rgba(255,255,255,0.08)" : "transparent",
+                    color: openFile ? colors.text : colors.softText,
+                    backgroundColor: fileMenuToolbarOpen ? colors.borderSoft : "transparent",
                   }}
-                  onMouseEnter={(e) => { if (openFile) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = fileMenuToolbarOpen ? "rgba(255,255,255,0.08)" : "transparent"; }}
+                  onMouseEnter={(e) => { if (openFile) e.currentTarget.style.backgroundColor = colors.borderSoft; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = fileMenuToolbarOpen ? colors.borderSoft : "transparent"; }}
                 >
                   File
                   <ChevronDown size={11} style={{ opacity: 0.5, transform: fileMenuToolbarOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
@@ -4682,11 +4694,11 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                 {fileMenuToolbarOpen && openFile && (
                   <div
                     className="absolute left-0 top-full mt-1 z-50 rounded-xl py-1 shadow-2xl"
-                    style={{ backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)", minWidth: "170px" }}
+                    style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, minWidth: "170px" }}
                   >
                     {fileMenuRename ? (
                       <div className="px-3 py-2">
-                        <p className="text-xs mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>Rename file</p>
+                        <p className="text-xs mb-1.5" style={{ color: colors.muted }}>Rename file</p>
                         <input
                           ref={fileMenuRenameInputRef}
                           type="text"
@@ -4701,13 +4713,13 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                             if (e.key === "Escape") { setFileMenuRename(null); }
                           }}
                           className="w-full bg-transparent outline-none text-xs rounded px-2 py-1"
-                          style={{ color: "rgba(255,255,255,0.85)", caretColor: "#60a5fa", border: "1px solid rgba(255,255,255,0.15)" }}
+                          style={{ color: colors.text, caretColor: colors.accent, border: `1px solid ${colors.border}` }}
                           autoFocus
                         />
                         <div className="flex gap-1.5 mt-1.5">
                           <button
                             className="text-xs px-2 py-0.5 rounded"
-                            style={{ backgroundColor: "rgba(96,165,250,0.2)", color: "#93c5fd" }}
+                            style={{ backgroundColor: colors.accentSoft, color: colors.accentStrong }}
                             onClick={() => {
                               renameFile(openFile.filename, fileMenuRename.value);
                               setFileMenuRename(null);
@@ -4716,7 +4728,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                           >Rename</button>
                           <button
                             className="text-xs px-2 py-0.5 rounded"
-                            style={{ color: "rgba(255,255,255,0.35)" }}
+                            style={{ color: colors.softText }}
                             onClick={() => setFileMenuRename(null)}
                           >Cancel</button>
                         </div>
@@ -4725,45 +4737,45 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                       <>
                         <button
                           className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
-                          style={{ color: "rgba(255,255,255,0.7)" }}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                          style={{ color: colors.text }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.borderSoft; }}
                           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
                           onClick={() => {
                             const basename = openFile.filename.split("/").pop().replace(/\.(md|txt)$/, "");
                             setFileMenuRename({ value: basename });
                           }}
                         >
-                          <Pencil size={12} style={{ color: "rgba(255,255,255,0.35)", flexShrink: 0 }} />
+                          <Pencil size={12} style={{ color: colors.softText, flexShrink: 0 }} />
                           Rename
                         </button>
                         <button
                           className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
-                          style={{ color: "rgba(255,255,255,0.7)" }}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                          style={{ color: colors.text }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.borderSoft; }}
                           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
                           onClick={() => {
                             duplicateFile();
                             setFileMenuToolbarOpen(false);
                           }}
                         >
-                          <Copy size={12} style={{ color: "rgba(255,255,255,0.35)", flexShrink: 0 }} />
+                          <Copy size={12} style={{ color: colors.softText, flexShrink: 0 }} />
                           Duplicate
                         </button>
                         <button
                           className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
-                          style={{ color: "rgba(255,255,255,0.7)" }}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                          style={{ color: colors.text }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.borderSoft; }}
                           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
                           onClick={() => { downloadFile(); setFileMenuToolbarOpen(false); }}
                         >
-                          <Download size={12} style={{ color: "rgba(255,255,255,0.35)", flexShrink: 0 }} />
+                          <Download size={12} style={{ color: colors.softText, flexShrink: 0 }} />
                           Download
                         </button>
-                        <div className="my-1 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }} />
+                        <div className="my-1 border-t" style={{ borderColor: colors.border }} />
                         <button
                           className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs"
-                          style={{ color: "#f87171" }}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(248,113,113,0.07)"; }}
+                          style={{ color: colors.danger }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.danger}22`; }}
                           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
                           onClick={(e) => { setFileMenuToolbarOpen(false); deleteFile(openFile.filename, e); }}
                         >
@@ -4791,11 +4803,11 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               disabled={!openFile}
               className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors"
               style={{
-                color: openFile ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.2)",
-                backgroundColor: viewMenuToolbarOpen ? "rgba(255,255,255,0.08)" : "transparent",
+                color: openFile ? colors.text : colors.softText,
+                backgroundColor: viewMenuToolbarOpen ? colors.borderSoft : "transparent",
               }}
-              onMouseEnter={(e) => { if (openFile) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = viewMenuToolbarOpen ? "rgba(255,255,255,0.08)" : "transparent"; }}
+              onMouseEnter={(e) => { if (openFile) e.currentTarget.style.backgroundColor = colors.borderSoft; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = viewMenuToolbarOpen ? colors.borderSoft : "transparent"; }}
             >
               View
               <ChevronDown size={11} style={{ opacity: 0.5, transform: viewMenuToolbarOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
@@ -4804,29 +4816,29 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
             {viewMenuToolbarOpen && openFile && (
               <div
                 className="absolute left-0 top-full mt-1 z-50 rounded-xl py-1 shadow-2xl"
-                style={{ backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)", minWidth: "190px" }}
+                style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, minWidth: "190px" }}
               >
                 <button
                   className="w-full flex items-center justify-between gap-2.5 px-3 py-2 text-left text-xs"
-                  style={{ color: "rgba(255,255,255,0.7)" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                  style={{ color: colors.text }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.borderSoft; }}
                   onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
                   onClick={() => setSpellCheckEnabled((v) => !v)}
                 >
                   <span>Spell check</span>
-                  <span style={{ color: spellCheckEnabled ? "#34d399" : "rgba(255,255,255,0.35)" }}>
+                  <span style={{ color: spellCheckEnabled ? colors.success : colors.softText }}>
                     {spellCheckEnabled ? "On" : "Off"}
                   </span>
                 </button>
                 <button
                   className="w-full flex items-center justify-between gap-2.5 px-3 py-2 text-left text-xs"
-                  style={{ color: "rgba(255,255,255,0.7)" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                  style={{ color: colors.text }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.borderSoft; }}
                   onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
                   onClick={() => setShowLineNumbers((v) => !v)}
                 >
                   <span>Show Line Numbers</span>
-                  <span style={{ color: showLineNumbers ? "#34d399" : "rgba(255,255,255,0.35)" }}>
+                  <span style={{ color: showLineNumbers ? colors.success : colors.softText }}>
                     {showLineNumbers ? "On" : "Off"}
                   </span>
                 </button>
@@ -4858,11 +4870,11 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               disabled={!canEdit}
               className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors"
               style={{
-                color: canEdit ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.2)",
-                backgroundColor: insertMenuToolbarOpen ? "rgba(255,255,255,0.08)" : "transparent",
+                color: canEdit ? colors.text : colors.softText,
+                backgroundColor: insertMenuToolbarOpen ? colors.borderSoft : "transparent",
               }}
-              onMouseEnter={(e) => { if (canEdit) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = insertMenuToolbarOpen ? "rgba(255,255,255,0.08)" : "transparent"; }}
+              onMouseEnter={(e) => { if (canEdit) e.currentTarget.style.backgroundColor = colors.borderSoft; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = insertMenuToolbarOpen ? colors.borderSoft : "transparent"; }}
             >
               Insert
               <ChevronDown size={11} style={{ opacity: 0.5, transform: insertMenuToolbarOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
@@ -4871,7 +4883,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
             {insertMenuToolbarOpen && canEdit && (
               <div
                 className="absolute left-0 top-full mt-1 z-50 rounded-xl py-1 shadow-2xl"
-                style={{ backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)", minWidth: "170px" }}
+                style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, minWidth: "170px" }}
               >
                 <div
                   className="relative"
@@ -4881,11 +4893,11 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                   <button
                     className="w-full flex items-center justify-between gap-2.5 px-3 py-2 text-left text-xs"
                     style={{
-                      color: insertTableSubmenuOpen ? "#fff" : "rgba(255,255,255,0.75)",
-                      backgroundColor: insertTableSubmenuOpen ? "rgba(255,255,255,0.09)" : "transparent",
+                      color: insertTableSubmenuOpen ? colors.textStrong : colors.text,
+                      backgroundColor: insertTableSubmenuOpen ? colors.borderSoft : "transparent",
                     }}
                     onMouseEnter={(e) => {
-                      if (!insertTableSubmenuOpen) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)";
+                      if (!insertTableSubmenuOpen) e.currentTarget.style.backgroundColor = colors.borderSoft;
                     }}
                     onMouseLeave={(e) => {
                       if (!insertTableSubmenuOpen) e.currentTarget.style.backgroundColor = "transparent";
@@ -4893,24 +4905,24 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                     onMouseDown={(e) => e.preventDefault()}
                   >
                     <span>Insert table</span>
-                    <ChevronRight size={12} style={{ color: "rgba(255,255,255,0.35)" }} />
+                    <ChevronRight size={12} style={{ color: colors.softText }} />
                   </button>
 
                   {insertTableSubmenuOpen && (
                     <div
                       className="absolute left-full top-0 z-50 rounded-lg py-1 shadow-2xl"
-                      style={{ backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)", minWidth: "250px" }}
+                      style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, minWidth: "250px" }}
                       onMouseEnter={openInsertTableSubmenu}
                       onMouseLeave={queueCloseInsertTableSubmenu}
                     >
                       <div className="px-3 py-2">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>Insert table</span>
-                          <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>1-20 rows, 1-12 cols</span>
+                          <span className="text-xs font-medium" style={{ color: colors.textStrong }}>Insert table</span>
+                          <span className="text-[10px]" style={{ color: colors.softText }}>1-20 rows, 1-12 cols</span>
                         </div>
 
                         <div className="flex items-center gap-2 mb-2">
-                          <label className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(255,255,255,0.65)" }}>
+                          <label className="flex items-center gap-1.5 text-xs" style={{ color: colors.text }}>
                             Rows
                             <input
                               type="number"
@@ -4919,10 +4931,10 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                               value={insertTableRows}
                               onChange={(e) => setInsertTableRows(Math.max(1, Math.min(20, Number.parseInt(e.target.value, 10) || 1)))}
                               className="w-14 px-1.5 py-0.5 rounded text-xs bg-transparent outline-none"
-                              style={{ border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.85)", caretColor: "#60a5fa" }}
+                              style={{ border: `1px solid ${colors.border}`, color: colors.text, caretColor: colors.accent }}
                             />
                           </label>
-                          <label className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(255,255,255,0.65)" }}>
+                          <label className="flex items-center gap-1.5 text-xs" style={{ color: colors.text }}>
                             Cols
                             <input
                               type="number"
@@ -4931,7 +4943,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                               value={insertTableCols}
                               onChange={(e) => setInsertTableCols(Math.max(1, Math.min(12, Number.parseInt(e.target.value, 10) || 1)))}
                               className="w-14 px-1.5 py-0.5 rounded text-xs bg-transparent outline-none"
-                              style={{ border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.85)", caretColor: "#60a5fa" }}
+                              style={{ border: `1px solid ${colors.border}`, color: colors.text, caretColor: colors.accent }}
                             />
                           </label>
                         </div>
@@ -4939,22 +4951,22 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                         <button
                           className="w-full flex items-center justify-between px-2 py-1 rounded text-xs"
                           style={{
-                            color: "rgba(255,255,255,0.7)",
-                            backgroundColor: "rgba(255,255,255,0.04)",
-                            border: "1px solid rgba(255,255,255,0.08)",
+                            color: colors.text,
+                            backgroundColor: colors.surfaceAlt,
+                            border: `1px solid ${colors.border}`,
                           }}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)"; }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.borderSoft; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = colors.surfaceAlt; }}
                           onClick={() => setInsertTableWithHeaderRow((v) => !v)}
                         >
                           <span>Header row</span>
-                          <span style={{ color: insertTableWithHeaderRow ? "#34d399" : "rgba(255,255,255,0.35)" }}>
+                          <span style={{ color: insertTableWithHeaderRow ? colors.success : colors.softText }}>
                             {insertTableWithHeaderRow ? "On" : "Off"}
                           </span>
                         </button>
 
                         <div className="mt-2">
-                          <p className="text-[10px] mb-1" style={{ color: "rgba(255,255,255,0.35)" }}>Quick insert</p>
+                          <p className="text-[10px] mb-1" style={{ color: colors.softText }}>Quick insert</p>
                           <div className="flex items-center gap-1.5">
                             {[
                               { label: "2x2", rows: 2, cols: 2 },
@@ -4965,11 +4977,11 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                                 key={preset.label}
                                 className="px-2 py-1 rounded text-xs"
                                 style={{
-                                  color: "rgba(255,255,255,0.72)",
-                                  backgroundColor: "rgba(255,255,255,0.06)",
+                                  color: colors.text,
+                                  backgroundColor: colors.borderSoft,
                                 }}
-                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.11)"; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"; }}
+                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.border; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = colors.borderSoft; }}
                                 onClick={() => insertTableAtCursor(preset.rows, preset.cols)}
                               >
                                 {preset.label}
@@ -4980,9 +4992,9 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
                         <button
                           className="w-full mt-2 px-2 py-1 rounded text-xs font-medium"
-                          style={{ backgroundColor: "rgba(96,165,250,0.2)", color: "#93c5fd", border: "1px solid rgba(96,165,250,0.32)" }}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.28)"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.2)"; }}
+                          style={{ backgroundColor: colors.accentSoft, color: colors.accentStrong, border: `1px solid ${colors.accent}` }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.accent; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = colors.accentSoft; }}
                           onClick={() => insertTableAtCursor()}
                         >
                           Insert Table
@@ -4994,8 +5006,8 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
                 <button
                   className="w-full flex items-center justify-between gap-2.5 px-3 py-2 text-left text-xs"
-                  style={{ color: "rgba(255,255,255,0.75)" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                  style={{ color: colors.text }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.borderSoft; }}
                   onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -5006,15 +5018,15 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                   }}
                 >
                   <span className="flex items-center gap-2">
-                    <Upload size={12} style={{ color: "rgba(255,255,255,0.4)" }} />
+                    <Upload size={12} style={{ color: colors.softText }} />
                     Upload image
                   </span>
                 </button>
 
                 <button
                   className="w-full flex items-center justify-between gap-2.5 px-3 py-2 text-left text-xs"
-                  style={{ color: "rgba(255,255,255,0.75)" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                  style={{ color: colors.text }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.borderSoft; }}
                   onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -5025,7 +5037,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                   }}
                 >
                   <span className="flex items-center gap-2">
-                    <Pencil size={12} style={{ color: "rgba(255,255,255,0.4)" }} />
+                    <Pencil size={12} style={{ color: colors.softText }} />
                     Insert doodle
                   </span>
                 </button>
@@ -5037,7 +5049,16 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
         {/* Formatting toolbar */}
         <div
           className="flex items-center gap-0.5 px-3 py-1.5 border-b flex-shrink-0 flex-wrap"
-          style={{ backgroundColor: "#16162a", borderColor: "rgba(255,255,255,0.07)" }}
+          style={{
+            backgroundColor: colors.surfaceAlt,
+            borderColor: colors.borderSoft,
+            "--sg-text-strong": colors.textStrong,
+            "--sg-muted": colors.muted,
+            "--sg-soft-text": colors.softText,
+            "--sg-accent-soft": colors.accentSoft,
+            "--sg-border-soft": colors.borderSoft,
+            "--sg-border": colors.border,
+          }}
         >
           <ToolbarBtn title="Undo" disabled={!canEdit} onClick={() => editor.chain().focus().undo().run()}>
             <Undo size={14} />
@@ -5066,9 +5087,9 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               title="Font family"
               className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors"
               style={{
-                border: "1px solid rgba(255,255,255,0.16)",
-                backgroundColor: fontFamilyMenuOpen ? "rgba(255,255,255,0.08)" : "transparent",
-                color: canEdit ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.25)",
+                border: `1px solid ${colors.border}`,
+                backgroundColor: fontFamilyMenuOpen ? colors.borderSoft : "transparent",
+                color: canEdit ? colors.text : colors.softText,
                 cursor: canEdit ? "pointer" : "not-allowed",
               }}
             >
@@ -5083,8 +5104,8 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                   top: "100%",
                   left: 0,
                   width: 220,
-                  backgroundColor: "rgba(20,20,32,0.98)",
-                  border: "1px solid rgba(255,255,255,0.1)",
+                  backgroundColor: colors.surface,
+                  border: `1px solid ${colors.border}`,
                   boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
                 }}
               >
@@ -5099,12 +5120,12 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                       }}
                       className="w-full text-left px-3 py-2"
                       style={{
-                        backgroundColor: isActive ? "rgba(255,255,255,0.08)" : "transparent",
-                        color: isActive ? "#fff" : "rgba(255,255,255,0.78)",
-                        borderBottom: "1px solid rgba(255,255,255,0.05)",
+                        backgroundColor: isActive ? colors.borderSoft : "transparent",
+                        color: isActive ? colors.textStrong : colors.text,
+                        borderBottom: `1px solid ${colors.borderSoft}`,
                       }}
                       onMouseEnter={(e) => {
-                        if (!isActive) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)";
+                        if (!isActive) e.currentTarget.style.backgroundColor = colors.borderSoft;
                       }}
                       onMouseLeave={(e) => {
                         if (!isActive) e.currentTarget.style.backgroundColor = "transparent";
@@ -5112,13 +5133,13 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span style={{ fontFamily: option.family, fontSize: 13 }}>{option.label}</span>
-                        {isActive && <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>✓</span>}
+                        {isActive && <span style={{ color: colors.softText, fontSize: 10 }}>✓</span>}
                       </div>
                       <div
                         className="text-[10px] mt-0.5"
                         style={{
                           fontFamily: option.family,
-                          color: "rgba(255,255,255,0.45)",
+                          color: colors.muted,
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
@@ -5156,12 +5177,12 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               title="Font size"
               className="w-10 px-1 py-0.5 rounded text-xs text-center bg-transparent outline-none"
               style={{
-                color: canEdit ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.25)",
-                border: "1px solid rgba(255,255,255,0.16)",
-                caretColor: "#60a5fa",
+                color: canEdit ? colors.text : colors.softText,
+                border: `1px solid ${colors.border}`,
+                caretColor: colors.accent,
               }}
             />
-            <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>px</span>
+            <span className="text-[10px]" style={{ color: colors.softText }}>px</span>
             <ToolbarBtn title="Increase font size" disabled={!canEdit} onClick={increaseFontSize}>
               <Plus size={13} />
             </ToolbarBtn>
@@ -5183,22 +5204,22 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                 title="Text color"
                 className="flex items-center gap-1 px-1 py-0.5 rounded-md transition-colors"
                 style={{
-                  backgroundColor: textColorMenuOpen ? "rgba(255,255,255,0.08)" : "transparent",
-                  color: canEdit ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.3)",
+                  backgroundColor: textColorMenuOpen ? colors.borderSoft : "transparent",
+                  color: canEdit ? colors.text : colors.softText,
                 }}
                 onMouseEnter={(e) => {
                   if (!canEdit || textColorMenuOpen) return;
-                  e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)";
+                  e.currentTarget.style.backgroundColor = colors.borderSoft;
                 }}
                 onMouseLeave={(e) => {
                   if (textColorMenuOpen) {
-                    e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)";
+                    e.currentTarget.style.backgroundColor = colors.borderSoft;
                     return;
                   }
                   e.currentTarget.style.backgroundColor = "transparent";
                 }}
               >
-                <Palette size={12} style={{ color: "rgba(255,255,255,0.45)" }} />
+                <Palette size={12} style={{ color: colors.muted }} />
                 <span
                   className="w-3.5 h-3.5 rounded-sm"
                   style={{
@@ -5211,7 +5232,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               {textColorMenuOpen && canEdit && (
                 <div
                   className="absolute left-0 top-full mt-1 z-50 rounded-lg py-1 shadow-2xl"
-                  style={{ backgroundColor: "#1a1a2e", minWidth: 130 }}
+                  style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, minWidth: 130 }}
                 >
                   {TEXT_COLOR_OPTIONS.map((option) => {
                     const isActive = activeTextColor === option.value;
@@ -5230,11 +5251,11 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                         <button
                           className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs"
                           style={{
-                            color: isActive || tintActive ? "#fff" : "rgba(255,255,255,0.75)",
-                            backgroundColor: isActive || tintActive || tintMenuOpen ? "rgba(255,255,255,0.09)" : "transparent",
+                            color: isActive || tintActive ? colors.textStrong : colors.text,
+                            backgroundColor: isActive || tintActive || tintMenuOpen ? colors.borderSoft : "transparent",
                           }}
                           onMouseEnter={(e) => {
-                            if (!isActive && !tintActive && !tintMenuOpen) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)";
+                            if (!isActive && !tintActive && !tintMenuOpen) e.currentTarget.style.backgroundColor = colors.borderSoft;
                           }}
                           onMouseLeave={(e) => {
                             if (!isActive && !tintActive && !tintMenuOpen) e.currentTarget.style.backgroundColor = "transparent";
@@ -5252,15 +5273,15 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                             {option.label}
                           </span>
                           <span className="flex items-center gap-1">
-                            {(isActive || tintActive) && <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>✓</span>}
-                            {!!option.value && <ChevronRight size={12} style={{ color: "rgba(255,255,255,0.35)" }} />}
+                            {(isActive || tintActive) && <span style={{ color: colors.softText, fontSize: 10 }}>✓</span>}
+                            {!!option.value && <ChevronRight size={12} style={{ color: colors.softText }} />}
                           </span>
                         </button>
 
                         {!!option.value && tintMenuOpen && (
                           <div
                             className="absolute left-full top-0 ml-1 z-50 rounded-lg py-1 shadow-2xl"
-                            style={{ backgroundColor: "#1a1a2e", minWidth: 132 }}
+                            style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, minWidth: 132 }}
                           >
                             {tintOptions.map((tint) => {
                               const tintIsActive = colorsMatch(activeTextColor, tint.value);
@@ -5269,10 +5290,10 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                                   key={`${option.label}-${tint.label}`}
                                   className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs"
                                   style={{
-                                    color: tintIsActive ? "#fff" : "rgba(255,255,255,0.75)",
-                                    backgroundColor: tintIsActive ? "rgba(255,255,255,0.1)" : "transparent",
+                                    color: tintIsActive ? colors.textStrong : colors.text,
+                                    backgroundColor: tintIsActive ? colors.border : "transparent",
                                   }}
-                                  onMouseEnter={(e) => { if (!tintIsActive) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                                  onMouseEnter={(e) => { if (!tintIsActive) e.currentTarget.style.backgroundColor = colors.borderSoft; }}
                                   onMouseLeave={(e) => { if (!tintIsActive) e.currentTarget.style.backgroundColor = "transparent"; }}
                                   onMouseDown={(e) => {
                                     e.preventDefault();
@@ -5283,7 +5304,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                                     <span className="w-3.5 h-3.5 rounded-sm" style={{ background: tint.value }} />
                                     {tint.label}
                                   </span>
-                                  {tintIsActive && <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>✓</span>}
+                                  {tintIsActive && <span style={{ color: colors.softText, fontSize: 10 }}>✓</span>}
                                 </button>
                               );
                             })}
@@ -5307,22 +5328,22 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                 title="Highlight color"
                 className="flex items-center gap-1 px-1 py-0.5 rounded-md transition-colors"
                 style={{
-                  backgroundColor: highlightColorMenuOpen ? "rgba(255,255,255,0.08)" : "transparent",
-                  color: canEdit ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.3)",
+                  backgroundColor: highlightColorMenuOpen ? colors.borderSoft : "transparent",
+                  color: canEdit ? colors.text : colors.softText,
                 }}
                 onMouseEnter={(e) => {
                   if (!canEdit || highlightColorMenuOpen) return;
-                  e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)";
+                  e.currentTarget.style.backgroundColor = colors.borderSoft;
                 }}
                 onMouseLeave={(e) => {
                   if (highlightColorMenuOpen) {
-                    e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)";
+                    e.currentTarget.style.backgroundColor = colors.borderSoft;
                     return;
                   }
                   e.currentTarget.style.backgroundColor = "transparent";
                 }}
               >
-                <Highlighter size={12} style={{ color: "rgba(255,255,255,0.45)" }} />
+                <Highlighter size={12} style={{ color: colors.muted }} />
                 <span
                   className="w-3.5 h-3.5 rounded-sm"
                   style={{
@@ -5335,7 +5356,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               {highlightColorMenuOpen && canEdit && (
                 <div
                   className="absolute left-0 top-full mt-1 z-50 rounded-lg py-1 shadow-2xl"
-                  style={{ backgroundColor: "#1a1a2e", minWidth: 130 }}
+                  style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, minWidth: 130 }}
                 >
                   {HIGHLIGHT_COLOR_OPTIONS.map((option) => {
                     const isActive = activeHighlightColor === option.value;
@@ -5344,10 +5365,10 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                         key={`highlight-${option.label}`}
                         className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs"
                         style={{
-                          color: isActive ? "#fff" : "rgba(255,255,255,0.75)",
-                          backgroundColor: isActive ? "rgba(255,255,255,0.09)" : "transparent",
+                          color: isActive ? colors.textStrong : colors.text,
+                          backgroundColor: isActive ? colors.borderSoft : "transparent",
                         }}
-                        onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                        onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = colors.borderSoft; }}
                         onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = "transparent"; }}
                         onMouseDown={(e) => {
                           e.preventDefault();
@@ -5361,7 +5382,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                           />
                           {option.label}
                         </span>
-                        {isActive && <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>✓</span>}
+                        {isActive && <span style={{ color: colors.softText, fontSize: 10 }}>✓</span>}
                       </button>
                     );
                   })}
@@ -5402,19 +5423,19 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               className="flex items-center gap-1 px-2 py-1 rounded-md transition-colors"
               style={{
                 backgroundColor: alignmentMenuOpen
-                  ? "rgba(96,165,250,0.25)"
+                  ? colors.accentSoft
                   : activeAlignment !== "left"
-                    ? "rgba(96,165,250,0.2)"
+                    ? colors.accentSoft
                     : "transparent",
-                color: canEdit ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.3)",
+                color: canEdit ? colors.text : colors.softText,
               }}
               onMouseEnter={(e) => {
                 if (!canEdit || alignmentMenuOpen || activeAlignment !== "left") return;
-                e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)";
+                e.currentTarget.style.backgroundColor = colors.borderSoft;
               }}
               onMouseLeave={(e) => {
                 if (alignmentMenuOpen || activeAlignment !== "left") {
-                  e.currentTarget.style.backgroundColor = alignmentMenuOpen ? "rgba(96,165,250,0.25)" : "rgba(96,165,250,0.2)";
+                  e.currentTarget.style.backgroundColor = alignmentMenuOpen ? colors.accentSoft : colors.accentSoft;
                   return;
                 }
                 e.currentTarget.style.backgroundColor = "transparent";
@@ -5429,15 +5450,15 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
             {alignmentMenuOpen && canEdit && (
               <div
                 className="absolute left-0 top-full mt-1 z-50 rounded-lg py-1 shadow-2xl"
-                style={{ backgroundColor: "#1a1a2e", minWidth: 148 }}
+                style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, minWidth: 148 }}
               >
                 <button
                   className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs"
                   style={{
-                    color: activeAlignment === "left" ? "#fff" : "rgba(255,255,255,0.75)",
-                    backgroundColor: activeAlignment === "left" ? "rgba(255,255,255,0.09)" : "transparent",
+                    color: activeAlignment === "left" ? colors.textStrong : colors.text,
+                    backgroundColor: activeAlignment === "left" ? colors.borderSoft : "transparent",
                   }}
-                  onMouseEnter={(e) => { if (activeAlignment !== "left") e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                  onMouseEnter={(e) => { if (activeAlignment !== "left") e.currentTarget.style.backgroundColor = colors.borderSoft; }}
                   onMouseLeave={(e) => { if (activeAlignment !== "left") e.currentTarget.style.backgroundColor = "transparent"; }}
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -5446,16 +5467,16 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                   }}
                 >
                   <span className="flex items-center gap-2"><AlignLeft size={13} /> Left</span>
-                  {activeAlignment === "left" && <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>✓</span>}
+                  {activeAlignment === "left" && <span style={{ color: colors.softText, fontSize: 10 }}>✓</span>}
                 </button>
 
                 <button
                   className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs"
                   style={{
-                    color: activeAlignment === "center" ? "#fff" : "rgba(255,255,255,0.75)",
-                    backgroundColor: activeAlignment === "center" ? "rgba(255,255,255,0.09)" : "transparent",
+                    color: activeAlignment === "center" ? colors.textStrong : colors.text,
+                    backgroundColor: activeAlignment === "center" ? colors.borderSoft : "transparent",
                   }}
-                  onMouseEnter={(e) => { if (activeAlignment !== "center") e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                  onMouseEnter={(e) => { if (activeAlignment !== "center") e.currentTarget.style.backgroundColor = colors.borderSoft; }}
                   onMouseLeave={(e) => { if (activeAlignment !== "center") e.currentTarget.style.backgroundColor = "transparent"; }}
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -5464,16 +5485,16 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                   }}
                 >
                   <span className="flex items-center gap-2"><AlignCenter size={13} /> Middle</span>
-                  {activeAlignment === "center" && <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>✓</span>}
+                  {activeAlignment === "center" && <span style={{ color: colors.softText, fontSize: 10 }}>✓</span>}
                 </button>
 
                 <button
                   className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs"
                   style={{
-                    color: activeAlignment === "right" ? "#fff" : "rgba(255,255,255,0.75)",
-                    backgroundColor: activeAlignment === "right" ? "rgba(255,255,255,0.09)" : "transparent",
+                    color: activeAlignment === "right" ? colors.textStrong : colors.text,
+                    backgroundColor: activeAlignment === "right" ? colors.borderSoft : "transparent",
                   }}
-                  onMouseEnter={(e) => { if (activeAlignment !== "right") e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
+                  onMouseEnter={(e) => { if (activeAlignment !== "right") e.currentTarget.style.backgroundColor = colors.borderSoft; }}
                   onMouseLeave={(e) => { if (activeAlignment !== "right") e.currentTarget.style.backgroundColor = "transparent"; }}
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -5482,7 +5503,7 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
                   }}
                 >
                   <span className="flex items-center gap-2"><AlignRight size={13} /> Right</span>
-                  {activeAlignment === "right" && <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>✓</span>}
+                  {activeAlignment === "right" && <span style={{ color: colors.softText, fontSize: 10 }}>✓</span>}
                 </button>
               </div>
             )}
@@ -5517,22 +5538,22 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
           {/* Save button + status */}
           <div className="ml-auto flex items-center gap-2">
             {saveState === "saving" && (
-              <span className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+              <span className="flex items-center gap-1.5 text-xs" style={{ color: colors.softText }}>
                 <Loader size={11} className="animate-spin" /> Saving…
               </span>
             )}
             {saveState === "saved" && (
-              <span className="flex items-center gap-1.5 text-xs" style={{ color: "#34d399" }}>
+              <span className="flex items-center gap-1.5 text-xs" style={{ color: colors.success }}>
                 <CheckCircle size={11} /> Saved
               </span>
             )}
             {saveState === "error" && (
-              <span className="flex items-center gap-1.5 text-xs" style={{ color: "#f87171" }}>
+              <span className="flex items-center gap-1.5 text-xs" style={{ color: colors.danger }}>
                 <AlertCircle size={11} /> Save failed
               </span>
             )}
             {hasPendingChanges && saveState === "idle" && (
-              <span className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>Unsaved</span>
+              <span className="text-xs" style={{ color: colors.softText }}>Unsaved</span>
             )}
             <button
               onClick={() => {
@@ -5542,8 +5563,8 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
               disabled={!canEdit || !hasPendingChanges}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
               style={{
-                backgroundColor: canEdit && hasPendingChanges ? "rgba(96,165,250,0.15)" : "rgba(255,255,255,0.05)",
-                color: canEdit && hasPendingChanges ? "#93c5fd" : "rgba(255,255,255,0.2)",
+                backgroundColor: canEdit && hasPendingChanges ? colors.accentSoft : colors.borderSoft,
+                color: canEdit && hasPendingChanges ? colors.accentStrong : colors.softText,
                 cursor: canEdit && hasPendingChanges ? "pointer" : "not-allowed",
               }}
               title="Save (Ctrl+S)"

@@ -12,9 +12,8 @@ import { darkenHex } from "../utils/color.js";
 import { computeOwnFileIds, buildAdjacencyMap, graphBFS, buildBasenameMap, resolveNodeFilename } from "../utils/graphHelpers.js";
 import { requestJson } from "../utils/storygraphApi.js";
 import { NodeTypeContext } from "../contexts/NodeTypeContext.jsx";
+import { useStoryGraphTheme } from "../contexts/StoryGraphThemeContext.jsx";
 import { invalidateHomeCache } from "./StoryGraphHome.jsx";
-
-const GRAPH_BG = "#0f0f1a";
 
 const EXTRACT_FLAVOR = [
   "reading the manuscript...",
@@ -95,6 +94,10 @@ async function buildFileBody(file) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function StoryGraph() {
+  const { theme } = useStoryGraphTheme();
+  const { colors } = theme;
+  const graphBg = colors.bg;
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedNode, setSelectedNode] = useState(null);
   const [selectedNodeFileContent, setSelectedNodeFileContent] = useState(null); // raw file text | null
@@ -1110,7 +1113,7 @@ export default function StoryGraph() {
       ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
       if (nodeTransparent) {
         // "Hollow": fill with viewport background to mask lines behind, then stroke border
-        ctx.fillStyle = GRAPH_BG;
+        ctx.fillStyle = graphBg;
         ctx.fill();
         ctx.strokeStyle = baseColor;
         ctx.lineWidth = isSelected ? 2.5 : isHovered ? 2.2 : 1.8;
@@ -1164,7 +1167,7 @@ export default function StoryGraph() {
       ctx.fillText(label, node.x, labelY);
       ctx.globalAlpha = 1;
     },
-    [selectedNode, hoveredNode, hoveredNeighborIds, focusNeighborIds, activePath, nodeRadius, ownFileIds, nodeTransparent, nodeBorder, NODE_TYPE_CONFIG, nodeTypeFallback]
+    [selectedNode, hoveredNode, hoveredNeighborIds, focusNeighborIds, activePath, nodeRadius, ownFileIds, nodeTransparent, nodeBorder, NODE_TYPE_CONFIG, nodeTypeFallback, graphBg]
   );
 
   const linkColor = useCallback(
@@ -1313,15 +1316,15 @@ export default function StoryGraph() {
 
   if (loading) {
     return (
-      <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: "#0f0f1a" }}>
+      <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: graphBg, color: colors.text, fontFamily: theme.fontFamily }}>
         <Header />
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div
               className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
-              style={{ borderColor: "#60a5fa", borderTopColor: "transparent" }}
+              style={{ borderColor: colors.accent, borderTopColor: "transparent" }}
             />
-            <p className="text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>Loading notes...</p>
+            <p className="text-sm" style={{ color: colors.softText }}>Loading notes...</p>
           </div>
         </div>
       </div>
@@ -1330,10 +1333,10 @@ export default function StoryGraph() {
 
   if (loadError) {
     return (
-      <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: "#0f0f1a" }}>
+      <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: graphBg, color: colors.text, fontFamily: theme.fontFamily }}>
         <Header />
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm" style={{ color: "#f87171" }}>Failed to load notes: {loadError}</p>
+          <p className="text-sm" style={{ color: colors.danger }}>Failed to load notes: {loadError}</p>
         </div>
       </div>
     );
@@ -1341,18 +1344,18 @@ export default function StoryGraph() {
 
   return (
     <NodeTypeContext.Provider value={NODE_TYPE_CONFIG}>
-    <div className="dark-scroll h-screen flex flex-col overflow-hidden" style={{ backgroundColor: "#0f0f1a" }}>
+    <div className="dark-scroll h-screen flex flex-col overflow-hidden" style={{ backgroundColor: graphBg, color: colors.text, fontFamily: theme.fontFamily }}>
       <div
         className="flex items-center gap-3 px-6 py-3 border-b"
-        style={{ borderColor: "rgba(255,255,255,0.08)" }}
+        style={{ borderColor: colors.border }}
       >
         <Link
           to="/storygraph"
           className="flex items-center gap-2 transition-opacity hover:opacity-75"
           title="Back to Story Graph home"
         >
-          <Network size={20} className="text-blue-400" />
-          <h1 className="text-lg font-semibold text-white tracking-tight">Story Graph</h1>
+          <Network size={20} style={{ color: colors.accent }} />
+          <h1 className="text-lg font-semibold tracking-tight" style={{ color: colors.textStrong }}>Story Graph</h1>
         </Link>
 
         {!activeWorkspaceHidden && (
@@ -1368,13 +1371,13 @@ export default function StoryGraph() {
 
         <span
           className="text-xs px-2 py-0.5 rounded-full font-medium"
-          style={{ backgroundColor: "rgba(96,165,250,0.15)", color: "#93c5fd" }}
+          style={{ backgroundColor: colors.accentSoft, color: colors.accentStrong }}
         >
           {graphData.nodes.length} nodes · {graphData.links.length} connections
         </span>
 
         {/* Tab switcher */}
-        <div className="flex items-center gap-0.5 ml-4 p-0.5 rounded-lg" style={{ backgroundColor: "rgba(255,255,255,0.05)" }}>
+        <div className="flex items-center gap-0.5 ml-4 p-0.5 rounded-lg" style={{ backgroundColor: colors.borderSoft }}>
           {[{ id: "graph", icon: <Network size={12} />, label: "Graph" }, { id: "files", icon: <FileText size={12} />, label: "Files" }, { id: "dashboard", icon: <BarChart2 size={12} />, label: "Dashboard" }].map(({ id, icon, label }) => (
             <button
               key={id}
@@ -1382,7 +1385,7 @@ export default function StoryGraph() {
               className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors"
               style={{
                 backgroundColor: activeTab === id ? "rgba(96,165,250,0.2)" : "transparent",
-                color: activeTab === id ? "#93c5fd" : "rgba(255,255,255,0.4)",
+                color: activeTab === id ? colors.accentStrong : colors.muted,
               }}
             >
               {icon}{label}
@@ -1394,9 +1397,9 @@ export default function StoryGraph() {
           <button
             onClick={() => { resetUploadModal(); setUploadOpen(true); }}
             className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-            style={{ backgroundColor: "rgba(96,165,250,0.15)", color: "#93c5fd" }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.25)")}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.15)")}
+            style={{ backgroundColor: colors.accentSoft, color: colors.accentStrong }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.accent)}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = colors.accentSoft)}
           >
             <Upload size={14} />
             Upload Notes
@@ -1440,7 +1443,7 @@ export default function StoryGraph() {
         {/* ── Left sidebar: grouped collapsible element list ── */}
         <aside
           className="flex-shrink-0 flex flex-col overflow-y-auto border-r relative"
-          style={{ width: leftSidebarWidth, backgroundColor: "#13131f", borderColor: "rgba(255,255,255,0.07)" }}
+          style={{ width: leftSidebarWidth, backgroundColor: colors.surfaceAlt, borderColor: colors.borderSoft }}
         >
           {/* Resize handle */}
           <div
@@ -1676,7 +1679,7 @@ export default function StoryGraph() {
             graphData={graphData}
             width={graphDims.width || undefined}
             height={graphDims.height || undefined}
-            backgroundColor={GRAPH_BG}
+            backgroundColor={graphBg}
             nodeCanvasObject={nodeCanvasObject}
             nodePointerAreaPaint={nodePointerAreaPaint}
             onNodeClick={handleNodeClick}
@@ -1934,27 +1937,27 @@ export default function StoryGraph() {
         {rightPanelOpen && (
         <div
           className="flex-shrink-0 flex flex-col border-l relative"
-          style={{ width: rightPanelWidth, backgroundColor: "#13131f", borderColor: "rgba(255,255,255,0.07)" }}
+          style={{ width: rightPanelWidth, backgroundColor: colors.surfaceAlt, borderColor: colors.borderSoft }}
         >
           {/* Resize handle */}
           <div
             onMouseDown={makeResizeHandler(setRightPanelWidth, "left")}
             className="absolute top-0 left-0 w-1 h-full z-10 cursor-col-resize"
             style={{ background: "transparent" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.12)")}
+            onMouseEnter={(e) => (e.currentTarget.style.background = colors.border)}
             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
           />
 
           {/* Panel tab bar */}
-          <div className="flex items-center flex-shrink-0 px-2 pt-1 gap-0.5 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+          <div className="flex items-center flex-shrink-0 px-2 pt-1 gap-0.5 border-b" style={{ borderColor: colors.borderSoft }}>
             {[{ id: "details", label: "Details" }, { id: "chat", label: "Chat" }].map(({ id, label }) => (
               <button
                 key={id}
                 onClick={() => setRightPanelTab(id)}
                 className="px-3 py-2 text-xs font-medium transition-colors"
                 style={{
-                  color: rightPanelTab === id ? "#93c5fd" : "rgba(255,255,255,0.35)",
-                  borderBottom: rightPanelTab === id ? "2px solid #60a5fa" : "2px solid transparent",
+                  color: rightPanelTab === id ? colors.accentStrong : colors.softText,
+                  borderBottom: rightPanelTab === id ? `2px solid ${colors.accent}` : "2px solid transparent",
                   backgroundColor: "transparent",
                   marginBottom: "-1px",
                 }}
@@ -1968,7 +1971,7 @@ export default function StoryGraph() {
           <div className="flex-1 overflow-y-auto min-h-0" style={{ display: rightPanelTab === "details" ? "block" : "none" }}>
             {selectedNode ? (<>
             {/* Header */}
-            <div className="px-5 pt-4 pb-4 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+            <div className="px-5 pt-4 pb-4 border-b" style={{ borderColor: colors.borderSoft }}>
               {/* Top row: type badge + icon buttons */}
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -1978,7 +1981,7 @@ export default function StoryGraph() {
                   />
                   <span
                     className="text-xs font-semibold uppercase tracking-widest"
-                    style={{ color: "rgba(255,255,255,0.35)" }}
+                    style={{ color: colors.softText }}
                   >
                     {NODE_TYPE_CONFIG[selectedNode.type]?.label}
                   </span>
@@ -1988,9 +1991,9 @@ export default function StoryGraph() {
                     onClick={() => setFocusNodes((prev) => prev?.length === 1 && prev[0].id === selectedNode.id ? null : [selectedNode])}
                     title={focusNodes?.length === 1 && focusNodes[0].id === selectedNode.id ? "Exit focus mode" : "Focus on this node (double-click also works)"}
                     className="p-1 rounded-md transition-colors"
-                    style={{ color: focusNodes?.length === 1 && focusNodes[0].id === selectedNode.id ? "#60a5fa" : "rgba(255,255,255,0.3)", backgroundColor: focusNodes?.length === 1 && focusNodes[0].id === selectedNode.id ? "rgba(96,165,250,0.12)" : "transparent" }}
-                    onMouseEnter={(e) => { if (!(focusNodes?.length === 1 && focusNodes[0].id === selectedNode.id)) e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
-                    onMouseLeave={(e) => { if (!(focusNodes?.length === 1 && focusNodes[0].id === selectedNode.id)) e.currentTarget.style.color = "rgba(255,255,255,0.3)"; }}
+                    style={{ color: focusNodes?.length === 1 && focusNodes[0].id === selectedNode.id ? colors.accent : colors.softText, backgroundColor: focusNodes?.length === 1 && focusNodes[0].id === selectedNode.id ? colors.accentSoft : "transparent" }}
+                    onMouseEnter={(e) => { if (!(focusNodes?.length === 1 && focusNodes[0].id === selectedNode.id)) e.currentTarget.style.color = colors.text; }}
+                    onMouseLeave={(e) => { if (!(focusNodes?.length === 1 && focusNodes[0].id === selectedNode.id)) e.currentTarget.style.color = colors.softText; }}
                   >
                     <Crosshair size={15} />
                   </button>
@@ -2005,18 +2008,18 @@ export default function StoryGraph() {
                     }}
                     title="Ask AI about this node"
                     className="p-1 rounded-md transition-colors"
-                    style={{ color: "rgba(255,255,255,0.3)" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.color = "#60a5fa"; e.currentTarget.style.backgroundColor = "rgba(96,165,250,0.1)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.3)"; e.currentTarget.style.backgroundColor = "transparent"; }}
+                    style={{ color: colors.softText }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = colors.accent; e.currentTarget.style.backgroundColor = colors.accentSoft; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = colors.softText; e.currentTarget.style.backgroundColor = "transparent"; }}
                   >
                     <MessageSquare size={15} />
                   </button>
                   <button
                     onClick={() => setSelectedNode(null)}
                     className="p-1 rounded-md transition-colors"
-                    style={{ color: "rgba(255,255,255,0.3)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+                    style={{ color: colors.softText }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = colors.text)}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = colors.softText)}
                   >
                     <X size={15} />
                   </button>
@@ -2026,7 +2029,7 @@ export default function StoryGraph() {
               {/* Name */}
               <h2
                 className="text-lg font-semibold leading-tight"
-                style={ownFileIds.has(selectedNode.id) ? { color: "#fff", cursor: "pointer", textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.25)", textUnderlineOffset: 3 } : { color: "#fff" }}
+                style={ownFileIds.has(selectedNode.id) ? { color: colors.textStrong, cursor: "pointer", textDecoration: "underline", textDecorationColor: colors.border, textUnderlineOffset: 3 } : { color: colors.textStrong }}
                 onClick={() => openNodeFile(selectedNode)}
                 title={ownFileIds.has(selectedNode.id) ? "Open file" : undefined}
               >
@@ -2034,7 +2037,7 @@ export default function StoryGraph() {
               </h2>
 
               {/* Excerpt */}
-              <p className="text-sm mt-1.5" style={{ color: "rgba(255,255,255,0.45)" }}>
+              <p className="text-sm mt-1.5" style={{ color: colors.muted }}>
                 {selectedNode.excerpt}
               </p>
 
@@ -2045,15 +2048,15 @@ export default function StoryGraph() {
                     onClick={() => handleAddNotes(selectedNode)}
                     title="Create a notes file for this node"
                     className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md transition-colors"
-                    style={{ color: "rgba(255,255,255,0.5)", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.11)"; e.currentTarget.style.color = "#fff"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.5)"; }}
+                    style={{ color: colors.muted, backgroundColor: colors.borderSoft, border: `1px solid ${colors.border}` }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.border; e.currentTarget.style.color = colors.textStrong; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = colors.borderSoft; e.currentTarget.style.color = colors.muted; }}
                   >
                     <FilePlus size={13} />
                     Add notes
                   </button>
                   {nodeActionError && (
-                    <span className="text-xs" style={{ color: "#f87171" }}>{nodeActionError}</span>
+                    <span className="text-xs" style={{ color: colors.danger }}>{nodeActionError}</span>
                   )}
                 </div>
               )}
@@ -2061,16 +2064,16 @@ export default function StoryGraph() {
 
             {/* Notes (own-file / coloured nodes only) */}
             {ownFileIds.has(selectedNode.id) && (
-            <div className="p-5 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+            <div className="p-5 border-b" style={{ borderColor: colors.borderSoft }}>
               <p
                 className="text-xs font-semibold uppercase tracking-widest mb-3"
-                style={{ color: "rgba(255,255,255,0.3)" }}
+                style={{ color: colors.softText }}
               >
                 Notes
               </p>
               <p
                 className="text-sm leading-relaxed whitespace-pre-line"
-                style={{ color: "rgba(255,255,255,0.65)" }}
+                style={{ color: colors.text }}
               >
                 {selectedNodeFileContent?.id === selectedNode.id
                   ? selectedNodeFileContent.content
@@ -2084,7 +2087,7 @@ export default function StoryGraph() {
               <div className="flex items-center justify-between mb-3">
                 <p
                   className="text-xs font-semibold uppercase tracking-widest"
-                  style={{ color: "rgba(255,255,255,0.3)" }}
+                  style={{ color: colors.softText }}
                 >
                   Connections ({selectedNodeConnections.length})
                 </p>
@@ -2098,12 +2101,12 @@ export default function StoryGraph() {
                   title="Trace path to another node"
                   className="flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-colors"
                   style={{
-                    color: traceSearchOpen ? "#fbbf24" : "rgba(255,255,255,0.35)",
-                    backgroundColor: traceSearchOpen ? "rgba(251,191,36,0.1)" : "transparent",
-                    border: `1px solid ${traceSearchOpen ? "rgba(251,191,36,0.25)" : "transparent"}`,
+                    color: traceSearchOpen ? colors.warning : colors.softText,
+                    backgroundColor: traceSearchOpen ? `${colors.warning}22` : "transparent",
+                    border: `1px solid ${traceSearchOpen ? colors.warning : "transparent"}`,
                   }}
-                  onMouseEnter={(e) => { if (!traceSearchOpen) { e.currentTarget.style.color = "rgba(255,255,255,0.7)"; e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.06)"; } }}
-                  onMouseLeave={(e) => { if (!traceSearchOpen) { e.currentTarget.style.color = "rgba(255,255,255,0.35)"; e.currentTarget.style.backgroundColor = "transparent"; } }}
+                  onMouseEnter={(e) => { if (!traceSearchOpen) { e.currentTarget.style.color = colors.text; e.currentTarget.style.backgroundColor = colors.borderSoft; } }}
+                  onMouseLeave={(e) => { if (!traceSearchOpen) { e.currentTarget.style.color = colors.softText; e.currentTarget.style.backgroundColor = "transparent"; } }}
                 >
                   <GitFork size={12} />
                   Trace
@@ -2120,9 +2123,9 @@ export default function StoryGraph() {
                     placeholder="Search nodes to trace…"
                     className="w-full text-xs px-3 py-2 rounded-lg outline-none"
                     style={{
-                      backgroundColor: "rgba(255,255,255,0.06)",
-                      border: "1px solid rgba(251,191,36,0.25)",
-                      color: "rgba(255,255,255,0.85)",
+                      backgroundColor: colors.borderSoft,
+                      border: `1px solid ${colors.warning}`,
+                      color: colors.text,
                     }}
                     onKeyDown={(e) => { if (e.key === "Escape") { setTraceSearchOpen(false); setTraceSearchQuery(""); setTraceNoPath(null); } }}
                   />
@@ -2130,13 +2133,13 @@ export default function StoryGraph() {
                     <div
                       className="absolute left-0 right-0 top-full mt-1 rounded-xl px-3 py-2.5 z-20"
                       style={{
-                        backgroundColor: "rgba(18,18,30,0.97)",
-                        border: "1px solid rgba(255,255,255,0.08)",
+                        backgroundColor: colors.surface,
+                        border: `1px solid ${colors.border}`,
                         boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
                       }}
                     >
-                      <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
-                        No path between <span style={{ color: "rgba(255,255,255,0.7)" }}>{traceNoPath.fromName}</span> and <span style={{ color: "rgba(255,255,255,0.7)" }}>{traceNoPath.toName}</span>
+                      <p className="text-xs" style={{ color: colors.muted }}>
+                        No path between <span style={{ color: colors.text }}>{traceNoPath.fromName}</span> and <span style={{ color: colors.text }}>{traceNoPath.toName}</span>
                       </p>
                     </div>
                   )}
@@ -2144,8 +2147,8 @@ export default function StoryGraph() {
                     <div
                       className="absolute left-0 right-0 top-full mt-1 rounded-xl overflow-hidden z-20"
                       style={{
-                        backgroundColor: "rgba(18,18,30,0.97)",
-                        border: "1px solid rgba(255,255,255,0.1)",
+                        backgroundColor: colors.surface,
+                        border: `1px solid ${colors.border}`,
                         boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
                       }}
                     >
@@ -2164,8 +2167,8 @@ export default function StoryGraph() {
                             }
                           }}
                           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors"
-                          style={{ color: "rgba(255,255,255,0.8)" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(251,191,36,0.08)")}
+                          style={{ color: colors.text }}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = `${colors.warning}22`)}
                           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                         >
                           <span
@@ -2188,7 +2191,7 @@ export default function StoryGraph() {
                       onClick={() => handleNodeClick(other)}
                       className="text-left px-3 py-2.5 rounded-lg transition-colors"
                       style={{ backgroundColor: "transparent" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)")}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.borderSoft)}
                       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                     >
                       <div className="flex items-center gap-2">
@@ -2196,11 +2199,11 @@ export default function StoryGraph() {
                           className="w-2 h-2 rounded-full flex-shrink-0"
                           style={{ backgroundColor: ownFileIds.has(other.id) ? NODE_TYPE_CONFIG[other.type]?.color : "#6b7280" }}
                         />
-                        <span className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>
+                        <span className="text-sm font-medium" style={{ color: colors.text }}>
                           {other.name}
                         </span>
                       </div>
-                      <p className="text-xs mt-0.5 ml-4" style={{ color: "rgba(255,255,255,0.35)" }}>
+                      <p className="text-xs mt-0.5 ml-4" style={{ color: colors.softText }}>
                         {label}
                       </p>
                     </button>
@@ -2210,8 +2213,8 @@ export default function StoryGraph() {
             </div>
 
             {/* Ask AI */}
-            <div className="p-5 border-t flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-              <p className="text-xs font-semibold uppercase tracking-widest mb-2.5" style={{ color: "rgba(255,255,255,0.3)" }}>Ask AI</p>
+            <div className="p-5 border-t flex-shrink-0" style={{ borderColor: colors.borderSoft }}>
+              <p className="text-xs font-semibold uppercase tracking-widest mb-2.5" style={{ color: colors.softText }}>Ask AI</p>
               <div className="flex gap-2">
                 <input
                   value={askInput}
@@ -2225,7 +2228,7 @@ export default function StoryGraph() {
                   }}
                   placeholder={`Ask about ${selectedNode.name}…`}
                   className="flex-1 text-xs px-3 py-2 rounded-lg outline-none"
-                  style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.85)" }}
+                  style={{ backgroundColor: colors.borderSoft, border: `1px solid ${colors.border}`, color: colors.text }}
                 />
                 <button
                   onClick={() => {
@@ -2236,7 +2239,7 @@ export default function StoryGraph() {
                     }
                   }}
                   className="flex items-center justify-center px-2.5 rounded-lg flex-shrink-0"
-                  style={{ backgroundColor: "rgba(96,165,250,0.15)", color: "#93c5fd" }}
+                  style={{ backgroundColor: colors.accentSoft, color: colors.accentStrong }}
                 >
                   <Send size={12} />
                 </button>
@@ -2247,9 +2250,9 @@ export default function StoryGraph() {
                     key={s}
                     onClick={() => { setPendingChatQuestion({ key: Date.now(), text: s }); setRightPanelTab("chat"); }}
                     className="text-[10px] px-2 py-1 rounded-md transition-colors"
-                    style={{ backgroundColor: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.07)" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
+                    style={{ backgroundColor: colors.borderSoft, color: colors.muted, border: `1px solid ${colors.borderSoft}` }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.border; e.currentTarget.style.color = colors.text; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = colors.borderSoft; e.currentTarget.style.color = colors.muted; }}
                   >
                     {s}
                   </button>
@@ -2258,7 +2261,7 @@ export default function StoryGraph() {
             </div>
             </>) : (
               <div className="flex-1 flex items-center justify-center p-8">
-                <p className="text-xs text-center" style={{ color: "rgba(255,255,255,0.2)" }}>
+                <p className="text-xs text-center" style={{ color: colors.softText }}>
                   Click any node to explore its details
                 </p>
               </div>

@@ -16,6 +16,7 @@ import {
   Bar,
 } from "recharts";
 import { NODE_TYPE_CONFIG as STATIC_NODE_TYPE_CONFIG } from "../constants/nodeTypes";
+import { useStoryGraphTheme } from "../contexts/StoryGraphThemeContext.jsx";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -231,21 +232,6 @@ function buildPropagationDepth(originId, visibleNodeIds, links) {
   return { depths, maxDepth, reached: depths.size };
 }
 
-const HEAT_LEVELS = [
-  "rgba(255,255,255,0.06)",
-  "rgba(96,165,250,0.28)",
-  "rgba(96,165,250,0.55)",
-  "rgba(96,165,250,0.78)",
-  "#60a5fa",
-];
-function heatColor(count) {
-  if (!count) return HEAT_LEVELS[0];
-  if (count === 1) return HEAT_LEVELS[1];
-  if (count <= 3) return HEAT_LEVELS[2];
-  if (count <= 6) return HEAT_LEVELS[3];
-  return HEAT_LEVELS[4];
-}
-
 // ── Tooltips ───────────────────────────────────────────────────────────────
 
 const TOOLTIP_STYLE = { backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.12)" };
@@ -284,14 +270,23 @@ function DayTooltip({ active, payload, label }) {
   );
 }
 
-// ── Shared card style ──────────────────────────────────────────────────────
-const CARD_STYLE = { backgroundColor: "#13131f", border: "1px solid rgba(255,255,255,0.07)" };
-const MUTED = { color: "rgba(255,255,255,0.35)" };
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // ── Main component ─────────────────────────────────────────────────────────
 
 export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTypeConfig = STATIC_NODE_TYPE_CONFIG, onOpenNode }) {
+  const { theme } = useStoryGraphTheme();
+  const { colors } = theme;
+  const cardStyle = { backgroundColor: colors.surfaceAlt, border: `1px solid ${colors.borderSoft}` };
+  const mutedStyle = { color: colors.softText };
+  const heatColorTheme = (count) => {
+    if (!count) return colors.borderSoft;
+    if (count === 1) return `${colors.accent}4A`;
+    if (count <= 3) return `${colors.accent}88`;
+    if (count <= 6) return `${colors.accent}C4`;
+    return colors.accent;
+  };
+
   const { nodes, links } = graphData;
 
   const [hoverCell, setHoverCell] = useState(null);
@@ -548,14 +543,14 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto p-8 gap-8" style={{ backgroundColor: "#0f0f1a" }}>
+    <div className="flex flex-1 flex-col overflow-y-auto p-8 gap-8" style={{ backgroundColor: colors.bg, color: colors.text, fontFamily: theme.fontFamily }}>
 
       {/* ── Recently edited strip ────────────────────────────────────────── */}
-      <div className="rounded-lg px-4 py-2.5 flex items-center gap-3 flex-wrap" style={{ ...CARD_STYLE, minHeight: 40 }}>
-        <span className="text-xs font-semibold flex-shrink-0" style={{ color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Recently edited</span>
-        <span className="flex-shrink-0" style={{ width: 1, height: 14, backgroundColor: "rgba(255,255,255,0.1)" }} />
+      <div className="rounded-lg px-4 py-2.5 flex items-center gap-3 flex-wrap" style={{ ...cardStyle, minHeight: 40 }}>
+        <span className="text-xs font-semibold flex-shrink-0" style={{ color: colors.softText, letterSpacing: "0.08em", textTransform: "uppercase" }}>Recently edited</span>
+        <span className="flex-shrink-0" style={{ width: 1, height: 14, backgroundColor: colors.border }} />
         {!recentlyEdited.length ? (
-          <span className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>No edits recorded yet</span>
+          <span className="text-xs" style={{ color: colors.softText }}>No edits recorded yet</span>
         ) : (
           <div className="flex items-center gap-1 flex-wrap">
             {recentlyEdited.map((n, i) => {
@@ -567,9 +562,9 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
                   <button
                     onClick={() => onOpenNode?.(n.id)}
                     className="text-xs hover:underline"
-                    style={{ color: "#60a5fa", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                    style={{ color: colors.accent, background: "none", border: "none", padding: 0, cursor: "pointer" }}
                   >{n.name}</button>
-                  <span className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>{relativeTime(n.updatedAt)}</span>
+                  <span className="text-xs" style={{ color: colors.softText }}>{relativeTime(n.updatedAt)}</span>
                 </span>
               );
             })}
@@ -580,27 +575,27 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
       {/* ── Stat cards ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: "Total Nodes",    value: totalNodes,                          color: "#60a5fa" },
-          { label: "Connections",    value: totalConnections,                    color: "#a78bfa" },
-          { label: "Most Connected", value: mostConnected?.name ?? "—",          color: "#34d399",
+          { label: "Total Nodes",    value: totalNodes,                          color: colors.accent },
+          { label: "Connections",    value: totalConnections,                    color: colors.warning },
+          { label: "Most Connected", value: mostConnected?.name ?? "—",          color: colors.success,
             sub: mostConnected ? `${degreeMap.get(mostConnected.id) || 0} connections` : null },
-          { label: "Current Streak", value: streakData.current ? `${streakData.current}d` : "—", color: "#fb923c",
+          { label: "Current Streak", value: streakData.current ? `${streakData.current}d` : "—", color: colors.warning,
             sub: streakData.longest > 0 ? `Best: ${streakData.longest}d` : null },
         ].map(({ label, value, sub, color }) => (
-          <div key={label} className="rounded-xl p-5" style={CARD_STYLE}>
+          <div key={label} className="rounded-xl p-5" style={cardStyle}>
             <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "rgba(255,255,255,0.3)" }}>{label}</p>
             <p className="text-2xl font-bold" style={{ color }}>{value}</p>
-            {sub && <p className="text-xs mt-0.5" style={MUTED}>{sub}</p>}
+            {sub && <p className="text-xs mt-0.5" style={mutedStyle}>{sub}</p>}
           </div>
         ))}
       </div>
 
       {/* ── Growth chart ────────────────────────────────────────────────── */}
-      <div className="rounded-xl p-6" style={CARD_STYLE}>
+      <div className="rounded-xl p-6" style={cardStyle}>
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h2 className="text-sm font-semibold text-white mb-0.5">Graph Growth Over Time</h2>
-            <p className="text-xs" style={MUTED}>Cumulative nodes and connections by upload date</p>
+            <h2 className="text-sm font-semibold mb-0.5" style={{ color: colors.textStrong }}>Graph Growth Over Time</h2>
+            <p className="text-xs" style={mutedStyle}>Cumulative nodes and connections by upload date</p>
           </div>
           <div className="flex items-center gap-2">
             {hasTimestampedNodes && timestampedCount < totalNodes && (
@@ -619,7 +614,7 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
                   className="text-xs px-2.5 py-1 rounded-md"
                   style={{
                     background: growthFacet === f ? "rgba(96,165,250,0.18)" : "transparent",
-                    color: growthFacet === f ? "#60a5fa" : "rgba(255,255,255,0.35)",
+                    color: growthFacet === f ? colors.accent : colors.softText,
                     border: "none", cursor: "pointer", fontWeight: growthFacet === f ? 600 : 400,
                     transition: "all 0.15s",
                   }}
@@ -635,9 +630,9 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
               disabled={!timelapseNodes.length}
               className="text-xs px-3 py-1.5 rounded-lg"
               style={{
-                backgroundColor: timelapseNodes.length ? "rgba(96,165,250,0.15)" : "rgba(255,255,255,0.05)",
-                color: timelapseNodes.length ? "#93c5fd" : "rgba(255,255,255,0.2)",
-                border: "1px solid rgba(96,165,250,0.25)",
+                backgroundColor: timelapseNodes.length ? colors.accentSoft : colors.borderSoft,
+                color: timelapseNodes.length ? colors.accentStrong : colors.softText,
+                border: `1px solid ${timelapseNodes.length ? colors.accent : colors.border}`,
                 cursor: timelapseNodes.length ? "pointer" : "not-allowed",
                 fontWeight: 600,
               }}
@@ -655,12 +650,12 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
             <AreaChart data={filteredSeries} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="gradNodes" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#60a5fa" stopOpacity={0} />
+                  <stop offset="5%" stopColor={colors.accent} stopOpacity={0.25} />
+                  <stop offset="95%" stopColor={colors.accent} stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gradConns" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
+                  <stop offset="5%" stopColor={colors.warning} stopOpacity={0.2} />
+                  <stop offset="95%" stopColor={colors.warning} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -677,23 +672,23 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
                 tickLine={false} width={32} allowDecimals={false} />
               <Tooltip content={<GrowthTooltip />} />
               <Legend wrapperStyle={{ paddingTop: "16px", fontSize: "12px", color: "rgba(255,255,255,0.5)" }} />
-              <Area type="monotone" dataKey="nodes" name="Nodes" stroke="#60a5fa" strokeWidth={2}
-                fill="url(#gradNodes)" dot={false} activeDot={{ r: 4, fill: "#60a5fa", strokeWidth: 0 }} />
-              <Area type="monotone" dataKey="connections" name="Connections" stroke="#a78bfa" strokeWidth={2}
-                fill="url(#gradConns)" dot={false} activeDot={{ r: 4, fill: "#a78bfa", strokeWidth: 0 }} />
+              <Area type="monotone" dataKey="nodes" name="Nodes" stroke={colors.accent} strokeWidth={2}
+                fill="url(#gradNodes)" dot={false} activeDot={{ r: 4, fill: colors.accent, strokeWidth: 0 }} />
+              <Area type="monotone" dataKey="connections" name="Connections" stroke={colors.warning} strokeWidth={2}
+                fill="url(#gradConns)" dot={false} activeDot={{ r: 4, fill: colors.warning, strokeWidth: 0 }} />
             </AreaChart>
           </ResponsiveContainer>
         )}
       </div>
 
       {/* ── Heatmap + Activity timeline ──────────────────────────────────── */}
-      <div className="rounded-xl p-6" style={CARD_STYLE}>
+      <div className="rounded-xl p-6" style={cardStyle}>
         <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
 
           {/* Left: title + heatmap + legend */}
           <div style={{ flexShrink: 0 }}>
-            <h2 className="text-sm font-semibold text-white mb-0.5">Contribution Activity</h2>
-            <p className="text-xs mb-5" style={MUTED}>Daily note activity over the past year</p>
+            <h2 className="text-sm font-semibold mb-0.5" style={{ color: colors.textStrong }}>Contribution Activity</h2>
+            <p className="text-xs mb-5" style={mutedStyle}>Daily note activity over the past year</p>
             <div style={{ display: "flex", gap: "4px" }}>
               {/* Day-of-week labels */}
               <div style={{ display: "flex", flexDirection: "column", gap: "3px", paddingTop: "22px" }}>
@@ -722,7 +717,7 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
                         return (
                           <div
                             key={di}
-                            style={{ width: 11, height: 11, borderRadius: 2, flexShrink: 0, backgroundColor: isFuture ? "transparent" : heatColor(count) }}
+                            style={{ width: 11, height: 11, borderRadius: 2, flexShrink: 0, backgroundColor: isFuture ? "transparent" : heatColorTheme(count) }}
                             onMouseEnter={(e) => setHoverCell({ label: `${count || "No"} contribution${count !== 1 ? "s" : ""} on ${dateStr}`, x: e.clientX, y: e.clientY })}
                             onMouseLeave={() => setHoverCell(null)}
                           />
@@ -738,7 +733,7 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, justifyContent: "flex-end" }}>
               <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>Less</span>
               {[0, 1, 2, 4, 7].map((v, i) => (
-                <div key={i} style={{ width: 11, height: 11, borderRadius: 2, backgroundColor: heatColor(v) }} />
+                <div key={i} style={{ width: 11, height: 11, borderRadius: 2, backgroundColor: heatColorTheme(v) }} />
               ))}
               <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>More</span>
             </div>
@@ -781,7 +776,7 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
                               <button
                                 onClick={() => onOpenNode(ev.node.id)}
                                 className="font-medium text-left hover:underline"
-                                style={{ color: "#60a5fa", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                                style={{ color: colors.accent, background: "none", border: "none", padding: 0, cursor: "pointer" }}
                               >
                                 {ev.node.name}
                               </button>
@@ -805,9 +800,9 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
       <div className="grid grid-cols-3 gap-4">
 
         {/* Type distribution donut */}
-        <div className="rounded-xl p-6" style={CARD_STYLE}>
-          <h2 className="text-sm font-semibold text-white mb-0.5">Type Distribution</h2>
-          <p className="text-xs mb-4" style={MUTED}>Breakdown of node types</p>
+        <div className="rounded-xl p-6" style={cardStyle}>
+          <h2 className="text-sm font-semibold mb-0.5" style={{ color: colors.textStrong }}>Type Distribution</h2>
+          <p className="text-xs mb-4" style={mutedStyle}>Breakdown of node types</p>
           {!typeDistribution.length ? (
             <div className="flex items-center justify-center h-40" style={{ color: "rgba(255,255,255,0.2)" }}>
               <p className="text-sm">No nodes</p>
@@ -847,9 +842,9 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
         </div>
 
         {/* Day-of-week cadence */}
-        <div className="col-span-2 rounded-xl p-6" style={CARD_STYLE}>
-          <h2 className="text-sm font-semibold text-white mb-0.5">Upload Cadence by Day</h2>
-          <p className="text-xs mb-4" style={MUTED}>Total nodes added per day of the week</p>
+        <div className="col-span-2 rounded-xl p-6" style={cardStyle}>
+          <h2 className="text-sm font-semibold mb-0.5" style={{ color: colors.textStrong }}>Upload Cadence by Day</h2>
+          <p className="text-xs mb-4" style={mutedStyle}>Total nodes added per day of the week</p>
           {!nodes.some((n) => n.createdAt) ? (
             <div className="flex items-center justify-center h-full min-h-40" style={{ color: "rgba(255,255,255,0.2)" }}>
               <p className="text-sm">No timestamped nodes yet</p>
@@ -868,7 +863,7 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
                   {dayCadence.map((entry, i) => {
                     const today = new Date().getDay();
                     const dayIndex = [1,2,3,4,5,6,0][i];
-                    return <Cell key={i} fill={dayIndex === today ? "#93c5fd" : "#3b82f6"} />;
+                    return <Cell key={i} fill={dayIndex === today ? colors.accentStrong : colors.accent} />;
                   })}
                 </Bar>
               </BarChart>
@@ -908,7 +903,7 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
           >
             <div className="flex items-center justify-between gap-3 mb-3">
               <div>
-                <h3 className="text-sm font-semibold text-white">Workspace Iteration Timelapse</h3>
+                <h3 className="text-sm font-semibold" style={{ color: colors.textStrong }}>Workspace Iteration Timelapse</h3>
                 <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
                   Nodes reveal chronologically; propagation waves are measured from the first node.
                 </p>
@@ -932,19 +927,19 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
                 <div className="grid grid-cols-4 gap-3 mb-4">
                   <div className="rounded-lg p-3" style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                     <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Visible Nodes</p>
-                    <p className="text-lg font-semibold" style={{ color: "#60a5fa" }}>{visibleNodeIds.size}</p>
+                    <p className="text-lg font-semibold" style={{ color: colors.accent }}>{visibleNodeIds.size}</p>
                   </div>
                   <div className="rounded-lg p-3" style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                     <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Visible Links</p>
-                    <p className="text-lg font-semibold" style={{ color: "#a78bfa" }}>{timelapseVisibleLinks.length}</p>
+                    <p className="text-lg font-semibold" style={{ color: colors.warning }}>{timelapseVisibleLinks.length}</p>
                   </div>
                   <div className="rounded-lg p-3" style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                     <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Propagation Depth</p>
-                    <p className="text-lg font-semibold" style={{ color: "#34d399" }}>{timelapsePropagation.maxDepth}</p>
+                    <p className="text-lg font-semibold" style={{ color: colors.success }}>{timelapsePropagation.maxDepth}</p>
                   </div>
                   <div className="rounded-lg p-3" style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                     <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Frame</p>
-                    <p className="text-lg font-semibold" style={{ color: "#fbbf24" }}>{timelapseFrame + 1} / {timelapseNodes.length}</p>
+                    <p className="text-lg font-semibold" style={{ color: colors.warning }}>{timelapseFrame + 1} / {timelapseNodes.length}</p>
                   </div>
                 </div>
 
@@ -1032,7 +1027,7 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
                   <button
                     onClick={() => setTimelapsePlaying((v) => !v)}
                     className="text-xs px-3 py-1.5 rounded"
-                    style={{ backgroundColor: "rgba(96,165,250,0.16)", color: "#93c5fd", border: "none", cursor: "pointer" }}
+                    style={{ backgroundColor: colors.accentSoft, color: colors.accentStrong, border: "none", cursor: "pointer" }}
                   >{timelapsePlaying ? "Pause" : "Play"}</button>
                   <button
                     onClick={() => {
@@ -1040,14 +1035,14 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
                       setTimelapseFrame(0);
                     }}
                     className="text-xs px-3 py-1.5 rounded"
-                    style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.75)", border: "none", cursor: "pointer" }}
+                    style={{ backgroundColor: colors.borderSoft, color: colors.text, border: "none", cursor: "pointer" }}
                   >Reset</button>
-                  <label className="text-xs ml-2" style={{ color: "rgba(255,255,255,0.45)" }}>Speed</label>
+                  <label className="text-xs ml-2" style={{ color: colors.muted }}>Speed</label>
                   <select
                     value={timelapseSpeedMs}
                     onChange={(e) => setTimelapseSpeedMs(Number(e.target.value))}
                     className="text-xs px-2 py-1 rounded"
-                    style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "#fff", border: "1px solid rgba(255,255,255,0.18)" }}
+                    style={{ backgroundColor: colors.borderSoft, color: colors.textStrong, border: `1px solid ${colors.border}` }}
                   >
                     <option value={360}>Slow</option>
                     <option value={220}>Normal</option>
