@@ -9,17 +9,15 @@ import Contact from "./pages/Contact.jsx";
 
 function App() {
   return (
-    <>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/blog" element={<Blog />} />
-        <Route path="/blog/:slug" element={<BlogPage />} />
-        <Route path="/resume" element={<Resume />} />
-        <Route path="/grocerybattle" element={<GroceryBattle />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </>
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/blog" element={<Blog />} />
+      <Route path="/blog/:slug" element={<BlogPage />} />
+      <Route path="/resume" element={<Resume />} />
+      <Route path="/grocerybattle" element={<GroceryBattle />} />
+      <Route path="/contact" element={<Contact />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 }
 

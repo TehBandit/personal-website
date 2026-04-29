@@ -1,12 +1,14 @@
+/* eslint-disable react-refresh/only-export-components */
 export const meta = {
   title: "testing a dynamic blog timeline",
   desc: "this is my first blog post to test the ant.design timeline component!",
   slug: "my-third-post",
   date: "8/25/2025",
   tag: "Development",
+  headerPhotos: [],
 };
 
-export default function SecondPost() {
+export default function ThirdPost() {
   return (
     <div>
       <p className="pb-4">

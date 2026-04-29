@@ -7,15 +7,7 @@ import Carousel from "../components/Carousel.jsx";
 export default function BlogPage() {
   const { slug } = useParams();
   const Post = posts.find((p) => p.meta.slug === slug);
-  const contentStyle = {
-    height: "160px",
-    color: "#fff",
-    lineHeight: "160px",
-    textAlign: "center",
-    background: "#364d79",
-  };
 
-  //   adjust this later to be a better 404 page
   if (!Post) return <h1>Post not found</h1>;
 
   return (

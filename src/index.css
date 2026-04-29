@@ -1,4 +1,7 @@
-@import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Arimo:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Lato:wght@400;700&family=Montserrat:wght@400;500;600;700&family=Noto+Sans:wght@400;500;600;700&family=Open+Sans:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Ubuntu:wght@400;500;700&display=swap");
+@import "tailwindcss" source(none);
+@source "../index.html";
+@source "./**/*.{js,jsx,ts,tsx,mdx}";
 
 #root, html {
   width: 100%;
@@ -12,7 +15,7 @@ body {
   width: 100%;
   min-height: 100%;
   overflow-x: clip;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Open Sans', sans-serif;
   background-color: #f8f9fa;
   background-image:
     /* circles that only repeat up to 79px */
@@ -51,7 +54,7 @@ body {
     repeat,
     repeat;
 
-  @apply lowercase min-h-screen flex flex-col;
+  @apply min-h-screen flex flex-col;
 }
 
 /* adds dropshadow to header */
@@ -150,4 +153,21 @@ display: none !important;
   65%  { transform: scale(1.02); }
   100% { transform: scale(1);    }
 }
+
+/* ── Custom scrollbar — dark UI ── */
+.dark-scroll,
+.dark-scroll * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+.dark-scroll::-webkit-scrollbar,
+.dark-scroll *::-webkit-scrollbar          { width: 5px; height: 5px; }
+.dark-scroll::-webkit-scrollbar-track,
+.dark-scroll *::-webkit-scrollbar-track    { background: transparent; }
+.dark-scroll::-webkit-scrollbar-thumb,
+.dark-scroll *::-webkit-scrollbar-thumb    { background: rgba(255,255,255,0.15); border-radius: 99px; }
+.dark-scroll::-webkit-scrollbar-thumb:hover,
+.dark-scroll *::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.28); }
+.dark-scroll::-webkit-scrollbar-corner,
+.dark-scroll *::-webkit-scrollbar-corner   { background: transparent; }
 

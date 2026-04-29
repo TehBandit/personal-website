@@ -1,4 +1,4 @@
-import { Github, Linkedin, Twitter, Mail } from 'lucide-react';
+import { Github, Linkedin, Mail } from 'lucide-react';
 import { Link } from "react-router-dom";
 function Header() {
     return (
@@ -6,7 +6,6 @@ function Header() {
                 <div className="flex items-center justify-between h-16 w-full px-4">
                     <Link to="/">
                     <div className="flex items-center justify-between">
-                    {/* adjust logo later */}
                     
                     <img
                         src="/logo.png"

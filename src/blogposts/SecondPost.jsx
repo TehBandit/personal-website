@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import Carousel from "../components/Carousel.jsx";
 
 export const meta = {
