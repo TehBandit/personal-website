@@ -9,11 +9,11 @@
     "lint": "eslint .",
     "preview": "vite preview"
   },
-
   "dependencies": {
     "@cyntler/react-doc-viewer": "^1.17.1",
     "@mdx-js/rollup": "^3.1.0",
     "@tailwindcss/vite": "^4.1.12",
+    "@vercel/analytics": "^2.0.1",
     "embla-carousel-react": "^8.6.0",
     "lucide-react": "^0.540.0",
     "openai": "^6.8.1",
