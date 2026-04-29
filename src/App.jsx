@@ -6,27 +6,18 @@ import Resume from "./pages/Resume.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import GroceryBattle from "./pages/GroceryBattle.jsx";
 import Contact from "./pages/Contact.jsx";
-import StoryGraph from "./pages/StoryGraph.jsx";
-import StoryGraphHome from "./pages/StoryGraphHome.jsx";
-import StoryGraphJournal from "./pages/StoryGraphJournal.jsx";
-import { StoryGraphThemeProvider } from "./contexts/StoryGraphThemeContext.jsx";
 
 function App() {
   return (
-    <StoryGraphThemeProvider>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/blog" element={<Blog />} />
-        <Route path="/blog/:slug" element={<BlogPage />} />
-        <Route path="/resume" element={<Resume />} />
-        <Route path="/grocerybattle" element={<GroceryBattle />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/storygraph" element={<StoryGraphHome />} />
-        <Route path="/storygraph/journal" element={<StoryGraphJournal />} />
-        <Route path="/storygraph/graph" element={<StoryGraph />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </StoryGraphThemeProvider>
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/blog" element={<Blog />} />
+      <Route path="/blog/:slug" element={<BlogPage />} />
+      <Route path="/resume" element={<Resume />} />
+      <Route path="/grocerybattle" element={<GroceryBattle />} />
+      <Route path="/contact" element={<Contact />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 }
 

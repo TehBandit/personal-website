@@ -5,13 +5,6 @@ import mdx from "@mdx-js/rollup";
 
 // https://vite.dev/config/
 export default defineConfig({
-  server: {
-    watch: {
-      ignored: [
-        "**/workspaces/**",
-      ],
-    },
-  },
   plugins: [
     {
       ...mdx(),
