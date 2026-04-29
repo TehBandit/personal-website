@@ -1,0 +1,47 @@
+{
+  "id": "percy_jackson",
+  "name": "Percy Jackson",
+  "type": "character",
+  "excerpt": "Percy Jackson is a twelve-year-old half-blood with a chaotic life.",
+  "connections": [
+    {
+      "target": "chapter_1",
+      "label": "central to"
+    },
+    {
+      "target": "yancy_academy",
+      "label": "attends"
+    },
+    {
+      "target": "grover_underwood",
+      "label": "best friends"
+    },
+    {
+      "target": "nancy_bobofit",
+      "label": "targeted by"
+    },
+    {
+      "target": "mrs_dodds",
+      "label": "attacked by"
+    },
+    {
+      "target": "mr_brunner",
+      "label": "mentored by"
+    },
+    {
+      "target": "three_old_ladies",
+      "label": "haunted by memories of"
+    },
+    {
+      "target": "sally_jackson",
+      "label": "protected by"
+    }
+  ],
+  "notes": "Percy Jackson is a twelve-year-old boy who identifies as a half-blood, meaning he is part human and part god. He attends Yancy Academy, a private school for troubled kids in upstate New York. Percy has a history of getting into trouble, especially during field trips, and struggles with dyslexia and ADHD. He has a best friend named Grover and is often targeted by a classmate named Nancy Bobofit. During a field trip to the Metropolitan Museum of Art, Percy experiences a supernatural event where his pre-algebra teacher, Mrs. Dodds, transforms into a monstrous creature and attacks him. Percy defends himself with a sword that was previously a pen, given to him by Mr. Brunner, his Latin teacher.\n\nPercy experiences strange events, including a thunderstorm and tornado near Yancy Academy, and feels increasingly irritable and homesick. He overhears Grover and Mr. Brunner discussing his safety and the supernatural events surrounding him. Percy is confused by the disappearance of Mrs. Dodds and the introduction of Mrs. Kerr.\n\nPercy has a complicated relationship with his stepfather, Gabe Ugliano, who is unpleasant and expects Percy to provide him with gambling funds. Percy also has a vivid dream involving a white horse and a golden eagle fighting, which is accompanied by a monstrous voice.",
+  "aliases": [],
+  "originSourceFile": "tlt/Chapter_1.md",
+  "sourceFile": "tlt/Chapter_1.md",
+  "createdAt": 1777402045032,
+  "updatedAt": 1777402127589,
+  "context_summary": "- A twelve-year-old half-blood.\n- Attends Yancy Academy.\n- Struggles with dyslexia and ADHD.\n- Has a best friend named Grover.\n- Targeted by classmate Nancy Bobofit.\n- Experiences supernatural events during a field trip.\n- Defends himself with a pen that turns into a sword.\n- Overhears Grover and Mr. Brunner discussing his safety.\n- Has a complicated relationship with Gabe Ugliano.\n- Experiences a vivid dream involving a white horse and a golden eagle."
+}

@@ -1,0 +1,18 @@
+{
+  "id": "gabe_ugliano_2",
+  "name": "Gabe Ugliano",
+  "type": "character",
+  "excerpt": "Gabe Ugliano is Percy's stepfather, known for his unpleasant demeanor and habits.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "sally_jackson",
+      "label": "husband"
+    },
+    {
+      "target": "percy_jackson",
+      "label": "stepfather"
+    }
+  ]
+}

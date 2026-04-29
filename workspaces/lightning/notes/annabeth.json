@@ -1,0 +1,23 @@
+{
+  "id": "annabeth",
+  "name": "Annabeth",
+  "type": "character",
+  "excerpt": "Annabeth is a pretty girl with blond hair who recognizes Percy as significant.",
+  "connections": [
+    {
+      "target": "percy_jackson",
+      "label": "recognizes significance"
+    },
+    {
+      "target": "chapter_4",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Annabeth is a girl with blond hair curled like a princess. She is present at the farmhouse where Percy collapses and seems to recognize Percy as important, indicating she has knowledge of his identity or significance.",
+  "aliases": [],
+  "originSourceFile": "tlt/Chapter_4.md",
+  "sourceFile": "tlt/Chapter_4.md",
+  "createdAt": 1777402127576,
+  "updatedAt": 1777402127576,
+  "context_summary": "- Annabeth has blond hair curled like a princess.\n- She recognizes Percy as significant.\n- She is present at the farmhouse when Percy collapses."
+}

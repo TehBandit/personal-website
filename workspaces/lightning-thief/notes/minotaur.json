@@ -1,0 +1,22 @@
+{
+  "id": "minotaur",
+  "name": "Minotaur",
+  "type": "character",
+  "excerpt": "The Minotaur is a monstrous creature that attacks Percy and his mother.",
+  "notes": "The Minotaur, also referred to as Pasiphae's son, is a monstrous creature that attacks Percy, his mother, and Grover. It is described as a huge, muscular figure with a bull's head, complete with horns and a snout. The Minotaur is relentless in its pursuit, driven by its sense of smell. It captures Sally Jackson, causing her to vanish in a flash of light, which devastates Percy. In a climactic battle, Percy uses the Minotaur's own horn as a weapon to defeat it, causing the creature to disintegrate into sand. The encounter with the Minotaur is a pivotal moment for Percy, marking his first major confrontation with a mythical creature. The Minotaur's attack is a pivotal moment that forces Percy to confront the reality of his heritage and the dangers that come with it. The creature's relentless pursuit and the capture of Sally Jackson underscore the seriousness of the threat Percy faces. The battle with the Minotaur is a test of Percy's courage and ingenuity, as he uses the creature's own horn to defeat it. This encounter marks the beginning of Percy's journey into the mythological world and sets the stage for the challenges he will face.",
+  "aliases": [
+    "Pasiphae's son"
+  ],
+  "connections": [
+    {
+      "target": "percy_jackson",
+      "label": "enemy"
+    },
+    {
+      "target": "sally_jackson",
+      "label": "captured her"
+    }
+  ],
+  "originSourceFile": "tlt/minotaur.md",
+  "sourceFile": "tlt/minotaur.md"
+}

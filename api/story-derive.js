@@ -34,6 +34,247 @@ function safeInputFilename(filename) {
     .replace(/\.(txt|docx)$/i, ".md");
 }
 
+function uniqStrings(values) {
+  const out = [];
+  const seen = new Set();
+  for (const v of values || []) {
+    const s = String(v || "").trim();
+    if (!s) continue;
+    const key = s.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+  }
+  return out;
+}
+
+function uniqById(items) {
+  const out = [];
+  const seen = new Set();
+  for (const item of items || []) {
+    const id = String(item?.id || "").trim();
+    if (!id) continue;
+    const key = id.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+function mergeConnectionObjects(base, extra) {
+  const out = [];
+  const seen = new Set();
+  const add = (conn) => {
+    const target = String(conn?.target || conn?.target_id || "").trim();
+    if (!target) return;
+    const label = String(conn?.label || "").trim();
+    const key = `${target.toLowerCase()}::${label.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ target_id: target, label });
+  };
+  for (const c of base || []) add(c);
+  for (const c of extra || []) add(c);
+  return out;
+}
+
+function mergeExistingConnectionObjects(base, extra) {
+  const out = [];
+  const seen = new Set();
+  const add = (conn) => {
+    const source = String(conn?.source || "").trim();
+    const target = String(conn?.target || conn?.target_id || "").trim();
+    if (!source || !target) return;
+    const label = String(conn?.label || "").trim();
+    const key = `${source.toLowerCase()}::${target.toLowerCase()}::${label.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ source, target, label });
+  };
+  for (const c of base || []) add(c);
+  for (const c of extra || []) add(c);
+  return out;
+}
+
+function toNarrativeParagraphs(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  // Remove common markdown/list prefixes, then reflow line-broken prose.
+  const noListPrefixes = raw
+    .replace(/^[ \t]*[-*•]\s+/gm, "")
+    .replace(/^[ \t]*\d+[.)]\s+/gm, "");
+
+  const paragraphs = noListPrefixes
+    .split(/\n\s*\n+/)
+    .map((p) => p.split(/\n+/).map((line) => line.trim()).filter(Boolean).join(" ").trim())
+    .filter(Boolean);
+
+  return paragraphs.join("\n\n");
+}
+
+function mergeNarrativeNotes(prevText, nextText) {
+  const prev = toNarrativeParagraphs(prevText || "");
+  const next = toNarrativeParagraphs(nextText || "");
+  if (!next) return prev;
+  if (!prev) return next;
+  if (prev.includes(next)) return prev;
+  return `${prev}\n\n${next}`;
+}
+
+function mergeEntityRecords(base, extra) {
+  const byId = new Map();
+  for (const item of [...(base || []), ...(extra || [])]) {
+    const id = String(item?.id || "").trim();
+    if (!id) continue;
+    const prev = byId.get(id) || {
+      id,
+      name: "",
+      type: "character",
+      excerpt: "",
+      notes: "",
+      aliases: [],
+      connections: [],
+      key_excerpts: [],
+    };
+    const nextExcerpt = String(item?.excerpt || "").trim();
+    byId.set(id, {
+      id,
+      name: String(item?.name || prev.name || "").trim(),
+      type: String(item?.type || prev.type || "character").trim() || "character",
+      excerpt: nextExcerpt.length > prev.excerpt.length ? nextExcerpt : prev.excerpt,
+      notes: mergeNarrativeNotes(prev.notes, item?.notes || ""),
+      aliases: uniqStrings([...(prev.aliases || []), ...(item?.aliases || [])]),
+      connections: mergeConnectionObjects(prev.connections || [], item?.connections || []),
+      key_excerpts: uniqStrings([...(prev.key_excerpts || []), ...(item?.key_excerpts || [])]).slice(0, 12),
+    });
+  }
+  return [...byId.values()];
+}
+
+async function synthesizeEntityNarratives(openai, items) {
+  const payload = (items || []).map((item) => ({
+    id: item.id,
+    name: item.name,
+    type: item.type,
+    excerpt: item.excerpt || "",
+    notes: toNarrativeParagraphs(item.notes || ""),
+    key_excerpts: uniqStrings(item.key_excerpts || []).slice(0, 10),
+    relationships: (item.connections || []).map((c) => ({
+      target: c.target,
+      targetName: c.targetName,
+      label: c.label || "",
+    })),
+  }));
+
+  if (payload.length === 0) return {};
+
+  try {
+    const resp = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "Rewrite each entity into a cohesive narrative summary. Return a JSON object where keys are entity ids and values are prose summaries. " +
+            "Use complete sentences and flowing paragraphs. Integrate relationships naturally into the narrative context. " +
+            "Do NOT output bullet points, numbered lists, or terse fact fragments. " +
+            "Preserve concrete plot details from notes and key excerpts.",
+        },
+        { role: "user", content: JSON.stringify(payload) },
+      ],
+      temperature: 0.15,
+      max_tokens: Math.min(900 * payload.length, 12000),
+    });
+    const parsed = JSON.parse(resp.choices[0]?.message?.content || "{}");
+    return (parsed && typeof parsed === "object") ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function mergeUpdateObjects(base, extra) {
+  const byId = new Map();
+  for (const item of [...(base || []), ...(extra || [])]) {
+    const id = String(item?.id || "").trim();
+    if (!id) continue;
+    const prev = byId.get(id) || { id, notes_append: "", excerpt: "" };
+    const notesAppend = toNarrativeParagraphs(item?.notes_append || "");
+    const excerpt = String(item?.excerpt || "").trim();
+    byId.set(id, {
+      id,
+      notes_append: notesAppend && notesAppend !== prev.notes_append
+        ? [prev.notes_append, notesAppend].filter(Boolean).join("\n\n")
+        : prev.notes_append,
+      excerpt: excerpt || prev.excerpt,
+    });
+  }
+  return [...byId.values()].filter((u) => u.notes_append || u.excerpt);
+}
+
+function mergeExtractionPayload(base, additions) {
+  const baseNodes = Array.isArray(base?.entities) ? base.entities : [];
+  const baseMentions = Array.isArray(base?.mentions) ? base.mentions : [];
+  const baseUpdates = Array.isArray(base?.updates) ? base.updates : [];
+  const baseExistingConns = Array.isArray(base?.existing_connections) ? base.existing_connections : [];
+
+  const addNodes = Array.isArray(additions?.missing_entities) ? additions.missing_entities : [];
+  const addMentions = Array.isArray(additions?.missing_mentions) ? additions.missing_mentions : [];
+  const addUpdates = Array.isArray(additions?.updates_additional) ? additions.updates_additional : [];
+  const addExistingConns = Array.isArray(additions?.existing_connections_additional)
+    ? additions.existing_connections_additional
+    : [];
+
+  return {
+    entities: mergeEntityRecords(baseNodes, addNodes),
+    mentions: uniqById([...baseMentions, ...addMentions]).map((m) => ({
+      ...m,
+      connections: mergeConnectionObjects([], m.connections || []),
+    })),
+    updates: mergeUpdateObjects(baseUpdates, addUpdates),
+    existing_connections: mergeExistingConnectionObjects(baseExistingConns, addExistingConns),
+    node_enrichments: Array.isArray(additions?.node_enrichments) ? additions.node_enrichments : [],
+  };
+}
+
+function mergeTextAppend(existingText, nextText) {
+  return mergeNarrativeNotes(existingText, nextText);
+}
+
+function buildMajorSourceMarkdown({ excerpt, notes }) {
+  const summary = String(excerpt || "").trim();
+  const detail = toNarrativeParagraphs(notes || "");
+  const lines = [];
+  if (summary) {
+    lines.push(summary, "");
+  }
+  if (detail) {
+    lines.push(detail, "");
+  }
+  return toNarrativeParagraphs(lines.join("\n")).trim() + "\n";
+}
+
+function mergeSourceFileList(primary, extras) {
+  const primaryClean = String(primary || "").trim();
+  const all = [primaryClean, ...(extras || [])]
+    .map((v) => String(v || "").trim())
+    .filter(Boolean);
+  const uniq = [];
+  const seen = new Set();
+  for (const item of all) {
+    const key = item.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniq.push(item);
+  }
+  return {
+    sourceFile: uniq[0] || "",
+    additionalSourceFiles: uniq.slice(1),
+  };
+}
+
 function loadDeriveIndex(indexPath) {
   if (!fs.existsSync(indexPath)) return { version: DERIVE_META_VERSION, items: [] };
   try {
@@ -96,7 +337,7 @@ function relinkDerivedNodesToPath({ notesDir, wsDir, nodeIds, newFolderSlug }) {
     }
 
     if (!moved && !fs.existsSync(nextAbs)) {
-      const fallback = `${(data.name || nodeId).toUpperCase()} — ${data.type || "character"} notes\n\n${data.notes || ""}`;
+      const fallback = toNarrativeParagraphs(data.notes || "") || String(data.excerpt || "").trim() || String(data.name || nodeId);
       try { fs.writeFileSync(nextAbs, fallback, "utf-8"); } catch { /* non-fatal */ }
     }
 
@@ -245,12 +486,17 @@ export default async function handler(req, res) {
     // ── Prompt ───────────────────────────────────────────────────────────────
     const openai = new OpenAI({ apiKey });
 
-    const systemPrompt = `You are a narrative analyst extracting a comprehensive entity map from a story text.
+    const systemPrompt = `You are a narrative analyst extracting a comprehensive entity map from story text.
 
-Your job: identify every named entity in the text and classify each as MAJOR or MINOR.
+  Your job: maximize recall for important story content while preserving clean major/minor separation.
 
-MAJOR — entity has narrative agency, appears more than once, drives scenes, or is central to the story's world. Give them full notes.
-MINOR — entity is mentioned once or twice, is background/supporting, or has no direct narrative action. Give them just enough to identify them.
+  MAJOR entities:
+  - recurring, high-impact, or lore-critical people/places/factions/artifacts/events
+  - MUST include robust notes covering concrete plot beats, motivations, conflicts, interactions, and outcomes from the text
+
+  MINOR mentions:
+  - one-off/background/supporting references that still matter for graph context
+  - should remain lightweight and connected to major/existing nodes
 
 Return ONLY valid JSON:
 {
@@ -260,7 +506,8 @@ Return ONLY valid JSON:
       "name": "Display Name",
       "type": "character | location | faction | artifact | event",
       "excerpt": "One-sentence description",
-      "notes": "2–4 paragraphs of prose notes — rich enough to stand alone as a reference file",
+      "notes": "Comprehensive narrative prose (minimum 8 sentences) with specific plot points, interactions, and concrete details from the text",
+      "key_excerpts": ["important direct line or short passage from the source"],
       "aliases": ["alias1", "alias2"],
       "connections": [
         { "target_id": "exact_id_from_roster_or_this_batch", "label": "brief lowercase relationship (max 8 words)" }
@@ -291,8 +538,10 @@ Other rules:
 - Aliases should capture shorthand references (e.g. "Sable" for "Sable Voss")
 - Do not invent entities not present in the text
 - Do not include truly unnamed walk-ons (e.g. "a guard", "some merchants")
-- Every mention MUST have at least one connection to a major entity or existing graph node — do not emit isolated mentions
-- If an existing graph node (listed below) appears in the text with meaningful new information, include it as a MAJOR entity using its EXACT existing id and name — the system will merge the new notes into the existing profile without duplicating it`;
+- Mentions should include connections when clear, but still include important one-off mentions even if no explicit edge is available in this excerpt
+- If an existing graph node (listed below) appears in the text with meaningful new information, include it as a MAJOR entity using its EXACT existing id and name — the system will merge the new notes into the existing profile without duplicating it
+- Write notes as narrative paragraphs only. Do NOT use bullet points, numbered lists, or checklist formatting in notes or notes_append fields.
+- In notes, prefer complete sentences with explicit subjects and verbs, not shorthand fragments like "X enemy Y".`;
 
     const existingCtx = existingNodes.length > 0
       ? `\n\nEXISTING GRAPH NODES — use the exact id for any references to these in target_id fields:\n${existingNodes.map(n => {
@@ -322,9 +571,100 @@ Other rules:
       return res.status(500).json({ error: "AI returned malformed JSON — please try again." });
     }
 
-    const entities = extracted.entities || [];
-    const mentions = extracted.mentions || [];
-    if (entities.length === 0 && mentions.length === 0) {
+    const firstPass = {
+      entities: Array.isArray(extracted?.entities) ? extracted.entities : [],
+      mentions: Array.isArray(extracted?.mentions) ? extracted.mentions : [],
+      updates: Array.isArray(extracted?.updates) ? extracted.updates : [],
+      existing_connections: Array.isArray(extracted?.existing_connections) ? extracted.existing_connections : [],
+    };
+
+    const coverageSystemPrompt = `You are a strict extraction QA pass. Review the draft extraction against source text.
+
+Return ONLY valid JSON with this schema:
+{
+  "missing_entities": [
+    {
+      "id": "snake_case_id",
+      "name": "Display Name",
+      "type": "character | location | faction | artifact | event",
+      "excerpt": "One-sentence description",
+      "notes": "Detailed narrative notes (minimum 5 sentences) with concrete plot points and interactions",
+      "key_excerpts": ["important direct line or short passage from the source"],
+      "aliases": ["alias1"],
+      "connections": [
+        { "target_id": "exact_id_from_roster_or_this_batch", "label": "brief lowercase relationship" }
+      ]
+    }
+  ],
+  "missing_mentions": [
+    {
+      "id": "snake_case_id",
+      "name": "Display Name",
+      "type": "character | location | faction | artifact | event",
+      "excerpt": "One-sentence description",
+      "connections": [
+        { "target_id": "exact_id_from_roster_or_this_batch", "label": "brief lowercase relationship" }
+      ]
+    }
+  ],
+  "node_enrichments": [
+    {
+      "id": "id_from_draft_or_existing_roster",
+      "notes_append": "Additional high-value facts missing from draft notes",
+      "excerpt": "Sharper excerpt only if materially better",
+      "connections": [
+        { "target_id": "exact_id_from_roster_or_this_batch", "label": "brief lowercase relationship" }
+      ]
+    }
+  ],
+  "updates_additional": [
+    { "id": "existing_id", "notes_append": "net-new details", "excerpt": "optional improved excerpt" }
+  ],
+  "existing_connections_additional": [
+    { "source": "existing_id", "target": "existing_or_new_id", "label": "brief lowercase relationship" }
+  ]
+}
+
+Rules:
+- Return additions/enrichments only; do not duplicate draft items
+- Preserve major vs minor separation
+- Prioritize missing plot points, interactions, turning points, and concrete details
+- Write notes and notes_append as narrative paragraphs only (no bullets or numbered lists)
+- Use complete sentences with clear grammar, not shorthand relation fragments
+- Prefer capturing key excerpts that justify the narrative summary and then expand them into cohesive prose.`;
+
+    let mergedExtraction = {
+      ...firstPass,
+      node_enrichments: [],
+    };
+    try {
+      const coverageResp = await openai.chat.completions.create({
+        model: "gpt-4o",
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: coverageSystemPrompt },
+          {
+            role: "user",
+            content:
+              `SOURCE TEXT:\n${rawText}\n\n` +
+              `EXISTING ROSTER:\n${existingCtx || "(none)"}\n\n` +
+              `DRAFT EXTRACTION:\n${JSON.stringify(firstPass)}`,
+          },
+        ],
+        temperature: 0.1,
+      });
+      const additions = JSON.parse(coverageResp.choices[0].message.content || "{}");
+      mergedExtraction = mergeExtractionPayload(firstPass, additions);
+    } catch {
+      // Non-fatal: keep first-pass extraction if coverage QA fails.
+    }
+
+    const entities = mergedExtraction.entities || [];
+    const mentions = mergedExtraction.mentions || [];
+    const updates = mergedExtraction.updates || [];
+    const existingConns = mergedExtraction.existing_connections || [];
+    const nodeEnrichments = Array.isArray(mergedExtraction.node_enrichments) ? mergedExtraction.node_enrichments : [];
+    if (entities.length === 0 && mentions.length === 0 && updates.length === 0 && existingConns.length === 0) {
       return res.status(200).json({ folder: folderSlug, nodesCreated: [], mentionsCreated: [] });
     }
 
@@ -350,6 +690,27 @@ Other rules:
     const entitiesWithIds = entities.map((e) => resolveEntityId(e, usedSlugs));
     const mentionsWithIds = mentions.map((m) => resolveEntityId(m, usedSlugs));
 
+    if (nodeEnrichments.length > 0) {
+      const enrichById = new Map();
+      for (const item of nodeEnrichments) {
+        const id = String(item?.id || "").trim();
+        if (!id) continue;
+        const prev = enrichById.get(id) || { notes_append: "", excerpt: "", connections: [] };
+        enrichById.set(id, {
+          notes_append: mergeTextAppend(prev.notes_append, item?.notes_append || ""),
+          excerpt: String(item?.excerpt || prev.excerpt || "").trim(),
+          connections: mergeConnectionObjects(prev.connections, item?.connections || []),
+        });
+      }
+      for (const entity of entitiesWithIds) {
+        const enrichment = enrichById.get(entity.id);
+        if (!enrichment) continue;
+        entity.notes = mergeTextAppend(entity.notes || "", enrichment.notes_append || "");
+        if (!entity.excerpt && enrichment.excerpt) entity.excerpt = enrichment.excerpt;
+        entity.connections = mergeConnectionObjects(entity.connections || [], enrichment.connections || []);
+      }
+    }
+
     // Build name→id map: current batch (major + minor) + existing graph nodes
     const nameToId = new Map();
     for (const n of existingNodes) {
@@ -358,14 +719,6 @@ Other rules:
     }
     for (const e of entitiesWithIds) nameToId.set(e.name.toLowerCase(), e.id);
     for (const m of mentionsWithIds) nameToId.set(m.name.toLowerCase(), m.id);
-
-    // ── Write files ───────────────────────────────────────────────────────────
-    ensureDir(rawFolder);
-    ensureDir(notesDir);
-
-    const createdNodes = [];
-    const updatedNodes = [];
-    const createdMentions = [];
 
     // Build a set of all IDs in this batch for target_id validation
     const batchIdSet = new Set([
@@ -398,10 +751,70 @@ Other rules:
         .filter(Boolean);
     }
 
+    const idToName = new Map();
+    for (const n of existingNodes) idToName.set(n.id, n.name);
+    for (const e of entitiesWithIds) idToName.set(e.id, e.name);
+    for (const m of mentionsWithIds) idToName.set(m.id, m.name);
+
+    const resolvedEntities = entitiesWithIds.map((entity) => {
+      const resolvedConnections = resolveConnections(entity.connections, entity.id);
+      return {
+        ...entity,
+        _resolvedConnections: resolvedConnections,
+        _resolvedConnectionContext: resolvedConnections.map((c) => ({
+          target: c.target,
+          targetName: idToName.get(c.target) || c.target,
+          label: c.label || "",
+        })),
+      };
+    });
+
+    const existingEntityState = new Map();
+    for (const entity of resolvedEntities) {
+      if (!entity._isExisting) continue;
+      const jsonPath = path.join(notesDir, `${entity.id}.json`);
+      try {
+        const data = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+        existingEntityState.set(entity.id, data);
+      } catch {
+        // Non-fatal: fall back to current extraction-only synthesis if read fails.
+      }
+    }
+
+    const synthesizedNarratives = await synthesizeEntityNarratives(
+      openai,
+      resolvedEntities.map((entity) => ({
+        id: entity.id,
+        name: entity.name,
+        type: entity.type,
+        excerpt: entity.excerpt,
+        notes: entity._isExisting
+          ? mergeTextAppend(existingEntityState.get(entity.id)?.notes || "", entity.notes || "")
+          : entity.notes,
+        key_excerpts: entity.key_excerpts || [],
+        connections: entity._resolvedConnectionContext,
+      }))
+    );
+
+    // ── Write files ───────────────────────────────────────────────────────────
+    ensureDir(rawFolder);
+    ensureDir(notesDir);
+
+    const createdNodes = [];
+    const updatedNodes = [];
+    const createdMentions = [];
+
     // ── Major entities ────────────────────────────────────────────────────────
-    for (const entity of entitiesWithIds) {
-      const connections = resolveConnections(entity.connections, entity.id);
-      const mdContent = `${entity.name.toUpperCase()} — ${entity.type} notes\n\n${entity.notes || ""}`;
+    for (const entity of resolvedEntities) {
+      const connections = entity._resolvedConnections || [];
+      const narrativeNotes = toNarrativeParagraphs(
+        synthesizedNarratives?.[entity.id] || entity.notes || ""
+      );
+      const mdContent = buildMajorSourceMarkdown({
+        type: entity.type,
+        excerpt: entity.excerpt,
+        notes: narrativeNotes,
+      });
 
       if (entity._isExisting) {
         // ── Existing node: write supplemental .md to new folder, patch the JSON ──
@@ -416,11 +829,33 @@ Other rules:
           existingData.originSourceFile = existingData.sourceFile || `${folderSlug}/${entity.id}.md`;
         }
 
-        // Append new notes (avoid duplicate content)
-        if (entity.notes && entity.notes.trim() && !existingData.notes.includes(entity.notes.trim())) {
-          existingData.notes = existingData.notes
-            ? `${existingData.notes}\n\n${entity.notes.trim()}`
-            : entity.notes.trim();
+        // Keep node notes as merged narrative across all contributing files.
+        const mergedNotes = mergeTextAppend(existingData.notes || "", narrativeNotes || "");
+        if (mergedNotes && mergedNotes !== (existingData.notes || "")) {
+          existingData.notes = mergedNotes;
+        }
+        if (entity.excerpt && entity.excerpt.trim()) {
+          existingData.excerpt = entity.excerpt.trim();
+        }
+        if (Array.isArray(entity.aliases) && entity.aliases.length > 0) {
+          existingData.aliases = uniqStrings([...(existingData.aliases || []), ...entity.aliases]);
+        }
+
+        // Rotate canonical sourceFile to the latest derived artifact while preserving
+        // prior files as additionalSourceFiles so UI/file lookups remain complete.
+        const currentDerivedSource = `${folderSlug}/${entity.id}.md`;
+        const sourceMerge = mergeSourceFileList(currentDerivedSource, [
+          existingData.sourceFile,
+          ...(existingData.additionalSourceFiles || []),
+        ]);
+        existingData.sourceFile = sourceMerge.sourceFile;
+        if (sourceMerge.additionalSourceFiles.length > 0) {
+          existingData.additionalSourceFiles = sourceMerge.additionalSourceFiles;
+        } else {
+          delete existingData.additionalSourceFiles;
+        }
+        if (!existingData.originSourceFile) {
+          existingData.originSourceFile = existingData.sourceFile;
         }
 
         // Patch new connections (skip duplicates)
@@ -445,7 +880,7 @@ Other rules:
           name: entity.name,
           type: entity.type || "character",
           excerpt: entity.excerpt || "",
-          notes: entity.notes || "",
+          notes: narrativeNotes || "",
           aliases: (entity.aliases || []).filter((a) => typeof a === "string" && a.trim()),
           connections,
           originSourceFile: sourceFile,
@@ -460,14 +895,54 @@ Other rules:
       }
     }
 
+    // ── Explicit updates for existing nodes (net-new facts from coverage + base pass) ──
+    for (const update of updates) {
+      const updateId = String(update?.id || "").trim();
+      if (!updateId || !existingIdSet.has(updateId)) continue;
+      const jsonPath = path.join(notesDir, `${updateId}.json`);
+      let existingData;
+      try { existingData = JSON.parse(fs.readFileSync(jsonPath, "utf-8")); }
+      catch { continue; }
+
+      const nextNotes = mergeTextAppend(existingData.notes || "", update?.notes_append || "");
+      if (nextNotes !== (existingData.notes || "")) existingData.notes = nextNotes;
+      if (update?.excerpt && String(update.excerpt).trim()) {
+        existingData.excerpt = String(update.excerpt).trim();
+      }
+      existingData.updatedAt = Date.now();
+      fs.writeFileSync(jsonPath, JSON.stringify(existingData, null, 2), "utf-8");
+      if (!updatedNodes.some((n) => n.id === updateId)) {
+        updatedNodes.push({ id: existingData.id, name: existingData.name, type: existingData.type || "character" });
+      }
+    }
+
+    // ── Existing→existing / existing→new connection additions ─────────────────
+    for (const conn of existingConns) {
+      const sourceId = String(conn?.source || "").trim();
+      const targetId = String(conn?.target || "").trim();
+      if (!sourceId || !targetId) continue;
+      if (!existingIdSet.has(sourceId)) continue;
+      if (!(existingIdSet.has(targetId) || batchIdSet.has(targetId))) continue;
+
+      const jsonPath = path.join(notesDir, `${sourceId}.json`);
+      let sourceData;
+      try { sourceData = JSON.parse(fs.readFileSync(jsonPath, "utf-8")); }
+      catch { continue; }
+
+      sourceData.connections = sourceData.connections || [];
+      const already = sourceData.connections.some((c) => c.target === targetId);
+      if (!already && targetId !== sourceId) {
+        sourceData.connections.push({ target: targetId, label: String(conn?.label || "").trim() });
+        sourceData.updatedAt = Date.now();
+        fs.writeFileSync(jsonPath, JSON.stringify(sourceData, null, 2), "utf-8");
+      }
+    }
+
     // ── Minor mentions → minimal .json only (no .md, no sourceFile → grey node) ──
     // Skip if the mention matched an existing node — it already has a JSON file.
-    // Only write if the mention has at least one resolved connection — a stranded
-    // grey node with no edges has no useful place in the graph.
     for (const mention of mentionsWithIds) {
       if (mention._isExisting) continue; // already exists — no new file needed
       const connections = resolveConnections(mention.connections, mention.id);
-      if (connections.length === 0) continue;
       const nodeData = {
         id: mention.id,
         name: mention.name,

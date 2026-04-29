@@ -1,0 +1,27 @@
+{
+  "id": "mr_brunner",
+  "name": "Mr. Brunner",
+  "type": "character",
+  "excerpt": "Mr. Brunner is Percy's Latin teacher who mentors him and has a mysterious side.",
+  "connections": [
+    {
+      "target": "chapter_1",
+      "label": "appears in"
+    },
+    {
+      "target": "percy_jackson",
+      "label": "mentors"
+    },
+    {
+      "target": "yancy_academy",
+      "label": "teaches at"
+    }
+  ],
+  "notes": "Mr. Brunner is a middle-aged Latin teacher at Yancy Academy who uses a motorized wheelchair. He is known for his engaging teaching style and his collection of Roman armor and weapons. Mr. Brunner has high expectations for Percy Jackson and believes his studies are vitally important. He assists Percy during a supernatural event by providing him with a magical pen that transforms into a sword.\n\nMr. Brunner is aware of the supernatural events surrounding Percy and discusses them with Grover. He believes Percy needs to mature more before facing certain challenges and is involved in keeping Percy safe. He hints at Percy's unique nature and the importance of his education in Latin.",
+  "aliases": [],
+  "originSourceFile": "tlt/Chapter_1.md",
+  "sourceFile": "tlt/Chapter_1.md",
+  "createdAt": 1777402045040,
+  "updatedAt": 1777402068210,
+  "context_summary": "- Mr. Brunner is Percy's Latin teacher.\n- He uses a motorized wheelchair.\n- He has a collection of Roman armor and weapons.\n- He provides Percy with a magical pen that becomes a sword.\n- He discusses supernatural events with Grover.\n- He believes Percy needs to mature."
+}

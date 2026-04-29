@@ -1,0 +1,3 @@
+Nancy Bobofit is a freckly, redheaded kleptomaniac girl who bullies Grover.
+
+Nancy Bobofit is a student at Yancy Academy, recognized for her freckled face, red hair, and kleptomaniac tendencies. She is notorious for bullying Grover Underwood, often throwing food at him and provoking him for her own amusement. Nancy seems to take particular delight in antagonizing Percy, knowing that he is on probation and unable to retaliate. During the museum field trip, she creates a scene by falsely accusing Percy of pushing her into a fountain, which ultimately leads to the confrontation with Mrs. Dodds. Her relationship with Mrs. Dodds is one of favoritism, as the teacher often overlooks Nancy's misbehavior, further complicating the dynamics within their school environment.

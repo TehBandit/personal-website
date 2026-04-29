@@ -520,6 +520,19 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
     }
   }, [timelapseOpen, timelapseFrame, timelapseNodePool, timelapseLinkPool, timelapseNodeIndexMap]);
 
+  // Keep the revealed subgraph fully in frame as the timelapse advances.
+  useEffect(() => {
+    if (!timelapseOpen) return;
+    const fg = timelapseGraphRef.current;
+    if (!fg) return;
+
+    const t = setTimeout(() => {
+      fg.zoomToFit(320, 56);
+    }, 0);
+
+    return () => clearTimeout(t);
+  }, [timelapseOpen, timelapseFrame, timelapseGraphData]);
+
   // Session streak — based on any day a node was created OR edited
   const streakData = useMemo(() => {    const daysSet = new Set(
       nodes
@@ -955,12 +968,12 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
 
                 <div className="rounded-lg p-3 mb-4" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
                   <p className="text-xs mb-2" style={{ color: "rgba(255,255,255,0.4)" }}>Graph Build View</p>
-                  <div style={{ width: "100%", height: 320, borderRadius: 10, overflow: "hidden", backgroundColor: "rgba(8,10,18,0.55)" }}>
+                  <div style={{ width: "100%", height: 480, maxWidth: 1200, margin: "0 auto", borderRadius: 10, overflow: "hidden", backgroundColor: "rgba(8,10,18,0.55)" }}>
                     <ForceGraph2D
                       ref={timelapseGraphRef}
                       graphData={timelapseGraphData}
-                      width={860}
-                      height={320}
+                      width={1100}
+                      height={480}
                       backgroundColor="rgba(8,10,18,0)"
                       cooldownTicks={80}
                       nodeRelSize={4}
@@ -1007,6 +1020,7 @@ export default function Dashboard({ graphData = { nodes: [], links: [] }, nodeTy
                       enableZoomInteraction
                     />
                   </div>
+
                 </div>
 
                 <div className="mb-3">

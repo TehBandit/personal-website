@@ -1,0 +1,23 @@
+{
+  "id": "farmhouse",
+  "name": "Farmhouse",
+  "type": "location",
+  "excerpt": "The Farmhouse is a safe haven located in a valley, where Percy seeks refuge.",
+  "connections": [
+    {
+      "target": "percy_jackson",
+      "label": "provides refuge"
+    },
+    {
+      "target": "chapter_4",
+      "label": "featured in"
+    }
+  ],
+  "notes": "The Farmhouse is located in a valley, visible from the crest of a hill. It is a place of refuge for Percy after his encounter with the Bull-Man. The farmhouse is associated with safety and is where Percy collapses after his ordeal.",
+  "aliases": [],
+  "originSourceFile": "tlt/Chapter_4.md",
+  "sourceFile": "tlt/Chapter_4.md",
+  "createdAt": 1777402127578,
+  "updatedAt": 1777402127578,
+  "context_summary": "- The Farmhouse is located in a valley.\n- It is visible from the crest of a hill.\n- It serves as a refuge for Percy after his encounter with the Bull-Man.\n- Percy collapses at the farmhouse after his ordeal."
+}

@@ -1,3 +1,0 @@
-PERCY JACKSON — character notes
-
-Percy Jackson is the protagonist of the story, a twelve-year-old boy who attends Yancy Academy, a private school for troubled kids in upstate New York. He is described as having dyslexia and attention deficit disorder, which makes his academic life challenging. Despite these difficulties, Percy is expected to excel by his Latin teacher, Mr. Brunner. Percy has a history of getting into trouble, especially on school field trips, and he is on probation at Yancy Academy. He is a half-blood, which implies a connection to the Greek gods, and he experiences strange events that suggest he is part of a larger, mythical world.

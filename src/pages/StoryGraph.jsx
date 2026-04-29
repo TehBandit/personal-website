@@ -390,16 +390,26 @@ export default function StoryGraph() {
     }, { replace: true });
   }, [workspace, setSearchParams]);
 
-  // Keep URL ?tab= param in sync with state. We omit the default "graph" tab.
+  // Keep URL ?tab= in sync and clear ?file outside Files tab in one atomic update.
+  // Doing both together avoids races where separate effects overwrite each other.
   useEffect(() => {
     setSearchParams((prev) => {
-      const current = prev.get("tab") || "";
-      const nextTab = activeTab === "graph" ? "" : activeTab;
-      if (current === nextTab) return prev;
       const next = new URLSearchParams(prev);
-      if (nextTab) next.set("tab", nextTab);
-      else next.delete("tab");
-      return next;
+      let changed = false;
+
+      const currentTab = next.get("tab") || "";
+      const nextTab = activeTab;
+      if (currentTab !== nextTab) {
+        next.set("tab", nextTab);
+        changed = true;
+      }
+
+      if (activeTab !== "files" && next.get("file")) {
+        next.delete("file");
+        changed = true;
+      }
+
+      return changed ? next : prev;
     }, { replace: true });
   }, [activeTab, setSearchParams]);
 
@@ -816,17 +826,6 @@ export default function StoryGraph() {
         return next;
       }
       if (!cur) return prev;
-      next.delete("file");
-      return next;
-    }, { replace: true });
-  }, [activeTab, setSearchParams]);
-
-  // Keep URL minimal: only include ?file while actively in Files tab.
-  useEffect(() => {
-    if (activeTab === "files") return;
-    setSearchParams((prev) => {
-      if (!prev.get("file")) return prev;
-      const next = new URLSearchParams(prev);
       next.delete("file");
       return next;
     }, { replace: true });

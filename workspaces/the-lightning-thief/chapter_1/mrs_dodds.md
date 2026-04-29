@@ -1,3 +1,0 @@
-MRS. DODDS ΓÇö character notes
-
-Mrs. Dodds is a math teacher at Yancy Academy, originally from Georgia, known for her stern demeanor and preference for wearing a black leather jacket. She has a particular dislike for Percy, often giving him detention and treating him harshly. During a field trip to the Metropolitan Museum of Art, she reveals her true nature as a supernatural creature with bat wings and talons, attacking Percy and demanding a confession for an unspecified crime. Her transformation and subsequent disappearance suggest she is part of the mythical world that Percy is connected to.

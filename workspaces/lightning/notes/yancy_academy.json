@@ -1,0 +1,31 @@
+{
+  "id": "yancy_academy",
+  "name": "Yancy Academy",
+  "type": "location",
+  "excerpt": "Yancy Academy is a private school for troubled kids in upstate New York.",
+  "connections": [
+    {
+      "target": "chapter_1",
+      "label": "featured in"
+    },
+    {
+      "target": "percy_jackson",
+      "label": "attended by"
+    },
+    {
+      "target": "mr_brunner",
+      "label": "teaches at"
+    },
+    {
+      "target": "mrs_dodds",
+      "label": "taught at"
+    }
+  ],
+  "notes": "Yancy Academy is a private school located in upstate New York, known for enrolling troubled kids. Percy Jackson is a student here, and it is where he encounters several significant events, including the mysterious disappearance of Mrs. Dodds.",
+  "aliases": [],
+  "originSourceFile": "tlt/Chapter_1.md",
+  "sourceFile": "tlt/Chapter_1.md",
+  "createdAt": 1777402045035,
+  "updatedAt": 1777402045035,
+  "context_summary": "- Yancy Academy is a private school.\n- It is located in upstate New York.\n- The school enrolls troubled kids.\n- Percy Jackson is a student there.\n- Mrs. Dodds mysteriously disappears."
+}

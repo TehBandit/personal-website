@@ -1,0 +1,24 @@
+{
+  "id": "summer_solstice_deadline",
+  "name": "Summer Solstice Deadline",
+  "type": "event",
+  "excerpt": "A mysterious deadline related to the summer solstice.",
+  "notes": "The summer solstice deadline is a mysterious and significant event that looms over Percy Jackson's life, as revealed in a secretive conversation between Grover and Mr. Brunner. This deadline is implied to be crucial for Percy's safety and is connected to the larger mythological forces at play in his life. Grover expresses concern that Percy may not have enough time to mature before this pivotal moment arrives, suggesting that it could lead to serious consequences. Mr. Brunner, aware of the dangers that Percy faces, insists that the matter must be resolved without Percy's involvement, indicating that there are larger plans or prophecies at work that Percy is not yet prepared to confront. This looming deadline adds a layer of urgency to Percy's journey, as he navigates the complexities of his identity and the threats that surround him.",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "percy_jackson",
+      "label": "related to"
+    },
+    {
+      "target": "grover_underwood",
+      "label": "concerned about"
+    },
+    {
+      "target": "mr_brunner",
+      "label": "discusses with Grover"
+    }
+  ],
+  "originSourceFile": "tlt/summer_solstice_deadline.md",
+  "sourceFile": "tlt/summer_solstice_deadline.md"
+}

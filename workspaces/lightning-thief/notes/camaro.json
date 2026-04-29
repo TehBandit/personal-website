@@ -1,0 +1,14 @@
+{
+  "id": "camaro",
+  "name": "Camaro",
+  "type": "artifact",
+  "excerpt": "The car driven by Sally Jackson during their escape.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "sally_jackson",
+      "label": "driven by her"
+    }
+  ]
+}

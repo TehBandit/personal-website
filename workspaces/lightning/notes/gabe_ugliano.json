@@ -1,0 +1,27 @@
+{
+  "id": "gabe_ugliano",
+  "name": "Gabe Ugliano",
+  "type": "character",
+  "excerpt": "Gabe Ugliano, nicknamed 'Smelly Gabe' by Percy, is Percy's unpleasant stepfather.",
+  "connections": [
+    {
+      "target": "sally_jackson",
+      "label": "married to"
+    },
+    {
+      "target": "percy_jackson",
+      "label": "stepfather of"
+    },
+    {
+      "target": "chapter_3",
+      "label": "appears in"
+    }
+  ],
+  "notes": "Gabe Ugliano is Percy's stepfather, known for his unpleasant demeanor and smell. He manages the Electronics Mega-Mart in Queens but spends most of his time at home playing poker and drinking beer. He expects Percy to provide him with gambling funds and threatens him to keep it a secret from Sally. Gabe is described as looking like a tuskless walrus and is generally disliked by Percy.",
+  "aliases": [],
+  "originSourceFile": "tlt/Chapter_3.md",
+  "sourceFile": "tlt/Chapter_3.md",
+  "createdAt": 1777402098721,
+  "updatedAt": 1777402098721,
+  "context_summary": "- Percy's stepfather.\n- Known as 'Smelly Gabe'.\n- Manages Electronics Mega-Mart in Queens.\n- Spends time playing poker and drinking beer at home.\n- Expects Percy to provide gambling funds.\n- Threatens Percy to keep secrets from Sally.\n- Described as looking like a tuskless walrus.\n- Generally disliked by Percy."
+}

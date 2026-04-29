@@ -1,0 +1,31 @@
+{
+  "id": "grover_underwood",
+  "name": "Grover Underwood",
+  "type": "character",
+  "excerpt": "Grover Underwood is a satyr and Percy's best friend, secretly tasked with watching over him.",
+  "connections": [
+    {
+      "target": "chapter_1",
+      "label": "appears in"
+    },
+    {
+      "target": "percy_jackson",
+      "label": "best friends"
+    },
+    {
+      "target": "yancy_academy",
+      "label": "attends"
+    },
+    {
+      "target": "mr_brunner",
+      "label": "discusses percy with"
+    }
+  ],
+  "notes": "Grover Underwood is a scrawny, acne-prone student at Yancy Academy who is Percy's best friend. He is known for being easily frustrated and has a muscular disease that affects his legs, excusing him from PE. Despite his appearance, he is surprisingly fast when motivated. Grover is protective of Percy and tries to cover for him when he gets into trouble.\n\nGrover is worried about Percy's safety and feels responsible for protecting him. He is aware of supernatural events and entities, such as the Kindly Ones and the significance of the summer solstice deadline. Grover gives Percy a business card with his summer address at Half-Blood Hill, indicating a deeper connection to the world of half-bloods.\n\nGrover unexpectedly loses his pants, revealing that he has cloven hooves instead of feet, indicating his true nature as a satyr.\n\nGrover is revealed to be a satyr, with the lower body of a goat. He has been secretly watching over Percy to ensure his safety and is knowledgeable about the supernatural threats Percy faces.",
+  "aliases": [],
+  "originSourceFile": "tlt/Chapter_1.md",
+  "sourceFile": "tlt/Chapter_1.md",
+  "createdAt": 1777402045037,
+  "updatedAt": 1777402127580,
+  "context_summary": "- Grover Underwood is a satyr and Percy's best friend.\n- He is a scrawny, acne-prone student at Yancy Academy.\n- He has a muscular disease affecting his legs.\n- Grover is protective of Percy and covers for him.\n- He is aware of supernatural events and threats.\n- Grover gives Percy a business card with his summer address at Half-Blood Hill.\n- He has cloven hooves instead of feet, revealing his true nature."
+}

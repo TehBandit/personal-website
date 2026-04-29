@@ -42,13 +42,16 @@ export function rebuildGraphCache(workspace, notesDir) {
     const allIds = new Set();
     for (const file of files) {
       let data;
+      let fileTs = 0;
       try {
-        data = JSON.parse(fs.readFileSync(path.join(notesDir, file), "utf-8"));
+        const abs = path.join(notesDir, file);
+        data = JSON.parse(fs.readFileSync(abs, "utf-8"));
+        fileTs = Number(fs.statSync(abs)?.mtimeMs || 0);
       } catch {
         continue;
       }
       if (!data.id || !data.name) continue;
-      allData.push({ file, data });
+      allData.push({ file, data, fileTs });
       allIds.add(data.id);
     }
 
@@ -153,9 +156,11 @@ export function rebuildGraphCache(workspace, notesDir) {
 
     const FILE_PREVIEW_LIMIT = 600;
 
-    for (const { data } of allData) {
+    for (const { data, fileTs } of allData) {
       if (data.__purged) continue;
       const { id, name, type, excerpt, notes, aliases, tags, disambiguation, context_summary, sourceFile, originSourceFile, additionalSourceFiles, documentNode, createdAt, updatedAt, connections = [] } = data;
+      const resolvedCreatedAt = Number(createdAt || fileTs || 0);
+      const resolvedUpdatedAt = Number(updatedAt || resolvedCreatedAt || fileTs || 0);
 
       // For nodes that own a dedicated raw file, embed a truncated preview of
       // that file's content (heading stripped) so the graph panel can show it
@@ -200,8 +205,8 @@ export function rebuildGraphCache(workspace, notesDir) {
         ...(context_summary ? { context_summary } : {}),
         ...(documentNode ? { documentNode } : {}),
         ...(filePreview !== null ? { filePreview } : {}),
-        ...(createdAt ? { createdAt } : {}),
-        ...(updatedAt ? { updatedAt } : {}),
+        ...(resolvedCreatedAt > 0 ? { createdAt: resolvedCreatedAt } : {}),
+        ...(resolvedUpdatedAt > 0 ? { updatedAt: resolvedUpdatedAt } : {}),
       });
 
       for (const conn of connections) {

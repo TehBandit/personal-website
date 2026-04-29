@@ -1,0 +1,22 @@
+{
+  "id": "three_old_ladies",
+  "name": "Three Old Ladies",
+  "type": "character",
+  "excerpt": "Three old ladies knitting enormous socks at a fruit stand.",
+  "notes": "The three old ladies encountered by Percy and Grover at a fruit stand are enigmatic figures who evoke a sense of foreboding. They are seen knitting enormous socks, an odd sight that unsettles Grover, who seems to sense that their presence is tied to something much larger and more ominous. The middle lady's act of cutting a piece of yarn with large, ornate scissors sends a chill down Grover's spine, hinting at a deeper mythological significance that he is reluctant to explain to Percy. Their actions suggest that they are not merely harmless old women but rather embodiments of fate or destiny, with the cutting of the yarn symbolizing a pivotal moment that could have dire consequences. Grover's fear of these old ladies underscores the tension and uncertainty that permeate Percy's life as he grapples with his identity and the dangers that lurk in the shadows.\n\nThe three old ladies encountered by Percy and Grover at a fruit stand are enigmatic figures who evoke a sense of foreboding. They are seen knitting enormous socks, an odd sight that unsettles Grover, who seems to sense that their presence is tied to something much larger and more ominous. The middle lady's act of cutting a piece of yarn with large, ornate scissors sends a chill down Grover's spine, hinting at a deeper mythological significance that he is reluctant to explain to Percy. Their actions suggest that they are not merely harmless old women but rather embodiments of fate or destiny, with the cutting of the yarn symbolizing a pivotal moment that could have dire consequences. Grover's fear of these old ladies underscores the tension and uncertainty that permeate Percy's life as he grapples with his identity and the dangers that lurk in the shadows. The Three Old Ladies are revealed to be the Fates, significant figures in mythology who appear before Percy. Their presence is ominous, as Grover explains that they only appear when someone is about to die. This revelation adds to the tension and danger surrounding Percy, as it suggests that his life is in grave danger. The encounter with the Fates is a foreshadowing of the perilous journey Percy is about to undertake.",
+  "aliases": [
+    "Fates"
+  ],
+  "connections": [
+    {
+      "target": "percy_jackson",
+      "label": "observed by"
+    },
+    {
+      "target": "grover_underwood",
+      "label": "frightens"
+    }
+  ],
+  "originSourceFile": "tlt/three_old_ladies.md",
+  "sourceFile": "tlt/three_old_ladies.md"
+}

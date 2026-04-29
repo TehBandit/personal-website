@@ -1,0 +1,27 @@
+{
+  "id": "montauk_cabin",
+  "name": "Montauk Cabin",
+  "type": "location",
+  "excerpt": "The Montauk Cabin is a cherished retreat for Percy and his mother, holding sentimental value.",
+  "connections": [
+    {
+      "target": "sally_jackson",
+      "label": "frequented by"
+    },
+    {
+      "target": "percy_jackson",
+      "label": "frequented by"
+    },
+    {
+      "target": "chapter_3",
+      "label": "featured in"
+    }
+  ],
+  "notes": "The Montauk Cabin is located on the south shore of Long Island and is a special place for Percy and his mother. They have been visiting it since Percy was a baby, and it is where Sally met Percy's father. The cabin is described as a pastel box with faded curtains, half sunken into the dunes, with sand in the sheets and spiders in the cabinets. Despite its rustic nature, Percy loves the place.",
+  "aliases": [],
+  "originSourceFile": "tlt/Chapter_3.md",
+  "sourceFile": "tlt/Chapter_3.md",
+  "createdAt": 1777402098723,
+  "updatedAt": 1777402098723,
+  "context_summary": "- Located on the south shore of Long Island.\n- A special retreat for Percy and his mother.\n- They have visited since Percy was a baby.\n- Where Sally met Percy's father.\n- Described as a pastel box with faded curtains.\n- Half sunken into the dunes.\n- Contains sand in the sheets and spiders in the cabinets.\n- Percy loves the cabin despite its rustic nature."
+}

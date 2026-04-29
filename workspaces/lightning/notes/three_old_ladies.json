@@ -1,0 +1,27 @@
+{
+  "id": "three_old_ladies",
+  "name": "Three Old Ladies",
+  "type": "character",
+  "excerpt": "Three old ladies at a fruit stand knit enormous socks and cut yarn, ominously observed by Grover.",
+  "connections": [
+    {
+      "target": "grover_underwood",
+      "label": "observed by"
+    },
+    {
+      "target": "percy_jackson",
+      "label": "watched by"
+    },
+    {
+      "target": "chapter_2",
+      "label": "appears in"
+    }
+  ],
+  "notes": "The three old ladies are seen at a fruit stand knitting large socks. The middle lady cuts the yarn with large scissors, which deeply unsettles Grover. They seem to have a significant, possibly supernatural role, as indicated by Grover's reaction.\n\nThe Three Old Ladies are revealed to be the Fates, who appear when someone is about to die, indicating their ominous role in Percy's life.",
+  "aliases": [],
+  "originSourceFile": "tlt/Chapter_2.md",
+  "sourceFile": "tlt/Chapter_2.md",
+  "createdAt": 1777402068205,
+  "updatedAt": 1777402127585,
+  "context_summary": "- Three old ladies are seen at a fruit stand knitting large socks.\n- The middle lady cuts the yarn with large scissors.\n- Grover finds their presence unsettling.\n- They are revealed to be the Fates, indicating their ominous role."
+}

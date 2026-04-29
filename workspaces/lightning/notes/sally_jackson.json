@@ -1,0 +1,27 @@
+{
+  "id": "sally_jackson",
+  "name": "Sally Jackson",
+  "type": "character",
+  "excerpt": "Sally Jackson is Percy's protective mother, aware of supernatural threats and tragically dissolves into light.",
+  "connections": [
+    {
+      "target": "percy_jackson",
+      "label": "mother of"
+    },
+    {
+      "target": "gabe_ugliano",
+      "label": "married to"
+    },
+    {
+      "target": "chapter_3",
+      "label": "central to"
+    }
+  ],
+  "notes": "Sally Jackson is Percy's mother and is described as the best person in the world by Percy. Her parents died in a plane crash when she was five, and she was raised by an uncaring uncle. She aspired to be a novelist but had to quit school to care for her uncle when he got cancer. After his death, she was left with no money or diploma. She met Percy's father, who was rich and important, but their relationship was a secret, and he was lost at sea. Sally worked odd jobs, took night classes, and raised Percy on her own. She later married Gabe Ugliano, who turned out to be a jerk. Despite this, she remains kind and supportive, often bringing Percy blue candy as a sign of rebellion against Gabe.\n\nSally is aware of the supernatural threats to Percy and has been trying to protect him. She cannot cross a certain property line, indicating a limitation related to her nature or circumstances. She tragically dissolves into light when attacked by the Bull-Man.",
+  "aliases": [],
+  "originSourceFile": "tlt/Chapter_3.md",
+  "sourceFile": "tlt/Chapter_3.md",
+  "createdAt": 1777402098719,
+  "updatedAt": 1777402127581,
+  "context_summary": "- Sally Jackson is Percy's protective mother.\n- She was raised by an uncaring uncle after her parents died in a plane crash.\n- She aspired to be a novelist but had to quit school.\n- She worked odd jobs and raised Percy on her own.\n- Sally married Gabe Ugliano, who was abusive.\n- She is aware of supernatural threats to Percy.\n- She tragically dissolves into light when attacked by the Bull-Man."
+}

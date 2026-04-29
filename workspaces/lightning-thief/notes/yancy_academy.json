@@ -1,0 +1,26 @@
+{
+  "id": "yancy_academy",
+  "name": "Yancy Academy",
+  "type": "location",
+  "excerpt": "Yancy Academy is a private school for troubled kids in upstate New York.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "percy_jackson",
+      "label": "school attended by"
+    },
+    {
+      "target": "mr_brunner",
+      "label": "teaches at"
+    },
+    {
+      "target": "grover_underwood",
+      "label": "school attended by"
+    },
+    {
+      "target": "mrs_dodds",
+      "label": "teaches at"
+    }
+  ]
+}

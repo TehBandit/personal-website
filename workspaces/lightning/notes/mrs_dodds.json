@@ -1,0 +1,35 @@
+{
+  "id": "mrs_dodds",
+  "name": "Mrs. Dodds",
+  "type": "character",
+  "excerpt": "Mrs. Dodds is a math teacher who reveals a monstrous form and attacks Percy.",
+  "connections": [
+    {
+      "target": "chapter_1",
+      "label": "appears in"
+    },
+    {
+      "target": "percy_jackson",
+      "label": "attacks"
+    },
+    {
+      "target": "nancy_bobofit",
+      "label": "favors"
+    },
+    {
+      "target": "yancy_academy",
+      "label": "taught at"
+    },
+    {
+      "target": "mrs_kerr",
+      "label": "replaced by"
+    }
+  ],
+  "notes": "Mrs. Dodds is a math teacher at Yancy Academy who appears to have a particular dislike for Percy Jackson. She is described as wearing a black leather jacket and having a mean demeanor. During a field trip, she transforms into a monstrous creature with talons and wings and attacks Percy, revealing her true nature as something other than human.",
+  "aliases": [],
+  "originSourceFile": "tlt/Chapter_1.md",
+  "sourceFile": "tlt/Chapter_1.md",
+  "createdAt": 1777402045042,
+  "updatedAt": 1777402068221,
+  "context_summary": "- Mrs. Dodds is a math teacher at Yancy Academy.\n- She dislikes Percy Jackson.\n- She wears a black leather jacket.\n- She transforms into a monstrous creature.\n- She has talons and wings."
+}
