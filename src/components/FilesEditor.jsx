@@ -4647,8 +4647,8 @@ export default function FilesEditor({ graphData = EMPTY_GRAPH, workspace = null,
 
         {/* Full-pane loading overlay — covers editor + bibliography + backlinks */}
         {isPageLoading && openFile && (
-          <div className="absolute inset-0 flex items-center justify-center z-20" style={{ backgroundColor: "rgba(15,15,26,0.7)" }}>
-            <Loader size={20} className="animate-spin" style={{ color: "rgba(255,255,255,0.35)" }} />
+          <div className="absolute inset-0 flex items-center justify-center z-20" style={{ backgroundColor: colors.overlay }}>
+            <Loader size={20} className="animate-spin" style={{ color: colors.accent }} />
           </div>
         )}
 

@@ -1,0 +1,3 @@
+Mrs. Dodds is a math teacher at Yancy Academy who transforms into a monster.
+
+Mrs. Dodds is a math teacher at Yancy Academy who harbors a particular animosity towards Percy. During the field trip to the museum, she reveals her true nature as a monstrous creature with bat wings and talons, accusing Percy of causing trouble and demanding a confession he does not understand. In a desperate act of self-defense, Percy uses the sword given to him by Mr. Brunner to vaporize her. Following this incident, Mrs. Dodds' existence is denied by everyone, including Grover and Mr. Brunner, leaving Percy bewildered and questioning the reality of what he has just experienced.

@@ -1,0 +1,14 @@
+{
+  "id": "eddie",
+  "name": "Eddie",
+  "type": "character",
+  "excerpt": "Eddie is the super of the apartment building where Percy lives.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "gabe_ugliano",
+      "label": "apartment super"
+    }
+  ]
+}

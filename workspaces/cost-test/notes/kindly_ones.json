@@ -1,0 +1,18 @@
+{
+  "id": "kindly_ones",
+  "name": "Kindly Ones",
+  "type": "faction",
+  "excerpt": "Kindly Ones are mentioned as a threat at the school.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "grover_underwood",
+      "label": "aware of their presence"
+    },
+    {
+      "target": "mr_brunner",
+      "label": "discusses them with Grover"
+    }
+  ]
+}

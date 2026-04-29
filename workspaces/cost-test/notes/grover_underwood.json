@@ -1,0 +1,38 @@
+{
+  "id": "grover_underwood",
+  "name": "Grover Underwood",
+  "type": "character",
+  "excerpt": "Grover is Percy's best friend and a student at Yancy Academy.",
+  "notes": "Grover Underwood is Percy's best friend at Yancy Academy, characterized by his scrawny frame, acne, and a wispy beard. Despite his own struggles, including a muscular disease that excuses him from physical education, Grover remains a loyal and supportive friend to Percy. During the tumultuous events of the field trip, he tries to cover for Percy when Nancy Bobofit bullies him. Grover's serious demeanor hints that he knows more about the supernatural world than he lets on, especially when he reacts gravely to Percy's suggestion that Mrs. Dodds might not be human. After the shocking encounter with Mrs. Dodds, Grover also denies her existence, further deepening Percy's sense of isolation and confusion.\n\nGrover Underwood is Percy's loyal best friend at Yancy Academy, characterized by his scrawny frame and nervous demeanor. Despite his own challenges, including a muscular disease that keeps him from participating in physical education, Grover remains a steadfast supporter of Percy. During the chaotic field trip, he attempts to shield Percy from the bullying of Nancy Bobofit, showcasing his protective instincts. Grover's serious demeanor hints at his deeper knowledge of the supernatural world, particularly when he reacts with fear to Percy's mention of Mrs. Dodds. After the incident, Grover's denial of her existence only adds to Percy's isolation. He is deeply concerned for Percy's safety, as evidenced by his conversations with Mr. Brunner about a looming deadline and the presence of a 'Kindly One' at the school. Grover's protective nature becomes even more apparent when he insists on accompanying Percy home, indicating his commitment to safeguarding his friend amidst the growing dangers they face.\n\nGrover Underwood is Percy's loyal best friend at Yancy Academy, characterized by his scrawny frame and nervous demeanor. Despite his own challenges, including a muscular disease that keeps him from participating in physical education, Grover remains a steadfast supporter of Percy. During the chaotic field trip, he attempts to shield Percy from the bullying of Nancy Bobofit, showcasing his protective instincts. Grover's serious demeanor hints at his deeper knowledge of the supernatural world, particularly when he reacts with fear to Percy's mention of Mrs. Dodds. After the incident, Grover's denial of her existence only adds to Percy's isolation. He is deeply concerned for Percy's safety, as evidenced by his conversations with Mr. Brunner about a looming deadline and the presence of a 'Kindly One' at the school. Grover's protective nature becomes even more apparent when he insists on accompanying Percy home, indicating his commitment to safeguarding his friend amidst the growing dangers they face. His true nature as a satyr is revealed during a stormy night at Montauk, where he arrives urgently to warn Percy and his mother of impending threats, highlighting his role as a protector and guide.\n\nGrover Underwood is Percy's loyal best friend at Yancy Academy, characterized by his scrawny frame and nervous demeanor. Despite his own challenges, including a muscular disease that keeps him from participating in physical education, Grover remains a steadfast supporter of Percy. During the chaotic field trip, he attempts to shield Percy from the bullying of Nancy Bobofit, showcasing his protective instincts. Grover's serious demeanor hints at his deeper knowledge of the supernatural world, particularly when he reacts with fear to Percy's mention of Mrs. Dodds. After the incident, Grover's denial of her existence only adds to Percy's isolation. He is deeply concerned for Percy's safety, as evidenced by his conversations with Mr. Brunner about a looming deadline and the presence of a 'Kindly One' at the school. Grover's protective nature becomes even more apparent when he insists on accompanying Percy home, indicating his commitment to safeguarding his friend amidst the growing dangers they face. As the storm rages on, Grover reveals his true nature as a satyr, a creature from Greek mythology, who has been tasked with watching over Percy. His knowledge of the mythical world is crucial, as he explains the significance of the Fates and the dangers they face. Despite being injured during their escape, Grover's loyalty remains unwavering as he and Percy seek refuge at a farmhouse after their harrowing encounter with the Minotaur.",
+  "aliases": [
+    "Grover"
+  ],
+  "connections": [
+    {
+      "target": "percy_jackson",
+      "label": "best friend"
+    },
+    {
+      "target": "nancy_bobofit",
+      "label": "target of bullying"
+    },
+    {
+      "target": "mrs_dodds",
+      "label": "denies existence of"
+    },
+    {
+      "target": "mr_brunner",
+      "label": "confidant about Percy's situation"
+    },
+    {
+      "target": "sally_jackson",
+      "label": "warns about danger"
+    },
+    {
+      "target": "minotaur",
+      "label": "targeted by"
+    }
+  ],
+  "originSourceFile": "tlt/grover_underwood.md",
+  "sourceFile": "tlt/grover_underwood.md"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "farmhouse",
+  "name": "Farmhouse",
+  "type": "location",
+  "excerpt": "The farmhouse is the place of refuge Percy and Grover reach after escaping the Minotaur.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "percy_jackson",
+      "label": "reaches for safety"
+    },
+    {
+      "target": "grover_underwood",
+      "label": "reaches for safety"
+    }
+  ]
+}

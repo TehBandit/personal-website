@@ -1,0 +1,14 @@
+{
+  "id": "mrs_kerr_2",
+  "name": "Mrs. Kerr",
+  "type": "character",
+  "excerpt": "Mrs. Kerr is a perky blond woman who replaced Mrs. Dodds as the pre-algebra teacher.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "mrs_dodds",
+      "label": "replacement teacher"
+    }
+  ]
+}

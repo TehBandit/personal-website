@@ -1,0 +1,14 @@
+{
+  "id": "upper_east_side",
+  "name": "Upper East Side",
+  "type": "location",
+  "excerpt": "Percy's home is on the Upper East Side.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "percy_jackson",
+      "label": "home location"
+    }
+  ]
+}

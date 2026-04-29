@@ -1,19 +1,20 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Send, RefreshCw, BookOpen, ChevronDown, ChevronUp, Loader, AlertCircle, X, Trash2, PanelLeftOpen, PanelLeftClose, Network, SquarePen, Copy, Check, Pencil } from "lucide-react";
 import { useNodeTypeConfig } from "../contexts/NodeTypeContext.jsx";
+import { useStoryGraphTheme } from "../contexts/StoryGraphThemeContext.jsx";
 import { buildAdjacencyMap, graphBFS } from "../utils/graphHelpers.js";
 import { buildWordBoundaryPattern, collectGreedyMatches, overlapsAnyRange } from "../../shared/story-rules.js";
 
-const BG = "#0a0a14";
-const SIDEBAR_BG = "#0c0c18";
-const PANEL_BG = "#0f0f1a";
-const BUBBLE_BG = "#161624";
-const BORDER = "rgba(255,255,255,0.07)";
-const BORDER_MED = "rgba(255,255,255,0.1)";
-const MUTED = "rgba(255,255,255,0.35)";
-const TEXT = "rgba(255,255,255,0.88)";
-const ACCENT = "#60a5fa";
-const ACCENT_DIM = "rgba(96,165,250,0.15)";
+const BG = "var(--chat-bg)";
+const SIDEBAR_BG = "var(--chat-sidebar-bg)";
+const PANEL_BG = "var(--chat-panel-bg)";
+const BUBBLE_BG = "var(--chat-bubble-bg)";
+const BORDER = "var(--chat-border)";
+const BORDER_MED = "var(--chat-border-med)";
+const MUTED = "var(--chat-muted)";
+const TEXT = "var(--chat-text)";
+const ACCENT = "var(--chat-accent)";
+const ACCENT_DIM = "var(--chat-accent-dim)";
 
 // ---------------------------------------------------------------------------
 // Graph query analysis — detect structural questions and answer from graph data
@@ -1396,15 +1397,16 @@ function EmptyState({ onSend, graphData }) {
         if (deg > bestDeg) { bestDeg = deg; best = node; }
       }
     }
-    if (best) graphStarter = `Who are ${best.name}'s direct neighbors on the graph?`;
+    if (best) graphStarter = `What is connected to ${best.name} on the graph?`;
   }
 
   const starters = [
     graphStarter,
-    "Who is Sable Voss and what are her motivations?",
-    "What factions exist in this world?",
-    "Summarize the key locations and their significance.",
-    "What conflicts drive the story?",
+    "Give me an overview of everything in this workspace.",
+    "What are the main themes or topics across these notes?",
+    "What are the most important entities and how are they connected?",
+    "What patterns or recurring ideas appear throughout the notes?",
+    "Summarize the key relationships between the major elements.",
   ].filter(Boolean).slice(0, 5);
 
   return (
@@ -1417,8 +1419,8 @@ function EmptyState({ onSend, graphData }) {
           <Network size={22} style={{ color: ACCENT }} />
         </div>
         <div>
-          <p className="text-base font-semibold" style={{ color: TEXT }}>Ask about your world</p>
-          <p className="text-xs mt-1" style={{ color: MUTED }}>Characters, factions, locations, connections — all grounded in your notes.</p>
+          <p className="text-base font-semibold" style={{ color: TEXT }}>Ask about your notes</p>
+          <p className="text-xs mt-1" style={{ color: MUTED }}>People, places, ideas, events — all grounded in your uploaded notes.</p>
         </div>
       </div>
       <div className="grid grid-cols-1 gap-2 w-full max-w-xs">
@@ -1622,6 +1624,21 @@ function SessionSidebar({ sessions, activeId, onSelect, onNew, onDelete }) {
 // ---------------------------------------------------------------------------
 
 export default function WorkspaceChat({ workspace, onOpenNode, graphData = null, ownFileIds = null, chatFocusNode = null, onShowPath = null, onBulkPatch = null, pendingQuestion = null, onPendingConsumed = null, compact = false }) {
+  const { theme } = useStoryGraphTheme();
+  const { colors } = theme;
+  const chatVars = useMemo(() => ({
+    "--chat-bg": colors.surface,
+    "--chat-sidebar-bg": colors.surfaceAlt,
+    "--chat-panel-bg": colors.surface,
+    "--chat-bubble-bg": colors.surfaceAlt,
+    "--chat-border": colors.borderSoft,
+    "--chat-border-med": colors.border,
+    "--chat-muted": colors.softText,
+    "--chat-text": colors.text,
+    "--chat-accent": colors.accent,
+    "--chat-accent-dim": colors.accentSoft,
+  }), [colors]);
+
   // Build entity linkification data once per workspace/graph change.
   // Computed here (parent) rather than inside each MessageBubble so that N
   // messages don't each rebuild the same map+regex on every workspace switch.
@@ -2191,7 +2208,7 @@ export default function WorkspaceChat({ workspace, onOpenNode, graphData = null,
   };
 
   return (
-    <div className="flex flex-1 overflow-hidden min-h-0" style={{ backgroundColor: BG }}>
+    <div className="flex flex-1 overflow-hidden min-h-0" style={{ backgroundColor: BG, ...chatVars }}>
 
       {/* Session sidebar */}
       {sidebarOpen && (

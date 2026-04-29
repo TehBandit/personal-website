@@ -923,6 +923,7 @@ export default function StoryGraph() {
     }
 
     setSelectedNode(node);
+    setRightPanelTab("details");
     setRightPanelOpen(true);
     fgRef.current?.centerAt(node.x, node.y, 600);
     fgRef.current?.zoom(2.2, 600);
@@ -1932,7 +1933,7 @@ export default function StoryGraph() {
           )}
         </div>
 
-        {/* ── Right panel: Details + Chat tabs ── */}
+        {/* ── Right panel: Details + Chat (chat opened via dedicated controls) ── */}
         {rightPanelOpen && (
         <div
           className="flex-shrink-0 flex flex-col border-l relative"
@@ -1947,23 +1948,21 @@ export default function StoryGraph() {
             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
           />
 
-          {/* Panel tab bar */}
-          <div className="flex items-center flex-shrink-0 px-2 pt-1 gap-0.5 border-b" style={{ borderColor: colors.borderSoft }}>
-            {[{ id: "details", label: "Details" }, { id: "chat", label: "Chat" }].map(({ id, label }) => (
-              <button
-                key={id}
-                onClick={() => setRightPanelTab(id)}
-                className="px-3 py-2 text-xs font-medium transition-colors"
-                style={{
-                  color: rightPanelTab === id ? colors.accentStrong : colors.softText,
-                  borderBottom: rightPanelTab === id ? `2px solid ${colors.accent}` : "2px solid transparent",
-                  backgroundColor: "transparent",
-                  marginBottom: "-1px",
-                }}
-              >
-                {label}
-              </button>
-            ))}
+          {/* Panel header */}
+          <div className="flex items-center justify-between flex-shrink-0 px-4 py-2.5 border-b" style={{ borderColor: colors.borderSoft }}>
+            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: colors.softText }}>
+              {rightPanelTab === "chat" ? "Workspace Chat" : "Node Details"}
+            </p>
+            <button
+              onClick={() => setRightPanelOpen(false)}
+              className="p-1 rounded-md transition-colors"
+              style={{ color: colors.softText }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = colors.text)}
+              onMouseLeave={(e) => (e.currentTarget.style.color = colors.softText)}
+              title="Close panel"
+            >
+              <X size={14} />
+            </button>
           </div>
 
           {/* Details tab */}
@@ -2285,6 +2284,51 @@ export default function StoryGraph() {
         </div>
         )} {/* end rightPanelOpen */}
         </div> {/* end graph tab */}
+
+        {/* ── Right panel on non-graph tabs: chat only ── */}
+        {activeTab !== "graph" && rightPanelOpen && rightPanelTab === "chat" && (
+          <div
+            className="flex-shrink-0 flex flex-col border-l relative"
+            style={{ width: rightPanelWidth, backgroundColor: colors.surfaceAlt, borderColor: colors.borderSoft }}
+          >
+            <div
+              onMouseDown={makeResizeHandler(setRightPanelWidth, "left")}
+              className="absolute top-0 left-0 w-1 h-full z-10 cursor-col-resize"
+              style={{ background: "transparent" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = colors.border)}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            />
+            <div className="flex items-center justify-between flex-shrink-0 px-4 py-2.5 border-b" style={{ borderColor: colors.borderSoft }}>
+              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: colors.softText }}>
+                Workspace Chat
+              </p>
+              <button
+                onClick={() => setRightPanelOpen(false)}
+                className="p-1 rounded-md transition-colors"
+                style={{ color: colors.softText }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = colors.text)}
+                onMouseLeave={(e) => (e.currentTarget.style.color = colors.softText)}
+                title="Close panel"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <WorkspaceChat
+                compact
+                workspace={workspace}
+                onOpenNode={openNodeById}
+                graphData={graphData}
+                ownFileIds={ownFileIds}
+                chatFocusNode={selectedNode}
+                onShowPath={showPathOnGraph}
+                onBulkPatch={handleBulkPatch}
+                pendingQuestion={pendingChatQuestion}
+                onPendingConsumed={() => setPendingChatQuestion(null)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Graph node right-click context menu ── */}
@@ -2368,32 +2412,57 @@ export default function StoryGraph() {
         </>
       )}
 
+      {/* ── Chat FAB — persistent bottom-right button to open chat from any tab ── */}
+      {!(activeTab === "graph" && rightPanelOpen && rightPanelTab === "chat") && (
+        <button
+          onClick={() => {
+            setRightPanelOpen(true);
+            setRightPanelTab("chat");
+          }}
+          className="fixed z-40 flex items-center justify-center rounded-full shadow-lg transition-colors"
+          style={{
+            bottom: "24px",
+            right: "24px",
+            width: "44px",
+            height: "44px",
+            backgroundColor: colors.accentSoft,
+            border: `1px solid ${colors.accent}`,
+            color: colors.accentStrong,
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.accent; e.currentTarget.style.color = "#fff"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = colors.accentSoft; e.currentTarget.style.color = colors.accentStrong; }}
+          title="Open chat"
+        >
+          <MessageSquare size={18} />
+        </button>
+      )}
+
       {/* ── Upload modal ── */}
       {uploadOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+          style={{ backgroundColor: colors.overlay }}
           onClick={(e) => { if (e.target === e.currentTarget) { setUploadOpen(false); } }}
         >
           <div
             className="relative flex flex-col rounded-2xl shadow-2xl w-[92vw] max-w-md"
-            style={{ backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.1)" }}
+            style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}` }}
           >
             {/* Modal header */}
-            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b" style={{ borderColor: colors.borderSoft }}>
               <div>
-                <h2 className="text-base font-semibold text-white">Upload Story Notes</h2>
-                <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+                <h2 className="text-base font-semibold" style={{ color: colors.textStrong }}>Upload Documents</h2>
+                <p className="text-xs mt-0.5" style={{ color: colors.muted }}>
                   {uploadMode === "note"
-                    ? "The AI will extract entities and map their connections automatically."
-                    : "The AI will extract every significant entity and create a source file for each."}
+                    ? "A node and file will be created for each document uploaded. AI will derive common connections between them."
+                    : "The AI will read each uploaded file and derive significant entities, creating nodes, connections, and notes based on their content."}
                 </p>
               </div>
               <button
                 onClick={() => setUploadOpen(false)}
-                style={{ color: "rgba(255,255,255,0.3)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+                style={{ color: colors.softText }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = colors.textStrong)}
+                onMouseLeave={(e) => (e.currentTarget.style.color = colors.softText)}
               >
                 <X size={16} />
               </button>
@@ -2401,15 +2470,15 @@ export default function StoryGraph() {
 
             {/* Mode toggle — only shown before file is selected or result is shown */}
             {!extracting && !extractResult && (
-              <div className="flex gap-1 mx-6 mt-5 p-1 rounded-lg" style={{ background: "rgba(255,255,255,0.05)" }}>
+              <div className="flex gap-1 mx-6 mt-5 p-1 rounded-lg" style={{ background: colors.borderSoft }}>
                 {[["note", "Focused Note"], ["derive", "Derive from Text"]].map(([mode, label]) => (
                   <button
                     key={mode}
                     onClick={() => { setUploadMode(mode); resetUploadModal(); }}
                     className="flex-1 py-1.5 rounded-md text-xs font-medium transition-colors"
                     style={{
-                      background: uploadMode === mode ? "rgba(96,165,250,0.2)" : "transparent",
-                      color: uploadMode === mode ? "#93c5fd" : "rgba(255,255,255,0.4)",
+                      background: uploadMode === mode ? colors.accentSoft : "transparent",
+                      color: uploadMode === mode ? colors.accentStrong : colors.muted,
                     }}
                   >
                     {label}
@@ -2426,10 +2495,10 @@ export default function StoryGraph() {
                   {extractResult.mode === "bulk" ? (
                     <>
                       <CheckCircle size={36} className="text-emerald-400" />
-                      <p className="text-white font-medium text-center">
+                      <p className="font-medium text-center" style={{ color: colors.textStrong }}>
                         {extractResult.results.length}/{extractResult.totalFiles} files processed
                         {extractResult.errors.length > 0 && (
-                          <span style={{ color: "#f87171" }}> · {extractResult.errors.length} failed</span>
+                          <span style={{ color: colors.danger }}> · {extractResult.errors.length} failed</span>
                         )}
                       </p>
                       <div className="w-full flex flex-col gap-1 mt-1 max-h-52 overflow-y-auto">
@@ -2455,13 +2524,13 @@ export default function StoryGraph() {
                           return (
                             <div key={r.file} className="flex items-center gap-2 text-xs">
                               <CheckCircle size={10} className="text-emerald-400 flex-shrink-0" />
-                              <span className="font-mono truncate flex-1" style={{ color: "rgba(255,255,255,0.5)" }}>{r.file}</span>
-                              <span style={{ color: "rgba(255,255,255,0.3)" }}>{summary}</span>
+                              <span className="font-mono truncate flex-1" style={{ color: colors.muted }}>{r.file}</span>
+                              <span style={{ color: colors.softText }}>{summary}</span>
                             </div>
                           );
                         })}
                         {extractResult.errors.map((e) => (
-                          <div key={e.file} className="flex items-center gap-2 text-xs" style={{ color: "#f87171" }}>
+                          <div key={e.file} className="flex items-center gap-2 text-xs" style={{ color: colors.danger }}>
                             <AlertCircle size={10} className="flex-shrink-0" />
                             <span className="font-mono truncate flex-1">{e.file}</span>
                             <span className="truncate" style={{ maxWidth: "130px" }}>{e.error}</span>
@@ -2476,7 +2545,7 @@ export default function StoryGraph() {
                           ? extractResult.results.reduce((s, r) => s + (r.updated ?? 0), 0)
                           : extractResult.results.reduce((s, r) => s + (r.nodesUpdated?.length ?? 0), 0);
                         return (tc > 0 || tu > 0) && (
-                          <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+                          <p className="text-xs" style={{ color: colors.softText }}>
                             {[tc > 0 && `${tc} nodes created`, tu > 0 && `${tu} existing updated`].filter(Boolean).join(" · ")}
                           </p>
                         );
@@ -2484,9 +2553,9 @@ export default function StoryGraph() {
                     </>
                   ) : extractResult.alreadyDerived ? (
                     <>
-                      <CheckCircle size={36} style={{ color: "#facc15" }} />
-                      <p className="text-white font-medium text-center">Already derived</p>
-                      <p className="text-xs text-center" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      <CheckCircle size={36} style={{ color: colors.warning }} />
+                      <p className="font-medium text-center" style={{ color: colors.textStrong }}>Already derived</p>
+                      <p className="text-xs text-center" style={{ color: colors.muted }}>
                         This file is identical to the one previously derived on{" "}
                         {new Date(extractResult.derivedAt).toLocaleDateString()}. No changes made.
                       </p>
@@ -2494,23 +2563,23 @@ export default function StoryGraph() {
                   ) : extractResult.mode === "derive" ? (
                     <>
                       <CheckCircle size={36} className="text-emerald-400" />
-                      <p className="text-white font-medium text-center">
+                      <p className="font-medium text-center" style={{ color: colors.textStrong }}>
                         {(extractResult.nodesCreated?.length ?? 0) > 0 && (
-                          <>Created {extractResult.nodesCreated.length} source {extractResult.nodesCreated.length === 1 ? "file" : "files"} in <span style={{ color: "#93c5fd" }}>{extractResult.folder}/</span></>
+                          <>Created {extractResult.nodesCreated.length} source {extractResult.nodesCreated.length === 1 ? "file" : "files"} in <span style={{ color: colors.accentStrong }}>{extractResult.folder}/</span></>
                         )}
-                        {(extractResult.nodesCreated?.length ?? 0) > 0 && (extractResult.nodesUpdated?.length ?? 0) > 0 && <span style={{ color: "rgba(255,255,255,0.4)" }}> · </span>}
+                        {(extractResult.nodesCreated?.length ?? 0) > 0 && (extractResult.nodesUpdated?.length ?? 0) > 0 && <span style={{ color: colors.muted }}> · </span>}
                         {(extractResult.nodesUpdated?.length ?? 0) > 0 && (
-                          <span style={{ color: "#86efac" }}>{extractResult.nodesUpdated.length} existing {extractResult.nodesUpdated.length === 1 ? "node" : "nodes"} updated</span>
+                          <span style={{ color: colors.success }}>{extractResult.nodesUpdated.length} existing {extractResult.nodesUpdated.length === 1 ? "node" : "nodes"} updated</span>
                         )}
                         {(extractResult.mentionsCreated?.length ?? 0) > 0 && (
-                          <span style={{ color: "rgba(255,255,255,0.5)" }}> · {extractResult.mentionsCreated.length} minor {extractResult.mentionsCreated.length === 1 ? "mention" : "mentions"}</span>
+                          <span style={{ color: colors.muted }}> · {extractResult.mentionsCreated.length} minor {extractResult.mentionsCreated.length === 1 ? "mention" : "mentions"}</span>
                         )}
                       </p>
                     </>
                   ) : (
                     <>
                       <CheckCircle size={36} className="text-emerald-400" />
-                      <p className="text-white font-medium text-center">
+                      <p className="font-medium text-center" style={{ color: colors.textStrong }}>
                         {extractResult.added > 0
                           ? `Added ${extractResult.added} new ${extractResult.added === 1 ? "element" : "elements"} to the graph`
                           : extractResult.updated > 0
@@ -2518,12 +2587,12 @@ export default function StoryGraph() {
                             : "No new elements found — they may already be in the graph."}
                       </p>
                       {extractResult.updated > 0 && (
-                        <p className="text-xs text-center" style={{ color: "rgba(255,255,255,0.4)" }}>
+                        <p className="text-xs text-center" style={{ color: colors.muted }}>
                           {extractResult.updated} existing {extractResult.updated === 1 ? "element" : "elements"} updated with new information
                         </p>
                       )}
                       {extractResult.connectionsPatched > 0 && (
-                        <p className="text-xs text-center" style={{ color: "rgba(255,255,255,0.4)" }}>
+                        <p className="text-xs text-center" style={{ color: colors.muted }}>
                           +{extractResult.connectionsPatched} new {extractResult.connectionsPatched === 1 ? "connection" : "connections"} added to existing elements
                         </p>
                       )}
@@ -2534,35 +2603,35 @@ export default function StoryGraph() {
                   {extractResult.mode !== "bulk" && ((extractResult.mode === "derive" ? extractResult.nodesCreated : extractResult.nodes) || []).length > 0 && (
                     <div className="w-full flex flex-col gap-1 mt-1">
                       {(extractResult.mode === "derive" ? extractResult.nodesCreated : extractResult.nodes).map((n) => (
-                        <div key={n.id} className="flex items-center gap-2 text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
+                        <div key={n.id} className="flex items-center gap-2 text-sm" style={{ color: colors.text }}>
                           <span
                             className="w-2 h-2 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: NODE_TYPE_CONFIG[n.type]?.color || "#60a5fa" }}
+                            style={{ backgroundColor: NODE_TYPE_CONFIG[n.type]?.color || colors.accent }}
                           />
                           {n.name}
-                          <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>{NODE_TYPE_CONFIG[n.type]?.label}</span>
+                          <span className="text-xs" style={{ color: colors.softText }}>{NODE_TYPE_CONFIG[n.type]?.label}</span>
                         </div>
                       ))}
                       {extractResult.mode === "derive" && (extractResult.nodesUpdated || []).length > 0 && (
                         <>
-                          <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>Updated existing nodes</p>
+                          <p className="text-xs mt-1" style={{ color: colors.softText }}>Updated existing nodes</p>
                           {extractResult.nodesUpdated.map((n) => (
-                            <div key={n.id} className="flex items-center gap-2 text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
-                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: NODE_TYPE_CONFIG[n.type]?.color || "#60a5fa", opacity: 0.5 }} />
+                            <div key={n.id} className="flex items-center gap-2 text-sm" style={{ color: colors.muted }}>
+                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: NODE_TYPE_CONFIG[n.type]?.color || colors.accent, opacity: 0.5 }} />
                               {n.name}
-                              <span className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>updated</span>
+                              <span className="text-xs" style={{ color: colors.softText }}>updated</span>
                             </div>
                           ))}
                         </>
                       )}
                       {extractResult.mode === "derive" && (extractResult.mentionsCreated || []).length > 0 && (
                         <>
-                          <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>Minor mentions (grey nodes)</p>
+                          <p className="text-xs mt-1" style={{ color: colors.softText }}>Minor mentions (grey nodes)</p>
                           {extractResult.mentionsCreated.map((n) => (
-                            <div key={n.id} className="flex items-center gap-2 text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>
+                            <div key={n.id} className="flex items-center gap-2 text-sm" style={{ color: colors.muted }}>
                               <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "#6b7280" }} />
                               {n.name}
-                              <span className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>{NODE_TYPE_CONFIG[n.type]?.label}</span>
+                              <span className="text-xs" style={{ color: colors.softText }}>{NODE_TYPE_CONFIG[n.type]?.label}</span>
                             </div>
                           ))}
                         </>
@@ -2574,14 +2643,14 @@ export default function StoryGraph() {
                     <button
                       onClick={resetUploadModal}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm"
-                      style={{ backgroundColor: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.6)" }}
+                      style={{ backgroundColor: colors.borderSoft, color: colors.muted }}
                     >
                       <RotateCcw size={13} /> Upload another
                     </button>
                     <button
                       onClick={() => { setActiveTab("graph"); setUploadOpen(false); }}
                       className="px-3 py-1.5 rounded-lg text-sm font-medium"
-                      style={{ backgroundColor: "rgba(96,165,250,0.2)", color: "#93c5fd" }}
+                      style={{ backgroundColor: colors.accentSoft, color: colors.accentStrong }}
                     >
                       View graph
                     </button>
@@ -2593,39 +2662,39 @@ export default function StoryGraph() {
                   {/* Animated spinner */}
                   <div
                     className="w-9 h-9 rounded-full border-2 animate-spin flex-shrink-0"
-                    style={{ borderColor: "#60a5fa", borderTopColor: "transparent" }}
+                    style={{ borderColor: colors.accent, borderTopColor: "transparent" }}
                   />
 
                   {bulkProgress && (
-                    <p className="text-xs font-mono text-center" style={{ color: "rgba(255,255,255,0.3)" }}>
+                    <p className="text-xs font-mono text-center" style={{ color: colors.softText }}>
                       File {bulkProgress.current} of {bulkProgress.total} — {bulkProgress.currentName}
                     </p>
                   )}
 
                   {/* Step message */}
-                  <p className="text-sm text-center" style={{ color: "rgba(255,255,255,0.6)" }}>
+                  <p className="text-sm text-center" style={{ color: colors.muted }}>
                     {extractProgress?.message ?? EXTRACT_FLAVOR[extractFlavorIdx]}
                   </p>
 
                   {/* Progress bar */}
                   {extractProgress && (
                     <div className="w-full flex flex-col gap-1.5">
-                      <div className="w-full rounded-full overflow-hidden" style={{ height: 6, backgroundColor: "rgba(255,255,255,0.08)" }}>
+                      <div className="w-full rounded-full overflow-hidden" style={{ height: 6, backgroundColor: colors.borderSoft }}>
                         <div
                           className="h-full rounded-full transition-all duration-500"
                           style={{
                             width: `${extractProgress.pct}%`,
-                            backgroundColor: extractProgress.pct === 100 ? "#34d399" : "#60a5fa",
+                            backgroundColor: extractProgress.pct === 100 ? colors.success : colors.accent,
                           }}
                         />
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
+                        <span className="text-xs" style={{ color: colors.softText }}>
                           {extractProgress.totalChunks > 1
                             ? `Section ${extractProgress.chunk ?? "…"} of ${extractProgress.totalChunks}`
                             : ""}
                         </span>
-                        <span className="text-xs tabular-nums" style={{ color: "rgba(255,255,255,0.25)" }}>
+                        <span className="text-xs tabular-nums" style={{ color: colors.softText }}>
                           {extractProgress.pct}%
                         </span>
                       </div>
@@ -2641,8 +2710,8 @@ export default function StoryGraph() {
                   <div
                     className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed py-8 px-4 cursor-pointer transition-colors"
                     style={{
-                      borderColor: dragOver ? "#60a5fa" : "rgba(255,255,255,0.12)",
-                      backgroundColor: dragOver ? "rgba(96,165,250,0.06)" : "transparent",
+                      borderColor: dragOver ? colors.accent : colors.border,
+                      backgroundColor: dragOver ? colors.accentSoft : "transparent",
                     }}
                     onClick={() => fileInputRef.current?.click()}
                     onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -2664,30 +2733,49 @@ export default function StoryGraph() {
                   >
                     {uploadFiles.length > 0 ? (
                       <>
-                        <Folder size={28} style={{ color: "#60a5fa" }} />
-                        <p className="text-sm font-medium text-white">{uploadFiles.length} {uploadFiles.length === 1 ? "file" : "files"} selected</p>
-                        <div className="w-full max-h-24 overflow-y-auto flex flex-col gap-0.5">
-                          {uploadFiles.map((f) => (
-                            <p key={f.name} className="text-xs text-center truncate" style={{ color: "rgba(255,255,255,0.45)" }}>{f.name}</p>
-                          ))}
+                        <Folder size={28} style={{ color: colors.accent }} />
+                        <p className="text-sm font-medium" style={{ color: colors.textStrong }}>{uploadFiles.length} {uploadFiles.length === 1 ? "file" : "files"} selected</p>
+                        <div
+                          className="w-full max-w-full rounded-md border"
+                          style={{
+                            borderColor: colors.borderSoft,
+                            backgroundColor: colors.surfaceAlt,
+                            maxHeight: 140,
+                            overflowY: "auto",
+                            overflowX: "hidden",
+                            scrollbarGutter: "stable",
+                          }}
+                        >
+                          <ul className="py-1">
+                            {uploadFiles.map((f, idx) => (
+                              <li
+                                key={`${f.name}-${idx}`}
+                                className="px-2 text-xs truncate"
+                                style={{ color: colors.muted, lineHeight: "18px", minHeight: 18 }}
+                                title={f.name}
+                              >
+                                {f.name}
+                              </li>
+                            ))}
+                          </ul>
                         </div>
-                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>click to change folder</p>
+                        <p className="text-xs" style={{ color: colors.softText }}>click to change folder</p>
                       </>
                     ) : uploadFile ? (
                       <>
-                        <FileText size={28} style={{ color: "#60a5fa" }} />
-                        <p className="text-sm font-medium text-white">{uploadFile.name}</p>
-                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+                        <FileText size={28} style={{ color: colors.accent }} />
+                        <p className="text-sm font-medium" style={{ color: colors.textStrong }}>{uploadFile.name}</p>
+                        <p className="text-xs" style={{ color: colors.softText }}>
                           {(uploadFile.size / 1024).toFixed(1)} KB — click to change
                         </p>
                       </>
                     ) : (
                       <>
-                        <Upload size={28} style={{ color: "rgba(255,255,255,0.25)" }} />
-                        <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
-                          Drop a file or folder or <span style={{ color: "#93c5fd" }}>browse</span>
+                        <Upload size={28} style={{ color: colors.softText }} />
+                        <p className="text-sm" style={{ color: colors.muted }}>
+                          Drop a file or folder or <span style={{ color: colors.accentStrong }}>browse</span>
                         </p>
-                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>Supports .txt, .md, .docx — drop a folder to process all files at once</p>
+                        <p className="text-xs" style={{ color: colors.softText }}>Supports .txt, .md, .docx — drop a folder to process all files at once</p>
                       </>
                     )}
                   </div>
@@ -2698,9 +2786,9 @@ export default function StoryGraph() {
                       type="button"
                       onClick={() => folderInputRef.current?.click()}
                       className="text-xs text-center w-full"
-                      style={{ color: "rgba(255,255,255,0.3)", marginTop: "-8px" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.55)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+                      style={{ color: colors.softText, marginTop: "-8px" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = colors.muted)}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = colors.softText)}
                     >
                       or browse for a folder
                     </button>
@@ -2709,7 +2797,7 @@ export default function StoryGraph() {
                   {/* Title / folder name field — shown once a file or folder is selected */}
                   {(uploadFile || uploadFiles.length > 0) && (
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.45)" }}>
+                      <label className="text-xs font-medium" style={{ color: colors.muted }}>
                         {(uploadMode === "derive" || uploadFiles.length > 0) ? "Folder name" : "Document title"}
                       </label>
                       <input
@@ -2718,10 +2806,10 @@ export default function StoryGraph() {
                         onChange={(e) => (uploadMode === "derive" || uploadFiles.length > 0) ? setUploadFolderName(e.target.value) : setUploadTitle(e.target.value)}
                         placeholder={uploadMode === "derive" ? "e.g. The Sunken Archive" : uploadFiles.length > 0 ? "Optional — leave blank for workspace root" : "e.g. Aldric Senn"}
                         className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", caretColor: "#60a5fa" }}
+                        style={{ background: colors.borderSoft, border: `1px solid ${colors.border}`, color: colors.textStrong, caretColor: colors.accent }}
                         spellCheck={false}
                       />
-                      <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
+                      <p className="text-xs" style={{ color: colors.softText }}>
                         {uploadMode === "derive" && uploadFiles.length > 1
                           ? `Each of the ${uploadFiles.length} files will be derived and their entities added to this folder.`
                           : uploadMode === "derive"
@@ -2756,7 +2844,7 @@ export default function StoryGraph() {
                   />
 
                   {extractError && (
-                    <div className="flex items-center gap-2 text-sm" style={{ color: "#f87171" }}>
+                    <div className="flex items-center gap-2 text-sm" style={{ color: colors.danger }}>
                       <AlertCircle size={14} />
                       {extractError}
                     </div>
@@ -2774,8 +2862,8 @@ export default function StoryGraph() {
                     }
                     className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity"
                     style={{
-                      backgroundColor: ((uploadFile || uploadFiles.length > 0) && (uploadMode !== "derive" || uploadFolderName.trim())) ? "#3b82f6" : "rgba(59,130,246,0.3)",
-                      color: ((uploadFile || uploadFiles.length > 0) && (uploadMode !== "derive" || uploadFolderName.trim())) ? "#fff" : "rgba(255,255,255,0.3)",
+                      backgroundColor: ((uploadFile || uploadFiles.length > 0) && (uploadMode !== "derive" || uploadFolderName.trim())) ? colors.accent : colors.accentSoft,
+                      color: ((uploadFile || uploadFiles.length > 0) && (uploadMode !== "derive" || uploadFolderName.trim())) ? colors.textStrong : colors.softText,
                       cursor: ((uploadFile || uploadFiles.length > 0) && (uploadMode !== "derive" || uploadFolderName.trim())) ? "pointer" : "not-allowed",
                     }}
                   >

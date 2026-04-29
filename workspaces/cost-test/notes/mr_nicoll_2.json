@@ -1,0 +1,14 @@
+{
+  "id": "mr_nicoll_2",
+  "name": "Mr. Nicoll",
+  "type": "character",
+  "excerpt": "Mr. Nicoll is Percy's English teacher who questions his laziness.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "percy_jackson",
+      "label": "teacher questioning his effort"
+    }
+  ]
+}

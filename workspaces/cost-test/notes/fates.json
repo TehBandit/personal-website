@@ -1,0 +1,14 @@
+{
+  "id": "fates",
+  "name": "Fates",
+  "type": "character",
+  "excerpt": "The Fates are three old ladies who appeared to Percy, indicating a significant event.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "percy_jackson",
+      "label": "appeared to"
+    }
+  ]
+}

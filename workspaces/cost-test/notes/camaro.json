@@ -1,0 +1,14 @@
+{
+  "id": "camaro",
+  "name": "Camaro",
+  "type": "artifact",
+  "excerpt": "The Camaro is the car driven by Sally Jackson during the escape.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "sally_jackson",
+      "label": "driven by"
+    }
+  ]
+}

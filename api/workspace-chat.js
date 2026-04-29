@@ -18,8 +18,9 @@ import { getEmbeddingCache, cosineSimilarity } from "./workspace-embed.js";
 
 const openai = new OpenAI();
 
-const SYSTEM_PROMPT = `You are an intelligent assistant embedded in StoryGraph, a fiction writing and worldbuilding tool.
-You may ONLY answer questions using the story notes provided in the context below.
+const SYSTEM_PROMPT = `You are an intelligent assistant embedded in StoryGraph.
+The workspace can contain many note styles (narrative writing, journal entries, school notes, research notes, planning docs, and mixed content).
+You may ONLY answer questions using the notes provided in the context below.
 You must NEVER draw on your general training knowledge, external facts, or anything not present in those notes — even if you know the answer from the real world.
 If the notes do not contain enough information to answer the question, say so explicitly: tell the user that the information is not in the notes.
 Do not invent facts about characters, places, or events that aren't in the notes.
@@ -385,6 +386,52 @@ const RELEVANCE_GATE = 0.3;  // if best chunk is below this, skip GPT and reply 
 const MAX_CITATIONS = 5;     // unique nodes to cite (model-declared)
 const MAX_HISTORY = 10;      // max prior messages to include (pairs)
 
+// Questions that ask for a broad workspace synthesis should retrieve context
+// across many notes, not just top semantic matches.
+function isWorkspaceWideQuery(query) {
+  if (!query || typeof query !== "string") return false;
+  const q = query.toLowerCase();
+  return [
+    "overview",
+    "everything in this workspace",
+    "across these notes",
+    "across the notes",
+    "main themes",
+    "main topics",
+    "recurring",
+    "patterns",
+    "most important entities",
+    "key relationships",
+    "major elements",
+    "big picture",
+    "high level",
+    "what is this workspace about",
+  ].some((k) => q.includes(k));
+}
+
+function collectWorkspaceWideChunks(cache, queryChunks = []) {
+  const seen = new Set();
+  const chunks = [];
+
+  // Representative coverage: include the first chunk for each note.
+  for (const chunk of cache?.chunks ?? []) {
+    if (seen.has(chunk.nodeId)) continue;
+    seen.add(chunk.nodeId);
+    chunks.push({ ...chunk, score: chunk.score ?? 0.5 });
+    if (chunks.length >= 36) break;
+  }
+
+  // Add high-similarity chunks as detail signal for the user's specific phrasing.
+  for (const chunk of queryChunks) {
+    const key = `${chunk.nodeId}:${chunk.chunkIndex}`;
+    if (chunks.some((c) => `${c.nodeId}:${c.chunkIndex}` === key)) continue;
+    chunks.push(chunk);
+    if (chunks.length >= 48) break;
+  }
+
+  return chunks;
+}
+
 // ---------------------------------------------------------------------------
 // Retrieve relevant chunks via cosine similarity
 // ---------------------------------------------------------------------------
@@ -636,13 +683,17 @@ export default async function handler(req, res) {
       return;
     }
 
+    const workspaceWideQuery = isWorkspaceWideQuery(userQuery);
+
     // ── Pure metadata query intercept (no GPT needed) ─────────────────────
     // IMPORTANT: skip this fast-path when the user came from a graph/path action.
     // Those questions often name several nodes ("Trace the connection from A to B
     // through C and D"), which the metadata classifier can misread as a
     // get_notes_mentioning query and incorrectly answer with "No notes mention…"
     // before the pinned graph context is ever used.
-    if (!hasPinnedNodes && !graphPathHint) {
+    // Also skip metadata intercept for workspace-wide synthesis prompts so they
+    // flow into broad retrieval instead of being misclassified as tag queries.
+    if (!hasPinnedNodes && !graphPathHint && !workspaceWideQuery) {
       const metaAnswer = await resolveMetaQuery(userQuery, meta);
       if (metaAnswer) {
         sseEvent(res, { type: "token", content: metaAnswer });
@@ -655,6 +706,11 @@ export default async function handler(req, res) {
 
     // Retrieve relevant chunks
     let chunks = await retrieve(cache, userQuery);
+
+    // Workspace-wide synthesis mode: prioritize broad note coverage.
+    if (workspaceWideQuery && !hasPinnedNodes) {
+      chunks = collectWorkspaceWideChunks(cache, chunks);
+    }
 
     // If the user is following up on a graph query, force-include all chunks
     // for the pinned node IDs (path/neighbor nodes the graph identified)
@@ -673,7 +729,7 @@ export default async function handler(req, res) {
     // (those are already known-relevant from the graph result)
     // short-circuit without calling GPT so it can't fall back on training data
     const bestScore = chunks.length > 0 ? (chunks[0].score ?? 1) : 0;
-    if (!hasPinnedNodes && bestScore < RELEVANCE_GATE) {
+    if (!hasPinnedNodes && !workspaceWideQuery && bestScore < RELEVANCE_GATE) {
       sseEvent(res, { type: "token", content: "I couldn't find any information about that in your notes. Try asking something related to the characters, locations, or events in your story." });
       sseEvent(res, { type: "citations", sources: [] });
       sseEvent(res, { type: "done" });
@@ -691,9 +747,13 @@ export default async function handler(req, res) {
       ? `\n\nThe user has been exploring graph connections between story elements. ${graphPathHint ? `The graph shows a path: ${graphPathHint}.` : ""} The notes below include the nodes involved in that connection. Explain how these elements relate to each other based on the notes.`
       : "";
 
+    const workspaceWideNote = workspaceWideQuery
+      ? "\n\nThe user is asking a workspace-wide synthesis question. Identify high-level themes/topics, recurring patterns, major entities, and important relationships across the provided notes. If coverage is partial, say what is clear vs uncertain."
+      : "";
+
     const metaBlock = buildMetaContext(meta);
     const systemContent = context
-      ? `${SYSTEM_PROMPT}${metaBlock}${graphContextNote}\n\n---\n## Relevant Story Notes\n\n${context}\n---`
+      ? `${SYSTEM_PROMPT}${metaBlock}${graphContextNote}${workspaceWideNote}\n\n---\n## Relevant Story Notes\n\n${context}\n---`
       : `${SYSTEM_PROMPT}${metaBlock}`;
 
     const apiMessages = [
@@ -708,7 +768,7 @@ export default async function handler(req, res) {
       messages: apiMessages,
       stream: true,
       temperature: 0.7,
-      max_tokens: 1024,
+      max_tokens: workspaceWideQuery ? 1400 : 1024,
     });
 
     let accContent = "";

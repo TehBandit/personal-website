@@ -1,0 +1,14 @@
+{
+  "id": "lord_of_the_dead",
+  "name": "Lord of the Dead",
+  "type": "character",
+  "excerpt": "The Lord of the Dead is mentioned as a threat pursuing Percy.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "percy_jackson",
+      "label": "pursuing"
+    }
+  ]
+}

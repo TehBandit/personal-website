@@ -1,0 +1,22 @@
+{
+  "id": "metropolitan_museum_of_art",
+  "name": "Metropolitan Museum of Art",
+  "type": "location",
+  "excerpt": "The Metropolitan Museum of Art is the location of the field trip where Percy encounters Mrs. Dodds.",
+  "notes": "",
+  "aliases": [],
+  "connections": [
+    {
+      "target": "percy_jackson",
+      "label": "visits during field trip"
+    },
+    {
+      "target": "mr_brunner",
+      "label": "leads field trip"
+    },
+    {
+      "target": "mrs_dodds",
+      "label": "transforms into monster at"
+    }
+  ]
+}

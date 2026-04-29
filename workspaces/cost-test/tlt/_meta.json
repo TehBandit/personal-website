@@ -1,0 +1,22 @@
+{
+  "inputPath": "tlt/Chapter_4.md",
+  "sourceHash": "34b735814076fea1ca1da7ba13040e3d0cd30cec8f9bf4446a19e230985fcccc",
+  "folderName": "Tlt",
+  "derivedAt": "2026-04-29T12:09:30.715Z",
+  "nodes": [
+    "minotaur",
+    "annabeth",
+    "storm_on_long_island"
+  ],
+  "updated": [
+    "percy_jackson",
+    "sally_jackson",
+    "grover_underwood"
+  ],
+  "mentions": [
+    "camaro",
+    "fates",
+    "lord_of_the_dead",
+    "farmhouse"
+  ]
+}
