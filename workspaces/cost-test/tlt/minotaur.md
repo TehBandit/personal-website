@@ -1,3 +1,0 @@
-The Minotaur is a monstrous creature from Greek mythology that attacks Percy and his mother.
-
-The Minotaur is a fearsome creature that relentlessly pursues Percy, his mother, and Grover as they try to reach safety. Described as a massive, bull-headed figure with immense strength, the Minotaur captures Sally Jackson, causing her to vanish in a flash of light, which deeply affects Percy. In a desperate battle, Percy uses the Minotaur's own horn to defeat it, causing the creature to disintegrate into dust. This encounter marks Percy's first direct confrontation with a mythical monster and highlights his bravery and quick thinking in the face of danger, setting the stage for the challenges he will face in the world of Greek mythology.

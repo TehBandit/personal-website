@@ -1,3 +1,0 @@
-Mr. Nicoll is Percy's English teacher who questions his laziness.
-
-Mr. Nicoll is Percy's English teacher at Yancy Academy, known for his critical approach to Percy's academic performance. He frequently questions Percy's lack of effort, particularly in spelling tests, which exacerbates Percy's feelings of inadequacy and frustration. This tension culminates in an incident where Percy, overwhelmed by the pressure and his own struggles, snaps and calls Mr. Nicoll an 'old sot,' leading to further disciplinary action against him. Mr. Nicoll's interactions with Percy highlight the challenges he faces in the academic environment, particularly as he navigates his dyslexia and ADHD, which remain misunderstood by his teachers.

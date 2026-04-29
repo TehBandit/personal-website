@@ -1,1 +1,0 @@
-1 - Auto Note Mover plug-in is a good one. It basically lets you set some "rules", and if a Note meets those rules, it will immediately move Notes that meet those rules into a folder that you designate. For instance, you can set a rule that says "If this Note has tag #book, it should go in the book folder"

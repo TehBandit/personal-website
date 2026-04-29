@@ -1,3 +1,0 @@
-A violent storm occurs at Montauk, prompting urgent action.
-
-The storm at Montauk is a significant event that occurs while Percy and his mother are at their vacation cabin. Characterized by intense weather conditions, including lightning and twenty-foot waves, the storm serves as a backdrop for Grover's urgent arrival and the revelation of his true nature as a satyr. It creates a sense of urgency and danger, prompting Sally to take immediate action to protect Percy. The storm is also linked to Percy's vivid dream, which foreshadows the conflict and challenges he will face. As the storm rages outside, it heightens the tension and sets the stage for the tumultuous events that are about to unfold.

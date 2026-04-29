@@ -1,1 +1,0 @@
-<https://apps.apple.com/us/app/one-year-daily-journal/id6740510762>

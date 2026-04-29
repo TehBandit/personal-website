@@ -1,3 +1,0 @@
-Montauk is a beach location where Percy and his mother vacation.
-
-Montauk is a cherished vacation spot for Percy and his mother, Sally Jackson, holding sentimental value as the place where Sally met Percy's father. The family has a tradition of visiting a small rental cabin on the south shore of Long Island, where they enjoy simple pleasures like walking on the beach and eating blue-themed foods. The cabin, described as a pastel box with faded curtains, half sunken into the dunes, serves as a refuge for Sally, allowing her to rejuvenate and escape the burdens of her daily life. For Percy, Montauk represents a connection to his father and a respite from the challenges they face, making it a place of happiness and nostalgia amidst the turmoil of their lives.

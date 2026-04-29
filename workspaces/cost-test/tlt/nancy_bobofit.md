@@ -1,3 +1,0 @@
-Nancy Bobofit is a kleptomaniac student at Yancy Academy who bullies Grover.
-
-Nancy Bobofit is a student at Yancy Academy known for her kleptomaniac tendencies and her bullying behavior towards Grover and Percy. During the field trip, she throws food at Grover and later accuses Percy of pushing her into a fountain, which leads to the confrontation with Mrs. Dodds. Her antagonistic relationship with Percy is exacerbated by her favoritism from Mrs. Dodds, creating a tense atmosphere. Even after the supernatural events unfold, Nancy continues to mock Percy, oblivious to the chaos that has just transpired around them.

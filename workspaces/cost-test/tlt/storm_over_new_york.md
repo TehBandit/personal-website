@@ -1,3 +1,0 @@
-A massive storm is brewing over New York City during the field trip.
-
-As the field trip to the Metropolitan Museum of Art unfolds, a massive storm brews ominously over New York City. The clouds are described as being darker than anything Percy has ever seen, and this storm is part of a series of unusual weather phenomena that have plagued the state since Christmas, including snowstorms, flooding, and wildfires. The storm's threatening presence adds to the day's tension and foreshadows the supernatural events that are about to unfold. Despite its severity, the storm goes largely unnoticed by the other students and teachers, highlighting Percy's unique ability to perceive the extraordinary amidst the mundane.

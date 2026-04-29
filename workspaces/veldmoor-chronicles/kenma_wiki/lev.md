@@ -1,3 +1,0 @@
-LEV — character notes
-
-Lev is a first-year student at Nekoma and a member of the volleyball team. He is characterized by his tall stature and mixed Russian-Japanese heritage. Despite his inexperience, Lev is a powerful asset to the team, and his interactions with Kenma highlight his honest and straightforward nature. Lev's relationship with Kenma is marked by a learning curve, as Kenma guides him in improving his volleyball skills.
