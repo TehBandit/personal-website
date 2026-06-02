@@ -41,7 +41,7 @@ const GROCERY_FLAVOR = [
   "estimating portion sizes...",
 ];
 
-function LoadingOverlay({ visible, flavor }) {
+function LoadingOverlay({ visible, flavor, icon: Icon = ChefHat }) {
   const [idx, setIdx] = useState(0);
 
   useEffect(() => {
