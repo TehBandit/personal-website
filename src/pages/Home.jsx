@@ -173,6 +173,28 @@ function Home() {
             </div>
           </Link>
 
+          {/* Knibl */}
+          <a
+            href="https://www.knibl.net/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group block"
+          >
+            <div className="bg-white rounded-2xl shadow-xl p-6 flex flex-col items-center justify-center gap-3 h-40 md:h-48 hover:shadow-2xl hover:-translate-y-0.5 transition-all">
+              <div className="w-12 h-12 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <img
+                  src="/knibble%20logo%20mini.png"
+                  alt=""
+                  className="w-12 h-12 object-contain"
+                />
+              </div>
+              <div className="text-center">
+                <div className="font-semibold text-lg md:text-xl">knibl</div>
+                <div className="text-sm text-gray-500 mt-1 leading-snug">AI-enabled connected file editing, storage, sync</div>
+              </div>
+            </div>
+          </a>
+
           {/* Placeholders */}
           {["untitled project", "untitled project"].map((n, i) => (
             <div
