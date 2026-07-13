@@ -6,6 +6,7 @@ import Resume from "./pages/Resume.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import GroceryBattle from "./pages/GroceryBattle.jsx";
 import Contact from "./pages/Contact.jsx";
+import CrapsSim from "./pages/CrapsSim.jsx";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
       <Route path="/resume" element={<Resume />} />
       <Route path="/grocerybattle" element={<GroceryBattle />} />
       <Route path="/contact" element={<Contact />} />
+      <Route path="/crapssim" element={<CrapsSim />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
