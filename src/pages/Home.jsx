@@ -6,7 +6,7 @@ import Divider from "../components/Divider.jsx";
 import { ReactTyped } from "react-typed";
 import { posts } from "../blogposts";
 import { Link } from "react-router-dom";
-import { Github, Linkedin, Twitter, Mail, Swords } from "lucide-react";
+import { Dice5, Github, Linkedin, Twitter, Mail, Swords } from "lucide-react";
 
 function Home() {
   // Youtube API Setup
@@ -194,6 +194,19 @@ function Home() {
               </div>
             </div>
           </a>
+
+          {/* Craps Simulator */}
+          <Link to="/crapssim" className="group block">
+            <div className="bg-white rounded-2xl shadow-xl p-6 flex flex-col items-center justify-center gap-3 h-40 md:h-48 hover:shadow-2xl hover:-translate-y-0.5 transition-all">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                <Dice5 size={21} className="text-emerald-700" />
+              </div>
+              <div className="text-center">
+                <div className="font-semibold text-lg md:text-xl">craps simulator</div>
+                <div className="text-sm text-gray-500 mt-1 leading-snug">build betting strategies, run trials, and evolve agents across casino-style craps simulations.</div>
+              </div>
+            </div>
+          </Link>
 
           {/* Placeholders */}
           {["untitled project", "untitled project"].map((n, i) => (

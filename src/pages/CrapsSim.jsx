@@ -20,6 +20,26 @@ function rollFairDie() {
   }
 }
 
+function generateDiceMatrix(trials, rolls) {
+  const dice = new Uint8Array(trials * rolls * 2);
+  for (let index = 0; index < dice.length; index += 1) dice[index] = rollFairDie();
+  return dice;
+}
+
+function calculateReliabilityFitness(endings, bankruptcies) {
+  const returns = endings.map((ending) => (ending - STARTING_BALANCE) / STARTING_BALANCE);
+  const sortedReturns = [...returns].sort((a, b) => a - b);
+  const middle = Math.floor(sortedReturns.length / 2);
+  const meanReturn = returns.reduce((sum, value) => sum + value, 0) / returns.length;
+  const medianReturn = sortedReturns.length % 2 ? sortedReturns[middle] : (sortedReturns[middle - 1] + sortedReturns[middle]) / 2;
+  const downsideDeviation = Math.sqrt(returns.reduce((sum, value) => sum + Math.min(value, 0) ** 2, 0) / returns.length);
+  const profitRate = returns.filter((value) => value > 0).length / returns.length;
+  const lossRate = returns.filter((value) => value < 0).length / returns.length;
+  const bankruptcyRate = bankruptcies / returns.length;
+  const fitness = 100 * (0.40 * meanReturn + 0.30 * medianReturn + 0.30 * (profitRate - lossRate) - 0.50 * downsideDeviation - 2.00 * bankruptcyRate);
+  return { fitness, meanReturn, medianReturn, downsideDeviation, profitRate, lossRate, bankruptcyRate };
+}
+
 const BETS = {
   pass: { label: "Pass line", payout: "1:1", family: "line" },
   dontPass: { label: "Don't pass", payout: "1:1 · 12 pushes", family: "line" },
@@ -60,6 +80,37 @@ const ratioProfit = (amount, ratio) => amount * ratio;
 const isStrategyBet = (id) => BETS[id] && !["odds", "comePoint", "dontComePoint", "comeOdds", "dontComeOdds"].includes(BETS[id].family);
 const canRebuyMidRound = (id) => ["place", "buy", "lay", "hard", "multi", "one"].includes(BETS[id]?.family) || id === "come" || id === "dontCome";
 const shuffle = (items) => [...items].sort(() => Math.random() - 0.5);
+const ADVANCED_OPTIONS = {
+  martingale: { label:"Martingale", description:"Double a resolved losing wager; reset it to its base amount after a win." },
+  passOdds68: { label:"Pass odds on 6 or 8", description:"Take single odds when a Pass Line point becomes 6 or 8." },
+  dontPassOdds410: { label:"Don't Pass odds on 4 or 10", description:"Lay single odds when a Don't Pass point becomes 4 or 10." },
+  proportional: { label:"Proportional bets", description:"Size each configured base wager at 10% of the current bankroll, rounded to $5." },
+  ironCross: { label:"Iron Cross", description:"Combine the Field with Place bets on 5, 6, and 8." },
+  threePointMolly: { label:"3 Point Molly", description:"Start on Pass, then place two Come bets on the next available rolls." },
+};
+const ADVANCED_KEYS=Object.keys(ADVANCED_OPTIONS);
+const normalizeAdvanced=(input={})=>{
+  const advanced=Object.fromEntries(ADVANCED_KEYS.filter((key)=>Boolean(input[key])).map((key)=>[key,true]));
+  if(advanced.martingale&&advanced.proportional)delete advanced.martingale;
+  if(advanced.threePointMolly||advanced.passOdds68)delete advanced.dontPassOdds410;
+  if(advanced.dontPassOdds410){delete advanced.passOdds68;delete advanced.threePointMolly;}
+  return advanced;
+};
+const setAdvancedOption=(input,key,checked)=>{
+  const advanced={...input,[key]:checked};
+  if(checked&&key==="martingale")delete advanced.proportional;
+  if(checked&&key==="proportional")delete advanced.martingale;
+  if(checked&&(key==="passOdds68"||key==="threePointMolly"))delete advanced.dontPassOdds410;
+  if(checked&&key==="dontPassOdds410"){delete advanced.passOdds68;delete advanced.threePointMolly;}
+  return normalizeAdvanced(advanced);
+};
+const advancedOptionLabels=(strategy)=>Object.keys(normalizeAdvanced(strategy?.advanced)).map((key)=>ADVANCED_OPTIONS[key].label);
+const requiredAdvancedBetIds=(advanced)=>[
+  ...(advanced.ironCross?["field","place5","place6","place8"]:[]),
+  ...(advanced.threePointMolly?["pass","come"]:[]),
+  ...(advanced.passOdds68?["pass"]:[]),
+  ...(advanced.dontPassOdds410?["dontPass"]:[]),
+];
 const generateAgentBets = () => {
   const excluded = new Set([Math.random()<.5?"pass":"dontPass",Math.random()<.5?"come":"dontCome"]);
   const candidates=shuffle(Object.keys(BETS).filter((id)=>isStrategyBet(id)&&!excluded.has(id)));
@@ -74,49 +125,112 @@ const generateAgentBets = () => {
   }));
 };
 const generateAgentRebuy=(bets)=>Object.fromEntries(Object.keys(bets).filter((id)=>canRebuyMidRound(id)&&Math.random()<.5).map((id)=>[id,true]));
-const generateAgentStrategy=()=>{const bets=generateAgentBets();return {bets,rebuy:generateAgentRebuy(bets)};};
+const generateAgentAdvanced=()=>{
+  const advanced={};
+  if(Math.random()<.18)advanced[Math.random()<.5?"martingale":"proportional"]=true;
+  ["passOdds68","dontPassOdds410","ironCross","threePointMolly"].forEach((key)=>{if(Math.random()<.16)advanced[key]=true;});
+  return normalizeAdvanced(advanced);
+};
 const FIRST_NAMES=["Ada","Maya","Nora","Iris","Lena","Ruby","Theo","Miles","Felix","Oscar","Eli","Leo","June","Cleo","Zoe","Arlo","Jude","Max","Eve","Sage"];
 const LAST_NAMES=["Bennett","Carter","Hayes","Morgan","Reed","Brooks","Parker","Quinn","Foster","Ellis","Price","Stone","Wells","Cole","Blake","Flynn","Shaw","Grant","Lane","Cross"];
 const randomAgentName=()=>`${FIRST_NAMES[Math.floor(Math.random()*FIRST_NAMES.length)]} ${LAST_NAMES[Math.floor(Math.random()*LAST_NAMES.length)]}`;
-const normalizeAgentBets=(input)=>{
+const normalizeAgentBets=(input,priorityIds=[])=>{
   const bets=Object.fromEntries(Object.entries(input).filter(([id,amount])=>isStrategyBet(id)&&amount>=5).map(([id,amount])=>[id,Math.max(5,Math.round(amount/5)*5)]));
   if(bets.pass&&bets.dontPass) delete bets[Math.random()<.5?"pass":"dontPass"];
   if(bets.come&&bets.dontCome) delete bets[Math.random()<.5?"come":"dontCome"];
   let remaining=STARTING_BALANCE;
   const funded={};
-  shuffle(Object.entries(bets)).forEach(([id,amount])=>{const value=Math.min(amount,Math.floor(remaining/5)*5);if(value>=5){funded[id]=value;remaining-=value;}});
+  const priority=new Set(priorityIds);
+  const ordered=[...priorityIds.filter((id)=>bets[id]).map((id)=>[id,bets[id]]),...shuffle(Object.entries(bets).filter(([id])=>!priority.has(id)))];
+  ordered.forEach(([id,amount])=>{const value=Math.min(amount,Math.floor(remaining/5)*5);if(value>=5){funded[id]=value;remaining-=value;}});
   return Object.keys(funded).length?funded:{pass:5};
 };
-const mutateAgentBets=(source)=>{
-  const bets={...source};
-  const ids=Object.keys(bets);
-  const allIds=Object.keys(BETS).filter(isStrategyBet);
-  const action=Math.floor(Math.random()*3);
-  if(action===0&&ids.length>1) delete bets[ids[Math.floor(Math.random()*ids.length)]];
-  else if(action===1){const id=allIds[Math.floor(Math.random()*allIds.length)];bets[id]=5*(1+Math.floor(Math.random()*20));}
-  else {const id=ids[Math.floor(Math.random()*ids.length)];bets[id]=Math.max(5,(bets[id]||5)+(Math.random()<.5?-5:5));}
-  return normalizeAgentBets(bets);
+const applyAdvancedRequirements=(input,rawAdvanced,defaultAmount=5)=>{
+  const advanced=normalizeAdvanced(rawAdvanced);
+  const bets={...input};
+  if(advanced.threePointMolly){delete bets.dontPass;delete bets.dontCome;}
+  if(advanced.passOdds68)delete bets.dontPass;
+  if(advanced.dontPassOdds410)delete bets.pass;
+  const required=[...new Set(requiredAdvancedBetIds(advanced))];
+  required.forEach((id)=>{if(!bets[id])bets[id]=Math.max(5,Math.round(defaultAmount/5)*5);});
+  return {bets:normalizeAgentBets(bets,required),advanced};
 };
-const breedAgentStrategy=(parentA,parentB,mutationChance)=>{
+const generateAgentStrategy=()=>{
+  const advanced=generateAgentAdvanced();
+  const prepared=applyAdvancedRequirements(generateAgentBets(),advanced);
+  return {...prepared,rebuy:generateAgentRebuy(prepared.bets)};
+};
+const canAddAgentBet=(bets,id)=>!bets[id]&&!(id==="pass"&&bets.dontPass)&&!(id==="dontPass"&&bets.pass)&&!(id==="come"&&bets.dontCome)&&!(id==="dontCome"&&bets.come);
+const breedAgentStrategy=(parentA,parentB)=>{
   const child={};
   const genes=new Set([...Object.keys(parentA.bets),...Object.keys(parentB.bets)]);
   genes.forEach((id)=>{const source=Math.random()<.5?parentA.bets:parentB.bets;if(source[id]&&Math.random()<.82)child[id]=source[id];});
-  let normalized=normalizeAgentBets(child);
+  if(!Object.keys(child).length){
+    const parent=Math.random()<.5?parentA:parentB;
+    const parentGenes=Object.keys(parent.bets);
+    const inheritedId=parentGenes[Math.floor(Math.random()*parentGenes.length)];
+    child[inheritedId]=parent.bets[inheritedId];
+  }
+  const inheritedAdvanced=normalizeAdvanced(Object.fromEntries(ADVANCED_KEYS.filter((key)=>(Math.random()<.5?parentA:parentB).advanced?.[key]).map((key)=>[key,true])));
+  const prepared=applyAdvancedRequirements(child,inheritedAdvanced);
+  const normalized=prepared.bets;
   const rebuy={};
   Object.keys(normalized).filter(canRebuyMidRound).forEach((id)=>{
     const source=Math.random()<.5?parentA:parentB;
     if(source.rebuy?.[id])rebuy[id]=true;
   });
-  if(Math.random()*100<mutationChance){
-    if(Math.random()<.5) normalized=mutateAgentBets(normalized);
-    else {
-      const eligible=Object.keys(normalized).filter(canRebuyMidRound);
-      if(eligible.length){const id=eligible[Math.floor(Math.random()*eligible.length)];if(rebuy[id])delete rebuy[id];else rebuy[id]=true;}
-    }
-  }
   Object.keys(rebuy).forEach((id)=>{if(!normalized[id])delete rebuy[id];});
-  return {bets:normalized,rebuy};
+  return {bets:normalized,rebuy,advanced:prepared.advanced};
 };
+const mutateBredAgentStrategy=(strategy)=>{
+  const mutationOptions=Object.keys(strategy.bets).flatMap((removedId)=>{
+    const remainingBets={...strategy.bets};
+    delete remainingBets[removedId];
+    const available=STARTING_BALANCE-Object.values(remainingBets).reduce((sum,amount)=>sum+amount,0);
+    if(available<10)return [];
+    const replacements=Object.keys(BETS).filter((id)=>id!==removedId&&isStrategyBet(id)&&canAddAgentBet(remainingBets,id));
+    return replacements.flatMap((replacementId)=>{
+      const replacedBets={...remainingBets,[replacementId]:5};
+      const additions=Object.keys(BETS).filter((id)=>id!==removedId&&id!==replacementId&&isStrategyBet(id)&&canAddAgentBet(replacedBets,id));
+      return additions.length?[{removedId,remainingBets,replacementId,additions,available}]:[];
+    });
+  });
+  if(!mutationOptions.length)return strategy;
+  const option=mutationOptions[Math.floor(Math.random()*mutationOptions.length)];
+  const additionId=option.additions[Math.floor(Math.random()*option.additions.length)];
+  const replacementMaxUnits=Math.max(1,Math.min(20,Math.floor((option.available-5)/5)));
+  const replacementAmount=5*(1+Math.floor(Math.random()*replacementMaxUnits));
+  const additionMaxUnits=Math.max(1,Math.min(20,Math.floor((option.available-replacementAmount)/5)));
+  const additionAmount=5*(1+Math.floor(Math.random()*additionMaxUnits));
+  let bets={...option.remainingBets,[option.replacementId]:replacementAmount,[additionId]:additionAmount};
+  const amountId=Object.keys(bets)[Math.floor(Math.random()*Object.keys(bets).length)];
+  const oldAmount=bets[amountId];
+  const otherTotal=Object.entries(bets).reduce((sum,[id,amount])=>sum+(id===amountId?0:amount),0);
+  const maxUnits=Math.max(1,Math.min(20,Math.floor((STARTING_BALANCE-otherTotal)/5)));
+  let newAmount=5*(1+Math.floor(Math.random()*maxUnits));
+  if(maxUnits>1&&newAmount===oldAmount)newAmount=5*((Math.floor(oldAmount/5)%maxUnits)+1);
+  bets[amountId]=newAmount;
+  const advancedMutation=Math.random()<.4?ADVANCED_KEYS[Math.floor(Math.random()*ADVANCED_KEYS.length)]:null;
+  const advanced=advancedMutation?setAdvancedOption(strategy.advanced,advancedMutation,!strategy.advanced?.[advancedMutation]):normalizeAdvanced(strategy.advanced);
+  const prepared=applyAdvancedRequirements(bets,advanced);
+  bets=prepared.bets;
+  const rebuy={...strategy.rebuy};
+  delete rebuy[option.removedId];
+  if(canRebuyMidRound(option.replacementId)&&Math.random()<.5)rebuy[option.replacementId]=true;
+  if(canRebuyMidRound(additionId)&&Math.random()<.5)rebuy[additionId]=true;
+  Object.keys(rebuy).forEach((id)=>{if(!bets[id])delete rebuy[id];});
+  return {bets,rebuy,advanced:prepared.advanced,mutation:{from:option.removedId,to:option.replacementId,added:additionId,amountId,oldAmount,newAmount,advanced:advancedMutation}};
+};
+const breedMutatedAgentStrategy=(parentA,parentB)=>{
+  for(let attempt=0;attempt<25;attempt+=1){
+    const mutated=mutateBredAgentStrategy(breedAgentStrategy(parentA,parentB));
+    if(mutated.mutation)return mutated;
+  }
+  const parent=Math.random()<.5?parentA:parentB;
+  const inheritedId=Object.keys(parent.bets)[Math.floor(Math.random()*Object.keys(parent.bets).length)];
+  return mutateBredAgentStrategy({bets:{[inheritedId]:parent.bets[inheritedId]},rebuy:parent.rebuy?.[inheritedId]?{[inheritedId]:true}:{},advanced:parent.advanced||{}});
+};
+const createStrategyRuntime=()=>({martingaleTargets:{},mollyComeBetsPlaced:0});
 
 function Chip({ amount, small = false }) {
   return <span className={`cs-chip cs-chip-${amount <= 1 ? 1 : amount <= 5 ? 5 : amount <= 25 ? 25 : 100} ${small ? "small" : ""}`}>${money(amount)}</span>;
@@ -132,9 +246,41 @@ function BetSpot({ id, bets, onBet, className = "", children }) {
   );
 }
 
+function AdvancedOptionControls({ advanced={}, onChange, title="ADVANCED BET OPTIONS" }) {
+  return <div className="advanced-options"><strong>{title}</strong><div>{Object.entries(ADVANCED_OPTIONS).map(([key,option])=><label key={key} className={advanced[key]?"selected":""} title={option.description}><input type="checkbox" checked={Boolean(advanced[key])} onChange={(event)=>onChange(key,event.target.checked)}/><span><b>{option.label}</b><small>{option.description}</small></span></label>)}</div></div>;
+}
+
+function AdvancedOptionSummary({ strategy }) {
+  const labels=advancedOptionLabels(strategy);
+  return labels.length?<div className="advanced-summary">{labels.map((label)=><span key={label}>{label}</span>)}</div>:null;
+}
+
 function Die({ value, rolling }) {
   const pipMap = { 1:[5], 2:[1,9], 3:[1,5,9], 4:[1,3,7,9], 5:[1,3,5,7,9], 6:[1,3,4,6,7,9] };
   return <div className={`die ${rolling ? "rolling" : ""}`}>{Array.from({length:9},(_,i)=><i key={i} className={pipMap[value].includes(i+1) ? "on" : ""}/>)}</div>;
+}
+
+function EvolutionFitnessChart({ history }) {
+  const width=900, height=260, left=62, right=22, top=24, bottom=42;
+  const values=history.map((item)=>item.mean);
+  const extent=Math.max(1,...values.map((value)=>Math.abs(value)))*1.12;
+  const min=-extent, max=extent;
+  const x=(index)=>history.length===1?(left+width-right)/2:left+(index/(history.length-1))*(width-left-right);
+  const y=(value)=>top+((max-value)/(max-min))*(height-top-bottom);
+  const points=history.map((item,index)=>`${x(index)},${y(item.mean)}`).join(" ");
+  const ticks=Array.from({length:5},(_,index)=>max-(index/4)*(max-min));
+  const generationLabelStep=Math.max(1,Math.ceil(history.length/12));
+  return <div className="fitness-chart"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Mean fitness score by completed generation">
+    {ticks.map((tick)=><g key={tick}><line x1={left} x2={width-right} y1={y(tick)} y2={y(tick)} className="chart-grid"/><text x={left-9} y={y(tick)+4} textAnchor="end" className="chart-y-label">{tick.toFixed(1)}</text></g>)}
+    <line x1={left} x2={width-right} y1={height-bottom} y2={height-bottom} className="chart-axis"/>
+    <polyline points={points} className="chart-line"/>
+    {history.map((item,index)=><g key={item.generation} className="chart-point-group">
+      <rect x={x(index)-9} y={y(item.mean)-9} width="18" height="18" className="chart-point-hit"><title>Generation {item.generation}: {item.mean.toFixed(2)}</title></rect>
+      <rect x={x(index)-4} y={y(item.mean)-4} width="8" height="8" className="chart-point"/>
+      {(index===0||index===history.length-1||index%generationLabelStep===0)&&<text x={x(index)} y={height-bottom+22} textAnchor="middle" className="chart-x-label">{item.generation}</text>}
+    </g>)}
+    <text x={(left+width-right)/2} y={height-5} textAnchor="middle" className="chart-axis-title">GENERATION</text>
+  </svg></div>;
 }
 
 export default function CrapsSim() {
@@ -165,9 +311,14 @@ export default function CrapsSim() {
   const [evolutionTrials,setEvolutionTrials]=useState(25);
   const [evolutionRolls,setEvolutionRolls]=useState(250);
   const [evolutionThreshold,setEvolutionThreshold]=useState(50);
-  const [evolutionMutation,setEvolutionMutation]=useState(10);
+  const [evolutionRandomNewPercent,setEvolutionRandomNewPercent]=useState(10);
+  const [evolutionMutatedChildPercent,setEvolutionMutatedChildPercent]=useState(10);
+  const [evolutionSelectionMetric,setEvolutionSelectionMetric]=useState("fitness");
   const [evolutionRunning,setEvolutionRunning]=useState(false);
   const [evolutionProgress,setEvolutionProgress]=useState(null);
+  const [evolutionLiveHistory,setEvolutionLiveHistory]=useState([]);
+  const [evolutionPopulations,setEvolutionPopulations]=useState([]);
+  const [selectedEvolutionGeneration,setSelectedEvolutionGeneration]=useState(null);
   const [evolutionResults,setEvolutionResults]=useState(null);
   const [evolutionError,setEvolutionError]=useState("");
   const [savedEvolutionAgents,setSavedEvolutionAgents]=useState({});
@@ -178,27 +329,45 @@ export default function CrapsSim() {
   });
   const [strategyName, setStrategyName] = useState("");
   const [draftRebuy, setDraftRebuy] = useState({});
+  const [draftAdvanced, setDraftAdvanced] = useState({});
   const [activeStrategyId, setActiveStrategyId] = useState(null);
   const [strategyEnabled, setStrategyEnabled] = useState(false);
   const wagered = useMemo(() => Object.values(bets).reduce((a,b)=>a+b,0), [bets]);
   const activeStrategy = strategies.find((s) => s.id === activeStrategyId) || null;
+  const selectedEvolutionEntry=evolutionPopulations.find((item)=>item.generation===selectedEvolutionGeneration);
+  const selectedEvolutionPopulation=selectedEvolutionEntry?.agents||[];
+  const displayedEvolutionMetric=selectedEvolutionEntry?.selectionMetric||evolutionResults?.config.selectionMetric||evolutionSelectionMetric;
+  const childPercentLimit=100-Math.max(10,Math.min(90,Number(evolutionThreshold)||50));
+  const displayedRandomNewPercent=Math.max(0,Math.min(childPercentLimit,Number(evolutionRandomNewPercent)||0));
+  const displayedMutatedChildPercent=Math.max(0,Math.min(childPercentLimit-displayedRandomNewPercent,Number(evolutionMutatedChildPercent)||0));
+  const displayedNormallyBredChildPercent=childPercentLimit-displayedRandomNewPercent-displayedMutatedChildPercent;
   const betsRef = useRef(bets);
   const balanceRef = useRef(balance);
   const pointRef = useRef(point);
+  const generationListRef = useRef(null);
+  const strategyRuntimeRef = useRef(createStrategyRuntime());
 
   useEffect(() => { localStorage.setItem("craps-strategies", JSON.stringify(strategies)); }, [strategies]);
   useEffect(() => { localStorage.setItem("craps-strategy-agents", JSON.stringify(agents)); }, [agents]);
   useEffect(() => { betsRef.current = bets; }, [bets]);
   useEffect(() => { balanceRef.current = balance; }, [balance]);
   useEffect(() => { pointRef.current = point; }, [point]);
+  useEffect(() => {
+    const list=generationListRef.current;
+    if(list) list.scrollLeft=list.scrollWidth;
+  }, [evolutionLiveHistory.length]);
 
   const saveStrategy = () => {
-    const templateBets = Object.fromEntries(Object.entries(bets).filter(([id, amount]) => amount > 0 && isStrategyBet(id)));
+    const currentBets = Object.fromEntries(Object.entries(bets).filter(([id, amount]) => amount > 0 && isStrategyBet(id)));
+    if (!Object.keys(currentBets).length && !requiredAdvancedBetIds(normalizeAdvanced(draftAdvanced)).length) { setMessage("Place at least one reusable bet or choose an advanced combination before saving a strategy."); return; }
+    const prepared=applyAdvancedRequirements(currentBets,draftAdvanced,Math.max(5,chip));
+    const templateBets=prepared.bets;
     if (!strategyName.trim()) { setMessage("Give your strategy a name before saving it."); return; }
-    if (!Object.keys(templateBets).length) { setMessage("Place at least one reusable bet before saving a strategy."); return; }
-    const strategy = { id: crypto.randomUUID(), name: strategyName.trim(), bets: templateBets, rebuy: Object.fromEntries(Object.keys(templateBets).filter((id) => draftRebuy[id]).map((id) => [id, true])) };
+    const strategy = { id: crypto.randomUUID(), name: strategyName.trim(), bets: templateBets, rebuy: Object.fromEntries(Object.keys(templateBets).filter((id) => draftRebuy[id]).map((id) => [id, true])), advanced:prepared.advanced };
     setStrategies((items) => [...items, strategy]);
-    setActiveStrategyId(strategy.id); setStrategyEnabled(true); setStrategyName(""); setDraftRebuy({});
+    strategyRuntimeRef.current=createStrategyRuntime();
+    setActiveStrategyId(strategy.id); setStrategyEnabled(true); setStrategyName(""); setDraftRebuy({}); setDraftAdvanced({});
+    enactStrategyNow(strategy);
     setMessage(`Strategy “${strategy.name}” saved and activated.`);
   };
 
@@ -206,13 +375,27 @@ export default function CrapsSim() {
     setStrategies((items) => items.map((s) => s.id === activeStrategyId ? { ...s, rebuy: { ...s.rebuy, [id]: checked } } : s));
   };
 
+  const updateAdvanced = (key, checked) => {
+    setStrategies((items)=>items.map((strategy)=>{
+      if(strategy.id!==activeStrategyId)return strategy;
+      const advanced=setAdvancedOption(strategy.advanced,key,checked);
+      return {...strategy,...applyAdvancedRequirements(strategy.bets,advanced,Math.max(5,chip))};
+    }));
+    strategyRuntimeRef.current=createStrategyRuntime();
+  };
+
+  const toggleDraftAdvanced=(key,checked)=>setDraftAdvanced((current)=>setAdvancedOption(current,key,checked));
+
   const enactStrategyNow = (strategy) => {
     if (!strategy) return;
+    strategyRuntimeRef.current=createStrategyRuntime();
     let available = balance;
     const additions = {};
+    const bankroll=balance+Object.values(bets).reduce((sum,amount)=>sum+amount,0);
     Object.entries(strategy.bets).forEach(([id, target]) => {
       if ((id === "pass" || id === "dontPass") && point) return;
       if ((id === "come" || id === "dontCome") && !point) return;
+      if(strategy.advanced?.proportional)target=Math.max(5,Math.round((bankroll*.1)/5)*5);
       const needed = Math.max(0, target - (bets[id] || 0));
       const amount = Math.min(needed, available);
       if (amount > 0) { additions[id] = amount; available -= amount; }
@@ -226,12 +409,12 @@ export default function CrapsSim() {
     if (!activeStrategy) return;
     setStrategies((items) => items.filter((s) => s.id !== activeStrategy.id));
     setActiveStrategyId(null); setStrategyEnabled(false);
+    strategyRuntimeRef.current=createStrategyRuntime();
     setMessage(`Strategy “${activeStrategy.name}” deleted.`);
   };
 
   const createAgent = () => {
-    const name=agentName.trim();
-    if(!name)return;
+    const name=agentName.trim()||randomAgentName();
     setAgents((items)=>[...items,{id:crypto.randomUUID(),name,...generateAgentStrategy(),savedStrategyId:null}]);
     setAgentName("");
   };
@@ -239,10 +422,10 @@ export default function CrapsSim() {
   const updateAgent = (id, changes) => setAgents((items)=>items.map((agent)=>agent.id===id?{...agent,...changes}:agent));
   const saveAgentStrategy = (agent) => {
     if(agent.savedStrategyId && strategies.some((strategy)=>strategy.id===agent.savedStrategyId)){
-      setStrategies((items)=>items.map((strategy)=>strategy.id===agent.savedStrategyId?{...strategy,name:agent.name,bets:agent.bets,rebuy:agent.rebuy||{}}:strategy));
+      setStrategies((items)=>items.map((strategy)=>strategy.id===agent.savedStrategyId?{...strategy,name:agent.name,bets:agent.bets,rebuy:agent.rebuy||{},advanced:agent.advanced||{}}:strategy));
     } else {
       const strategyId=crypto.randomUUID();
-      setStrategies((items)=>[...items,{id:strategyId,name:agent.name,bets:agent.bets,rebuy:agent.rebuy||{},agentId:agent.id}]);
+      setStrategies((items)=>[...items,{id:strategyId,name:agent.name,bets:agent.bets,rebuy:agent.rebuy||{},advanced:agent.advanced||{},agentId:agent.id}]);
       updateAgent(agent.id,{savedStrategyId:strategyId});
     }
   };
@@ -273,7 +456,7 @@ export default function CrapsSim() {
   };
 
   const settle = (d1, d2, options = {}) => {
-    const { silent = false, strategyOverride = activeStrategy, strategyOn = strategyEnabled } = options;
+    const { silent = false, strategyOverride = activeStrategy, strategyOn = strategyEnabled, strategyRuntime = strategyRuntimeRef.current } = options;
     const bets = betsRef.current;
     const balance = balanceRef.current;
     const point = pointRef.current;
@@ -285,8 +468,11 @@ export default function CrapsSim() {
     const next = {};
     const wins = [];
     const losses = [];
-    const pay = (id, profit, keep=false) => { const a=bets[id]||0; if(!a)return; returned += profit + (keep ? 0 : a); net += profit; wins.push(BETS[id].label); if(keep) next[id]=a; };
-    const lose = (id) => { const a=bets[id]||0; if(!a)return; net -= a; losses.push(BETS[id].label); };
+    const resolvedWins=new Set();
+    const resolvedLosses=new Set();
+    const strategyBetId=(id)=>/^come(?:4|5|6|8|9|10)$/.test(id)?"come":/^dontCome(?:4|5|6|8|9|10)$/.test(id)?"dontCome":id;
+    const pay = (id, profit, keep=false) => { const a=bets[id]||0; if(!a)return; returned += profit + (keep ? 0 : a); net += profit; wins.push(BETS[id].label); resolvedWins.add(strategyBetId(id)); if(keep) next[id]=a; };
+    const lose = (id) => { const a=bets[id]||0; if(!a)return; net -= a; losses.push(BETS[id].label); resolvedLosses.add(strategyBetId(id)); };
     const push = (id) => { const a=bets[id]||0; if(a){returned+=a; wins.push(`${BETS[id].label} push`);} };
     const hold = (id) => { if(bets[id]) next[id]=bets[id]; };
     const move = (from, to) => { const a=bets[from]||0; if(a){ next[to]=(next[to]||0)+a; wins.push(`${BETS[from].label} moved to ${total}`); } };
@@ -350,21 +536,52 @@ export default function CrapsSim() {
     let autoSpent = 0;
     const autoAdded = [];
     if (strategyOn && strategyOverride) {
+      const advanced=normalizeAdvanced(strategyOverride.advanced);
       const roundReset = nextPoint === null && ((!point && [2,3,7,11,12].includes(total)) || (point && (total === point || total === 7)));
       const pointStarted = !point && nextPoint !== null;
       let available = balance + returned;
+      if(roundReset)strategyRuntime.mollyComeBetsPlaced=0;
+      if(advanced.martingale){
+        resolvedWins.forEach((id)=>{if(strategyOverride.bets[id])strategyRuntime.martingaleTargets[id]=strategyOverride.bets[id];});
+        resolvedLosses.forEach((id)=>{
+          if(!strategyOverride.bets[id])return;
+          const current=strategyRuntime.martingaleTargets[id]||strategyOverride.bets[id];
+          strategyRuntime.martingaleTargets[id]=Math.max(5,Math.round((current*2)/5)*5);
+        });
+      }
+      const totalBankroll=available+Object.values(next).reduce((sum,amount)=>sum+amount,0);
+      const proportionalTarget=Math.max(5,Math.round((totalBankroll*.1)/5)*5);
+      const targetFor=(id,base)=>advanced.proportional?proportionalTarget:advanced.martingale?(strategyRuntime.martingaleTargets[id]||base):base;
+      Object.entries(strategyOverride.bets).forEach(([id,base])=>{
+        const target=targetFor(id,base);
+        if(resolvedWins.has(id)&&next[id]>target){const excess=next[id]-target;next[id]=target;available+=excess;returned+=excess;}
+      });
       Object.entries(strategyOverride.bets).forEach(([id, target]) => {
+        if(advanced.threePointMolly&&id==="come")return;
         const legal = id !== "come" && id !== "dontCome" ? true : Boolean(nextPoint);
         const shouldRestore = roundReset
           ? id !== "come" && id !== "dontCome"
           : pointStarted
-            ? id === "come" || id === "dontCome" || Boolean(strategyOverride.rebuy?.[id])
-            : Boolean(strategyOverride.rebuy?.[id]);
+            ? id === "come" || id === "dontCome" || Boolean(strategyOverride.rebuy?.[id]) || (advanced.proportional&&!['pass','dontPass'].includes(id))
+            : Boolean(strategyOverride.rebuy?.[id]) || ((advanced.martingale||advanced.proportional||advanced.ironCross)&&(resolvedWins.has(id)||resolvedLosses.has(id)));
         if (!legal || !shouldRestore) return;
+        target=targetFor(id,target);
         const needed = Math.max(0, target - (next[id] || 0));
         const amount = Math.min(needed, available);
         if (amount > 0) { next[id] = (next[id] || 0) + amount; available -= amount; autoSpent += amount; autoAdded.push(BETS[id].label); }
       });
+      const addAutomaticBet=(id,target)=>{
+        const needed=Math.max(0,target-(next[id]||0));
+        const amount=Math.min(needed,available);
+        if(amount>=5){next[id]=(next[id]||0)+amount;available-=amount;autoSpent+=amount;autoAdded.push(BETS[id].label);return true;}
+        return false;
+      };
+      if(advanced.threePointMolly&&nextPoint&&!roundReset&&strategyRuntime.mollyComeBetsPlaced<2){
+        const comeTarget=targetFor("come",strategyOverride.bets.come||strategyOverride.bets.pass||5);
+        if(addAutomaticBet("come",comeTarget))strategyRuntime.mollyComeBetsPlaced+=1;
+      }
+      if(advanced.passOdds68&&[6,8].includes(nextPoint)&&next.pass)addAutomaticBet("passOdds",next.pass);
+      if(advanced.dontPassOdds410&&[4,10].includes(nextPoint)&&next.dontPass)addAutomaticBet("dontPassOdds",next.dontPass);
     }
     const resultingBalance = balance + returned - autoSpent;
     balanceRef.current = resultingBalance;
@@ -419,8 +636,10 @@ export default function CrapsSim() {
     for (let trial=0; trial<trials; trial+=1) {
       let available = STARTING_BALANCE;
       const openingBets = {};
+      const strategyRuntime=createStrategyRuntime();
       Object.entries(strategy.bets).forEach(([id,target]) => {
         if (id === "come" || id === "dontCome") return;
+        if(strategy.advanced?.proportional)target=100;
         const amount=Math.min(target,available);
         if(amount>0){openingBets[id]=amount;available-=amount;}
       });
@@ -429,7 +648,7 @@ export default function CrapsSim() {
       let rollsCompleted=0;
       for(let rollIndex=0;rollIndex<rolls;rollIndex+=1){
         const d1=rollFairDie(), d2=rollFairDie();
-        const result=settle(d1,d2,{silent:true,strategyOverride:strategy,strategyOn:true});
+        const result=settle(d1,d2,{silent:true,strategyOverride:strategy,strategyOn:true,strategyRuntime});
         rollsCompleted+=1;
         if(result.bankrupt){bankrupt=true;break;}
       }
@@ -448,23 +667,25 @@ export default function CrapsSim() {
     const profits=endings.filter((value)=>value>STARTING_BALANCE).length;
     const losses=endings.filter((value)=>value<STARTING_BALANCE).length;
     const stdDev=Math.sqrt(variance);
-    const fitness=(sorted.at(-1)+(mean-STARTING_BALANCE)-stdDev)*(profits/trials);
-    setTrialResults({trials,rolls,max:sorted.at(-1),min:sorted[0],bankruptcies,profits,losses,stdDev,mean,median,fitness});
+    const reliability=calculateReliabilityFitness(endings,bankruptcies);
+    setTrialResults({trials,rolls,max:sorted.at(-1),min:sorted[0],bankruptcies,profits,losses,stdDev,mean,median,...reliability});
     setTrialHistory((history)=>[...completedTrials.reverse(),...history]);
     setTrialsRunning(false);
   };
 
-  const evaluateEvolutionAgent = (agent,trials,rolls) => {
+  const evaluateEvolutionAgent = (agent,trials,rolls,diceMatrix) => {
     const endings=[];
     let bankruptcies=0;
     for(let trial=0;trial<trials;trial+=1){
       let available=STARTING_BALANCE;
       const opening={};
-      Object.entries(agent.bets).forEach(([id,target])=>{if(id==="come"||id==="dontCome")return;const amount=Math.min(target,available);if(amount>=5){opening[id]=amount;available-=amount;}});
+      const strategyRuntime=createStrategyRuntime();
+      Object.entries(agent.bets).forEach(([id,target])=>{if(id==="come"||id==="dontCome")return;if(agent.advanced?.proportional)target=100;const amount=Math.min(target,available);if(amount>=5){opening[id]=amount;available-=amount;}});
       betsRef.current=opening;balanceRef.current=available;pointRef.current=null;
       let bankrupt=false;
       for(let rollIndex=0;rollIndex<rolls;rollIndex+=1){
-        const result=settle(rollFairDie(),rollFairDie(),{silent:true,strategyOverride:agent,strategyOn:true});
+        const diceIndex=(trial*rolls+rollIndex)*2;
+        const result=settle(diceMatrix[diceIndex],diceMatrix[diceIndex+1],{silent:true,strategyOverride:agent,strategyOn:true,strategyRuntime});
         if(result.bankrupt){bankrupt=true;break;}
       }
       if(bankrupt)bankruptcies+=1;
@@ -478,55 +699,83 @@ export default function CrapsSim() {
     const losses=endings.filter((value)=>value<STARTING_BALANCE).length;
     const middle=Math.floor(trials/2);
     const median=trials%2?sorted[middle]:(sorted[middle-1]+sorted[middle])/2;
-    const fitness=(sorted.at(-1)+(mean-STARTING_BALANCE)-stdDev)*(profits/trials);
-    return {max:sorted.at(-1),min:sorted[0],mean,median,stdDev,profits,losses,bankruptcies,fitness};
+    const reliability=calculateReliabilityFitness(endings,bankruptcies);
+    return {trials,max:sorted.at(-1),min:sorted[0],mean,median,stdDev,profits,losses,bankruptcies,...reliability};
   };
 
-  const runEvolution = async () => {
-    const generations=Math.max(1,Math.min(50,Math.floor(Number(evolutionGenerations)||1)));
-    const populationSize=Math.max(2,Math.min(100,Math.floor(Number(evolutionPopulation)||2)));
+  const runEvolution = async (continueFromLatest=false) => {
+    const continuing=continueFromLatest&&Boolean(evolutionResults)&&evolutionPopulations.length>0;
+    const generationsToRun=Math.max(1,Math.min(250,Math.floor(Number(evolutionGenerations)||1)));
+    const generationOffset=continuing?evolutionLiveHistory.at(-1).generation:0;
+    const populationSize=continuing?evolutionResults.agents.length:Math.max(2,Math.min(100,Math.floor(Number(evolutionPopulation)||2)));
     const trials=Math.max(1,Math.min(500,Math.floor(Number(evolutionTrials)||1)));
     const rolls=Math.max(1,Math.min(5000,Math.floor(Number(evolutionRolls)||1)));
     const threshold=Math.max(10,Math.min(90,Number(evolutionThreshold)||50));
-    const mutation=Math.max(0,Math.min(100,Number(evolutionMutation)||0));
-    const totalRolls=generations*populationSize*trials*rolls;
+    const availableChildPercent=100-threshold;
+    const randomReplacementPercent=Math.max(0,Math.min(availableChildPercent,Number(evolutionRandomNewPercent)||0));
+    const mutatedChildPercent=Math.max(0,Math.min(availableChildPercent-randomReplacementPercent,Number(evolutionMutatedChildPercent)||0));
+    const normallyBredChildPercent=availableChildPercent-randomReplacementPercent-mutatedChildPercent;
+    const selectionMetric=evolutionSelectionMetric==="profitRate"?"profitRate":"fitness";
+    const totalRolls=generationsToRun*populationSize*trials*rolls;
     if(totalRolls>10000000){setEvolutionError(`This configuration requests ${totalRolls.toLocaleString()} rolls. Reduce it to 10,000,000 or fewer.`);return;}
-    setEvolutionError("");setEvolutionRunning(true);setEvolutionResults(null);setSavedEvolutionAgents({});
+    setEvolutionError("");setEvolutionRunning(true);setEvolutionResults(null);
+    if(!continuing){setEvolutionLiveHistory([]);setEvolutionPopulations([]);setSelectedEvolutionGeneration(null);setSavedEvolutionAgents({});}
     const liveState={bets:betsRef.current,balance:balanceRef.current,point:pointRef.current};
-    const usedNames=new Set();
+    const usedNames=new Set(continuing?evolutionPopulations.flatMap((entry)=>entry.agents.map((agent)=>agent.name)):[]);
     const uniqueName=()=>{let name=randomAgentName(),suffix=2;while(usedNames.has(name)){name=`${randomAgentName()} ${suffix++}`;}usedNames.add(name);return name;};
-    let population=Array.from({length:populationSize},()=>({id:crypto.randomUUID(),name:uniqueName(),...generateAgentStrategy(),parents:null}));
-    const generationHistory=[];
-    for(let generation=1;generation<=generations;generation+=1){
+    let population=continuing?evolutionResults.agents.map((agent)=>({...agent,analytics:undefined})):Array.from({length:populationSize},()=>({id:crypto.randomUUID(),name:uniqueName(),...generateAgentStrategy(),parents:null,createdGeneration:1}));
+    const generationHistory=continuing?[...evolutionLiveHistory]:[];
+    const generationPopulations=continuing?[...evolutionPopulations]:[];
+    for(let step=1;step<=generationsToRun;step+=1){
+      const generation=generationOffset+step;
+      const generationDice=generateDiceMatrix(trials,rolls);
       const evaluated=[];
       for(let index=0;index<population.length;index+=1){
         const agent=population[index];
-        evaluated.push({...agent,generation,analytics:evaluateEvolutionAgent(agent,trials,rolls)});
-        setEvolutionProgress({generation,generations,agent:index+1,population:populationSize});
+        evaluated.push({...agent,generation,analytics:evaluateEvolutionAgent(agent,trials,rolls,generationDice)});
+        setEvolutionProgress({generation,generations:generationOffset+generationsToRun,agent:index+1,population:populationSize});
         await new Promise((resolve)=>setTimeout(resolve,0));
       }
-      evaluated.sort((a,b)=>b.analytics.fitness-a.analytics.fitness);
-      generationHistory.push({generation,best:evaluated[0].analytics.fitness,mean:evaluated.reduce((sum,agent)=>sum+agent.analytics.fitness,0)/evaluated.length});
-      if(generation===generations){population=evaluated;break;}
+      evaluated.sort((a,b)=>b.analytics[selectionMetric]-a.analytics[selectionMetric]);
+      generationHistory.push({generation,best:Math.max(...evaluated.map((agent)=>agent.analytics.fitness)),mean:evaluated.reduce((sum,agent)=>sum+agent.analytics.fitness,0)/evaluated.length,selectionBest:evaluated[0].analytics[selectionMetric]});
+      generationPopulations.push({generation,agents:evaluated,selectionMetric});
+      setEvolutionLiveHistory([...generationHistory]);
+      setEvolutionPopulations([...generationPopulations]);
+      setSelectedEvolutionGeneration(generation);
+      await new Promise((resolve)=>setTimeout(resolve,0));
+      if(step===generationsToRun){population=evaluated;break;}
       const keepCount=Math.max(1,Math.ceil(populationSize*(threshold/100)));
       const survivors=evaluated.slice(0,keepCount);
       const next=survivors.map((agent)=>({...agent,analytics:undefined}));
+      const childCount=populationSize-keepCount;
+      const randomReplacementCount=Math.min(childCount,Math.round(populationSize*(randomReplacementPercent/100)));
+      const mutatedChildCount=Math.min(childCount-randomReplacementCount,Math.round(populationSize*(mutatedChildPercent/100)));
+      const childAssignments=shuffle(Array.from({length:childCount},(_,index)=>index<randomReplacementCount?"random":index<randomReplacementCount+mutatedChildCount?"mutated":"bred"));
+      let childIndex=0;
       while(next.length<populationSize){
-        const parentA=survivors[Math.floor(Math.random()*survivors.length)];
-        const parentB=survivors[Math.floor(Math.random()*survivors.length)];
-        next.push({id:crypto.randomUUID(),name:uniqueName(),...breedAgentStrategy(parentA,parentB,mutation),parents:[parentA.name,parentB.name]});
+        if(childAssignments[childIndex]==="random"){
+          next.push({id:crypto.randomUUID(),name:uniqueName(),...generateAgentStrategy(),parents:null,createdGeneration:generation+1,randomReplacement:true});
+        } else {
+          const parentA=survivors[Math.floor(Math.random()*survivors.length)];
+          const parentB=survivors[Math.floor(Math.random()*survivors.length)];
+          const childStrategy=childAssignments[childIndex]==="mutated"?breedMutatedAgentStrategy(parentA,parentB):breedAgentStrategy(parentA,parentB);
+          next.push({id:crypto.randomUUID(),name:uniqueName(),...childStrategy,parents:[parentA.name,parentB.name],createdGeneration:generation+1,randomReplacement:false,mutated:Boolean(childStrategy.mutation)});
+        }
+        childIndex+=1;
       }
       population=next;
     }
     betsRef.current=liveState.bets;balanceRef.current=liveState.balance;pointRef.current=liveState.point;
-    setEvolutionResults({agents:population,generationHistory,config:{generations,populationSize,trials,rolls,threshold,mutation,totalRolls}});
+    const finalGeneration=generationOffset+generationsToRun;
+    setEvolutionResults({agents:population,generationHistory,config:{generations:finalGeneration,runGenerations:generationsToRun,populationSize,trials,rolls,threshold,randomReplacementPercent,mutatedChildPercent,normallyBredChildPercent,totalRolls,selectionMetric}});
+    setSelectedEvolutionGeneration(finalGeneration);
     setEvolutionProgress(null);setEvolutionRunning(false);
   };
 
   const saveEvolutionAgent = (agent) => {
     if(savedEvolutionAgents[agent.id])return;
     const id=crypto.randomUUID();
-    setStrategies((items)=>[...items,{id,name:agent.name,bets:agent.bets,rebuy:agent.rebuy||{},evolutionAgentId:agent.id}]);
+    setStrategies((items)=>[...items,{id,name:agent.name,bets:agent.bets,rebuy:agent.rebuy||{},advanced:agent.advanced||{},evolutionAgentId:agent.id}]);
     setSavedEvolutionAgents((saved)=>({...saved,[agent.id]:id}));
   };
 
@@ -536,7 +785,8 @@ export default function CrapsSim() {
       : {};
     let available = STARTING_BALANCE;
     const funded = {};
-    Object.entries(opening).forEach(([id, target]) => { const amount=Math.min(target,available); if(amount>0){funded[id]=amount;available-=amount;} });
+    Object.entries(opening).forEach(([id, target]) => { if(activeStrategy?.advanced?.proportional)target=100;const amount=Math.min(target,available); if(amount>0){funded[id]=amount;available-=amount;} });
+    strategyRuntimeRef.current=createStrategyRuntime();
     setBalance(available); setBets(funded); setDice([3,4]); setPoint(null); setHistory([]);
     setMessage(activeStrategy && strategyEnabled ? `Fresh table. Strategy “${activeStrategy.name}” placed.` : "Fresh table. Place your bets.");
   };
@@ -591,10 +841,11 @@ export default function CrapsSim() {
         <div className="bet-controls"><div className="card-heading"><span>CHIP VALUE</span><button onClick={clearBets} disabled={!wagered}><Trash2 size={14}/> Clear bets</button></div><div className="chips">{CHIP_VALUES.map(v=><button key={v} className={chip===v?"selected":""} onClick={()=>setChip(v)}><Chip amount={v}/></button>)}</div><p>Click any area on the felt to add a chip. Click repeatedly to increase a bet.</p></div>
         <div className="strategy-card">
           <div className="card-heading"><span>BETTING STRATEGY</span>{activeStrategy && <button onClick={deleteStrategy}><Trash2 size={14}/> Delete</button>}</div>
+          <AdvancedOptionControls advanced={draftAdvanced} onChange={toggleDraftAdvanced}/>
           {Object.entries(bets).some(([id,amount])=>amount>0&&isStrategyBet(id)) && <div className="draft-rebuy"><strong>BETS INCLUDED IN NEW STRATEGY</strong><p>Pass and Don’t Pass are automatically replaced on the next come-out roll. Other bets default to Next round only unless Always rebuy is enabled.</p>{Object.entries(bets).filter(([id,amount])=>amount>0&&isStrategyBet(id)).map(([id,amount])=><label key={id}><span>{BETS[id].label} <b>{money(amount)}</b></span>{canRebuyMidRound(id)?<span className="toggle-control"><small>{draftRebuy[id]?"Always rebuy":"Next round only"}</small><input type="checkbox" checked={Boolean(draftRebuy[id])} onChange={(e)=>setDraftRebuy((current)=>({...current,[id]:e.target.checked}))}/><i/><b>ALWAYS REBUY</b></span>:<small className="fixed-cycle">Next round only</small>}</label>)}</div>}
           <div className="strategy-save"><input value={strategyName} onChange={(e)=>setStrategyName(e.target.value)} placeholder="Name current bets…"/><button onClick={saveStrategy}><Save size={14}/> Save</button></div>
           {strategies.length > 0 && <div className="strategy-select"><select value={activeStrategyId || ""} onChange={(e)=>{const selected=strategies.find(s=>s.id===e.target.value)||null;setActiveStrategyId(selected?.id||null);setStrategyEnabled(Boolean(selected));if(selected)enactStrategyNow(selected);}}><option value="">Choose a strategy</option>{strategies.map(s=><option value={s.id} key={s.id}>{s.name}</option>)}</select><label className="switch-label"><input type="checkbox" checked={strategyEnabled && Boolean(activeStrategy)} disabled={!activeStrategy} onChange={(e)=>{setStrategyEnabled(e.target.checked);if(e.target.checked)enactStrategyNow(activeStrategy);}}/><span/> AUTO</label></div>}
-          {activeStrategy && <div className="strategy-bets"><strong>ACTIVE STRATEGY SETTINGS</strong>{Object.entries(activeStrategy.bets).map(([id,amount])=><div key={id}><span>{BETS[id].label} <b>{money(amount)}</b></span>{canRebuyMidRound(id)?<label className="toggle-control"><small>{activeStrategy.rebuy?.[id]?"Always rebuy":"Next round only"}</small><input type="checkbox" checked={Boolean(activeStrategy.rebuy?.[id])} onChange={(e)=>updateRebuy(id,e.target.checked)}/><i/><b>ALWAYS REBUY</b></label>:<small>Next round only</small>}</div>)}</div>}
+          {activeStrategy && <div className="strategy-bets"><strong>ACTIVE STRATEGY SETTINGS</strong><AdvancedOptionControls title="ACTIVE ADVANCED OPTIONS" advanced={activeStrategy.advanced||{}} onChange={updateAdvanced}/>{Object.entries(activeStrategy.bets).map(([id,amount])=><div key={id}><span>{BETS[id].label} <b>{money(amount)}</b></span>{canRebuyMidRound(id)?<label className="toggle-control"><small>{activeStrategy.rebuy?.[id]?"Always rebuy":"Next round only"}</small><input type="checkbox" checked={Boolean(activeStrategy.rebuy?.[id])} onChange={(e)=>updateRebuy(id,e.target.checked)}/><i/><b>ALWAYS REBUY</b></label>:<small>Next round only</small>}</div>)}</div>}
           <p>Save the reusable bets currently on the felt, including Pass and Don’t Pass. Line bets return automatically for each new come-out roll; selected repeatable bets can also be rebought during a round.</p>
         </div>
         <div className={`history-card ${historyExpanded?"expanded":""}`}><div className="card-heading"><span>ROLL HISTORY</span><div><small>{history.length.toLocaleString()} rolls</small>{history.length>0&&<button className="expand-history" onClick={()=>setHistoryExpanded((open)=>!open)}>{historyExpanded?"Compact":"Expand"}</button>}</div></div>{!history.length?<div className="empty-history">Your results will appear here.</div>:<div className="history-list">{history.map((h,i)=><div className="history-entry" key={h.id}><div className="history-row"><span className="roll-num">#{history.length-i}</span><b>{h.dice} = {h.total}</b><span className={h.balanceImpact>0?"gain":h.balanceImpact<0?"loss":"push"}>{h.balanceImpact>0?"+":h.balanceImpact<0?"−":""}{money(h.balanceImpact)}</span><small>{money(h.balance)}</small></div>{historyExpanded&&<div className="history-detail"><span><b>Roll</b>{h.dice}</span><span><b>Balance impact</b>{h.balanceImpact>=0?"+":"−"}{money(h.balanceImpact)}</span><span><b>Money in / at risk</b>{money(h.moneyIn)}</span><span><b>Money out / paid</b>{money(h.moneyOut)}</span><span><b>New strategy bets</b>{money(h.newWagers)}</span><span><b>Point before</b>{h.pointBefore||"OFF"}</span><span><b>Point after</b>{h.pointAfter||"OFF"}</span><p>{h.status}</p></div>}</div>)}</div>}</div>
@@ -612,7 +863,7 @@ export default function CrapsSim() {
         </div>
         <div className="trial-strategy">
           <div className="card-heading"><span>ACTIVE BETS IN STRATEGY</span></div>
-          {!trialStrategyId?<div className="trial-empty">Select a saved strategy to inspect its wagers.</div>:<div className="trial-bet-list">{Object.entries(strategies.find((item)=>item.id===trialStrategyId)?.bets||{}).map(([id,amount])=><div key={id}><span>{BETS[id].label}<small>{BETS[id].payout}</small></span><b>{money(amount)}</b><em>{strategies.find((item)=>item.id===trialStrategyId)?.rebuy?.[id]?"Always rebuy":"Next round only"}</em></div>)}</div>}
+          {!trialStrategyId?<div className="trial-empty">Select a saved strategy to inspect its wagers.</div>:<><AdvancedOptionSummary strategy={strategies.find((item)=>item.id===trialStrategyId)}/><div className="trial-bet-list">{Object.entries(strategies.find((item)=>item.id===trialStrategyId)?.bets||{}).map(([id,amount])=><div key={id}><span>{BETS[id].label}<small>{BETS[id].payout}</small></span><b>{money(amount)}</b><em>{strategies.find((item)=>item.id===trialStrategyId)?.rebuy?.[id]?"Always rebuy":"Next round only"}</em></div>)}</div></>}
         </div>
       </div>
       <div className="trial-analytics">
@@ -624,7 +875,7 @@ export default function CrapsSim() {
           <div><span>Losing trials</span><strong>{trialResults.losses.toLocaleString()}</strong><small>{(trialResults.losses/trialResults.trials*100).toFixed(1)}%</small></div>
           <div><span>Standard deviation</span><strong>{money(trialResults.stdDev)}</strong></div>
           <div><span>Mean ending bankroll</span><strong>{money(trialResults.mean)}</strong></div><div><span>Median ending bankroll</span><strong>{money(trialResults.median)}</strong></div>
-          <div className="fitness-stat"><span>Fitness score <i className="fitness-help" tabIndex="0" aria-label="Fitness equals max ending bankroll plus mean ending bankroll minus initial bankroll, minus standard deviation, multiplied by profitable trials divided by total trials" data-tooltip={`Fitness = [max bankroll + (mean bankroll − initial bankroll) − standard deviation] × (profitable trials ÷ total trials). Current: [${trialResults.max.toFixed(2)} + (${trialResults.mean.toFixed(2)} − ${STARTING_BALANCE}) − ${trialResults.stdDev.toFixed(2)}] × (${trialResults.profits} ÷ ${trialResults.trials}).`}>?</i></span><strong>{trialResults.fitness.toFixed(2)}</strong></div>
+          <div className="fitness-stat"><span>Fitness score <i className="fitness-help" tabIndex="0" aria-label="Reliability fitness combines mean return, median return, profitable versus losing trial rate, downside deviation, and bankruptcy rate" data-tooltip={`Fitness = 100 × [0.40 × mean return + 0.30 × median return + 0.30 × (profit rate − loss rate) − 0.50 × downside deviation − 2.00 × bankruptcy rate]. Current rates: mean ${(trialResults.meanReturn*100).toFixed(1)}%, median ${(trialResults.medianReturn*100).toFixed(1)}%, profit ${(trialResults.profitRate*100).toFixed(1)}%, loss ${(trialResults.lossRate*100).toFixed(1)}%, downside ${(trialResults.downsideDeviation*100).toFixed(1)}%, bankruptcy ${(trialResults.bankruptcyRate*100).toFixed(1)}%.`}>?</i></span><strong>{trialResults.fitness.toFixed(2)}</strong></div>
         </div>}
       </div>
       <div className={`trial-history ${trialHistoryExpanded?"expanded":""}`}>
@@ -633,35 +884,41 @@ export default function CrapsSim() {
       </div>
     </section> : activeTab === "builder" ? <section className="builder-page">
       <div className="trials-heading"><span>AGENT WORKSHOP</span><h2>Build randomized strategy agents</h2><p>Each Agent creates a legal random betting plan using $5 increments. Save an Agent to make it available on the Table and in Trials.</p></div>
-      <div className="agent-create"><input value={agentName} onChange={(e)=>setAgentName(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")createAgent();}} placeholder="Give your Agent a name…"/><button onClick={createAgent} disabled={!agentName.trim()}>CREATE AGENT</button></div>
-      {!agents.length?<div className="builder-empty"><strong>No Agents yet</strong><span>Name your first Agent to generate a random strategy.</span></div>:<div className="agent-grid">{agents.map((agent)=><article className="agent-card" key={agent.id}>
+      <div className="agent-create"><input value={agentName} onChange={(e)=>setAgentName(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")createAgent();}} placeholder="Name your Agent (optional)…"/><button onClick={createAgent}>CREATE AGENT</button></div>
+      {!agents.length?<div className="builder-empty"><strong>No Agents yet</strong><span>Create your first Agent to generate a random strategy and name.</span></div>:<div className="agent-grid">{agents.map((agent)=><article className="agent-card" key={agent.id}>
         <div className="agent-card-head"><div><span>AGENT</span><input value={agent.name} onChange={(e)=>updateAgent(agent.id,{name:e.target.value})}/></div><button onClick={()=>setAgents((items)=>items.filter((item)=>item.id!==agent.id))}><Trash2 size={15}/></button></div>
         <div className="agent-summary"><span><b>{Object.keys(agent.bets).length}</b> active bets</span><span><b>{money(Object.values(agent.bets).reduce((sum,amount)=>sum+amount,0))}</b> opening target</span><em>VALID STRATEGY</em></div>
+        <AdvancedOptionSummary strategy={agent}/>
         <div className="agent-bets">{Object.entries(agent.bets).map(([id,amount])=><div key={id}><span>{BETS[id].label}<small>{BETS[id].payout}</small></span><em>{canRebuyMidRound(id)?agent.rebuy?.[id]?"Always rebuy":"Next round only":"Next round only"}</em><b>{money(amount)}</b></div>)}</div>
         <div className="agent-actions"><button onClick={()=>updateAgent(agent.id,generateAgentStrategy())}>REGENERATE</button><button className="save-agent" onClick={()=>saveAgentStrategy(agent)}><Save size={14}/>{agent.savedStrategyId&&strategies.some((strategy)=>strategy.id===agent.savedStrategyId)?"UPDATE STRATEGY":"SAVE AS STRATEGY"}</button></div>
       </article>)}</div>}
     </section> : <section className="evolution-page">
-      <div className="trials-heading"><span>EVOLUTION LAB</span><h2>Evolve betting strategies</h2><p>Generate a random population, evaluate every Agent, retain the fittest, and breed the next generation through crossover and mutation.</p></div>
+      <div className="trials-heading"><span>EVOLUTION LAB</span><h2>Evolve betting strategies</h2><p>Generate a random population, evaluate every Agent, retain the fittest, and create the next generation through crossover, wager and amount mutations, advanced betting behaviors, and random newcomers.</p></div>
       <div className="evolution-setup">
         <div className="card-heading"><span>EVOLUTION SETTINGS</span></div>
         <div className="evolution-fields">
-          <label className="trial-field"><span>Generations</span><input type="number" min="1" max="50" value={evolutionGenerations} onChange={(e)=>setEvolutionGenerations(e.target.value)}/></label>
+          <label className="trial-field"><span>Generations</span><input type="number" min="1" max="250" value={evolutionGenerations} onChange={(e)=>setEvolutionGenerations(e.target.value)}/></label>
           <label className="trial-field"><span>Population per generation</span><input type="number" min="2" max="100" value={evolutionPopulation} onChange={(e)=>setEvolutionPopulation(e.target.value)}/></label>
           <label className="trial-field"><span>Trials per Agent</span><input type="number" min="1" max="500" value={evolutionTrials} onChange={(e)=>setEvolutionTrials(e.target.value)}/></label>
           <label className="trial-field"><span>Rolls per trial</span><input type="number" min="1" max="5000" value={evolutionRolls} onChange={(e)=>setEvolutionRolls(e.target.value)}/></label>
-          <label className="trial-field"><span>Keep top population (%)</span><input type="number" min="10" max="90" step="5" value={evolutionThreshold} onChange={(e)=>setEvolutionThreshold(e.target.value)}/></label>
-          <label className="trial-field"><span>Mutation chance (%)</span><input type="number" min="0" max="100" step="1" value={evolutionMutation} onChange={(e)=>setEvolutionMutation(e.target.value)}/></label>
+          <label className="trial-field"><span>Keep top population (%)</span><input type="number" min="10" max="90" step="5" value={evolutionThreshold} onChange={(e)=>{const threshold=Math.max(10,Math.min(90,Number(e.target.value)||10));const available=100-threshold;const random=Math.min(available,Number(evolutionRandomNewPercent)||0);setEvolutionThreshold(threshold);setEvolutionRandomNewPercent(random);setEvolutionMutatedChildPercent(Math.min(available-random,Number(evolutionMutatedChildPercent)||0));}}/></label>
+          <label className="trial-field"><span>Random new children (%)</span><input type="number" min="0" max={childPercentLimit-displayedMutatedChildPercent} step="1" value={evolutionRandomNewPercent} onChange={(e)=>setEvolutionRandomNewPercent(Math.max(0,Math.min(childPercentLimit-displayedMutatedChildPercent,Number(e.target.value)||0)))}/></label>
+          <label className="trial-field"><span>Mutated children (%)</span><input type="number" min="0" max={childPercentLimit-displayedRandomNewPercent} step="1" value={evolutionMutatedChildPercent} onChange={(e)=>setEvolutionMutatedChildPercent(Math.max(0,Math.min(childPercentLimit-displayedRandomNewPercent,Number(e.target.value)||0)))} aria-describedby="mutated-children-note"/></label>
+          <label className="trial-field"><span>Normally bred children (%)</span><input type="number" value={displayedNormallyBredChildPercent} readOnly aria-describedby="mutated-children-note"/></label>
         </div>
-        <div className="evolution-note"><span>Mutation adds, removes, or changes one wager gene.</span><b>Estimated rolls: {(Math.max(0,Number(evolutionGenerations)||0)*Math.max(0,Number(evolutionPopulation)||0)*Math.max(0,Number(evolutionTrials)||0)*Math.max(0,Number(evolutionRolls)||0)).toLocaleString()}</b></div>
+        <div className="evolution-selection"><div><span>SELECTION &amp; RANKING METRIC</span><small>Determines which Agents survive the population threshold and become parents.</small></div><div className="metric-toggle"><button type="button" className={evolutionSelectionMetric==="fitness"?"active":""} disabled={evolutionRunning} onClick={()=>setEvolutionSelectionMetric("fitness")}>FITNESS SCORE</button><button type="button" className={evolutionSelectionMetric==="profitRate"?"active":""} disabled={evolutionRunning} onClick={()=>setEvolutionSelectionMetric("profitRate")}>% PROFITABLE TRIALS</button></div></div>
+        <div className="evolution-note" id="mutated-children-note"><span>Mutated children replace one inherited wager, add a new wager, and randomize one wager amount. Some also toggle an advanced option. Remaining child slots use crossover only. Every Agent receives the same dice sequences.</span><b>Estimated rolls: {(Math.max(0,Number(evolutionGenerations)||0)*Math.max(0,Number(evolutionPopulation)||0)*Math.max(0,Number(evolutionTrials)||0)*Math.max(0,Number(evolutionRolls)||0)).toLocaleString()}</b></div>
         {evolutionError&&<p className="evolution-error">{evolutionError}</p>}
-        <button className="run-trials" onClick={runEvolution} disabled={evolutionRunning}>{evolutionRunning?`GENERATION ${evolutionProgress?.generation||1} OF ${evolutionProgress?.generations||evolutionGenerations} · AGENT ${evolutionProgress?.agent||0}/${evolutionProgress?.population||evolutionPopulation}`:"START EVOLUTION"}</button>
+        <button className="run-trials" onClick={()=>runEvolution(false)} disabled={evolutionRunning}>{evolutionRunning?`GENERATION ${evolutionProgress?.generation||1} OF ${evolutionProgress?.generations||evolutionGenerations} · AGENT ${evolutionProgress?.agent||0}/${evolutionProgress?.population||evolutionPopulation}`:"START EVOLUTION"}</button>
       </div>
-      {evolutionResults&&<>
-        <div className="generation-summary"><div className="analytics-title"><span>GENERATION PROGRESS</span><small>Best and mean fitness by generation</small></div><div className="generation-list">{evolutionResults.generationHistory.map((generation)=><div key={generation.generation}><span>GEN {generation.generation}</span><b>{generation.best.toFixed(2)}</b><small>mean {generation.mean.toFixed(2)}</small></div>)}</div></div>
-        <div className="evolution-results"><div className="analytics-title"><span>FINAL GENERATION</span><small>Ranked by fitness score · {evolutionResults.agents.length} Agents</small></div><div className="evolution-agent-list">{evolutionResults.agents.map((agent,index)=><article className="evolution-agent" key={agent.id}>
-          <div className="evolution-rank">#{index+1}</div><div className="evolution-identity"><strong>{agent.name}</strong><small>{Object.keys(agent.bets).length} bets{agent.parents?` · bred from ${agent.parents.join(" + ")}`:" · original population"}</small></div><div className="evolution-fitness"><span>FITNESS</span><b>{agent.analytics.fitness.toFixed(2)}</b></div><button className="save-evolution" onClick={()=>saveEvolutionAgent(agent)} disabled={Boolean(savedEvolutionAgents[agent.id])}><Save size={14}/>{savedEvolutionAgents[agent.id]?"SAVED":"ADD STRATEGY"}</button>
-          <div className="evolution-metrics"><span><b>Max</b>{money(agent.analytics.max)}</span><span><b>Min</b>{money(agent.analytics.min)}</span><span><b>Mean</b>{money(agent.analytics.mean)}</span><span><b>Median</b>{money(agent.analytics.median)}</span><span><b>Std dev</b>{money(agent.analytics.stdDev)}</span><span><b>Profit</b>{agent.analytics.profits} / {evolutionResults.config.trials}</span><span><b>Loss</b>{agent.analytics.losses} / {evolutionResults.config.trials}</span><span><b>Bankrupt</b>{agent.analytics.bankruptcies} / {evolutionResults.config.trials}</span></div>
-          <details className="evolution-bets"><summary>View strategy bets</summary><div>{Object.entries(agent.bets).map(([id,amount])=><span key={id}><b>{BETS[id].label}<small>{canRebuyMidRound(id)?agent.rebuy?.[id]?"Always rebuy":"Next round only":"Next round only"}</small></b>{money(amount)}</span>)}</div></details>
+      {evolutionLiveHistory.length>0&&<div className="generation-summary"><div className="analytics-title"><span>MEAN FITNESS BY GENERATION</span><small>Generation {evolutionLiveHistory.at(-1).generation}: {evolutionLiveHistory.at(-1).mean.toFixed(2)}{evolutionLiveHistory.length>1?` · change ${(evolutionLiveHistory.at(-1).mean-evolutionLiveHistory.at(-2).mean)>=0?"+":""}${(evolutionLiveHistory.at(-1).mean-evolutionLiveHistory.at(-2).mean).toFixed(2)}`:""}</small></div><EvolutionFitnessChart history={evolutionLiveHistory}/><div className="generation-list" ref={generationListRef}>{evolutionLiveHistory.map((generation)=><button type="button" className={selectedEvolutionGeneration===generation.generation?"active":""} onClick={()=>setSelectedEvolutionGeneration(generation.generation)} key={generation.generation}><span>GEN {generation.generation}</span><b>{generation.mean.toFixed(2)}</b><small>best {generation.best.toFixed(2)}</small></button>)}</div></div>}
+      {evolutionResults&&!evolutionRunning&&<div className="continue-evolution"><div><span>CONTINUE THIS EVOLUTION</span><p>Use generation {evolutionResults.config.generations} as the starting population and append new generations using the current settings.</p></div><button type="button" onClick={()=>runEvolution(true)}>CONTINUE FOR {Math.max(1,Math.min(250,Math.floor(Number(evolutionGenerations)||1)))} GENERATIONS</button></div>}
+
+      {selectedEvolutionPopulation.length>0&&<>
+        <div className="evolution-results"><div className="analytics-title"><span>GENERATION {selectedEvolutionGeneration} POPULATION</span><small>Ranked by {displayedEvolutionMetric==="fitness"?"fitness score":"profitable trial percentage"} · {selectedEvolutionPopulation.length} Agents{evolutionResults&&selectedEvolutionGeneration===evolutionResults.config.generations?" · final generation":""}</small></div><div className="evolution-agent-list">{selectedEvolutionPopulation.map((agent,index)=><article className="evolution-agent" key={agent.id}>
+          <div className="evolution-rank">#{index+1}</div><div className="evolution-identity"><strong>{agent.name}</strong><small>{Object.keys(agent.bets).length} bets · created generation {agent.createdGeneration||1}{agent.parents?` · bred from ${agent.parents.join(" + ")}`:agent.randomReplacement?" · new random Agent":" · original population"}{agent.mutated&&agent.mutation?` · mutated ${BETS[agent.mutation.from].label} → ${BETS[agent.mutation.to].label} · added ${BETS[agent.mutation.added].label} · resized ${BETS[agent.mutation.amountId]?.label||agent.mutation.amountId} ${money(agent.mutation.oldAmount)} → ${money(agent.mutation.newAmount)}${agent.mutation.advanced?` · toggled ${ADVANCED_OPTIONS[agent.mutation.advanced].label}`:""}`:agent.mutated?" · mutated":""}</small></div><div className="evolution-fitness"><span>{displayedEvolutionMetric==="fitness"?"FITNESS":"PROFITABLE"}</span><b>{displayedEvolutionMetric==="fitness"?agent.analytics.fitness.toFixed(2):`${(agent.analytics.profitRate*100).toFixed(1)}%`}</b></div><button className="save-evolution" onClick={()=>saveEvolutionAgent(agent)} disabled={Boolean(savedEvolutionAgents[agent.id])}><Save size={14}/>{savedEvolutionAgents[agent.id]?"SAVED":"ADD STRATEGY"}</button>
+          <div className="evolution-metrics"><span><b>Max</b>{money(agent.analytics.max)}</span><span><b>Min</b>{money(agent.analytics.min)}</span><span><b>Mean</b>{money(agent.analytics.mean)}</span><span><b>Median</b>{money(agent.analytics.median)}</span><span><b>Std dev</b>{money(agent.analytics.stdDev)}</span><span><b>Profit</b>{agent.analytics.profits} / {agent.analytics.trials}</span><span><b>Loss</b>{agent.analytics.losses} / {agent.analytics.trials}</span><span><b>Bankrupt</b>{agent.analytics.bankruptcies} / {agent.analytics.trials}</span></div>
+          <details className="evolution-bets"><summary>View strategy bets &amp; advanced options</summary><AdvancedOptionSummary strategy={agent}/><div>{Object.entries(agent.bets).map(([id,amount])=><span key={id}><b>{BETS[id].label}<small>{canRebuyMidRound(id)?agent.rebuy?.[id]?"Always rebuy":"Next round only":"Next round only"}</small></b>{money(amount)}</span>)}</div></details>
         </article>)}</div></div>
       </>}
     </section>}
