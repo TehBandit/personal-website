@@ -1,0 +1,25 @@
+{
+  "owner": "TehBandit",
+  "timezone": "America/New_York",
+  "authorLogins": ["TehBandit", "marcusstaylor"],
+  "authorEmails": [
+    "taylor.marcus99@gmail.com",
+    "49569921+marcusstaylor@users.noreply.github.com"
+  ],
+  "productionBranchOverrides": {},
+  "publicRepositoryLabels": {
+    "TehBandit/personal-website": "this site"
+  },
+  "model": "gpt-5.6-terra",
+  "reasoningEffort": "low",
+  "minimumWords": 180,
+  "maximumWords": 450,
+  "maximumRepositories": 200,
+  "maximumBranchesPerRepository": 100,
+  "maximumQualifyingCommits": 250,
+  "maximumFilesPerCommit": 30,
+  "maximumPatchCharactersPerFile": 2400,
+  "maximumEvidenceCharactersPerRepository": 60000,
+  "maximumPromptCharacters": 120000,
+  "maximumOutputTokens": 8000
+}

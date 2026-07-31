@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:build-in-public": "node --test scripts/build-in-public/build-in-public.test.mjs",
+    "validate:generated": "node scripts/build-in-public/validate-generated-files.mjs",
+    "spellcheck:generated": "node scripts/build-in-public/spellcheck.mjs",
+    "smoke:build-in-public-schema": "node scripts/build-in-public/schema-smoke.mjs"
   },
   "dependencies": {
     "@cyntler/react-doc-viewer": "^1.17.1",
@@ -29,10 +33,13 @@
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.0",
+    "ajv": "^8.20.0",
+    "cspell": "^10.0.1",
     "eslint": "^9.33.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
+    "luxon": "^3.7.2",
     "vite": "^7.1.2"
   }
 }
