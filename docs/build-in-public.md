@@ -48,6 +48,8 @@ checks and read/write access to contents and pull requests.
    and sound equally grounded; change `reasoningEffort` in
    `build-in-public.config.json` to medium only if the quality difference is
    repeatable and worth the added usage.
+   The July 26, 2026 evaluation selected medium because it covered materially
+   more grounded activity while retaining the same privacy boundaries.
 5. Run the workflow again with **publish** enabled. It creates a bot branch,
    opens a pull request, waits for the exact `build-in-public-ci` check, squash
    merges it, and deletes the bot branch.

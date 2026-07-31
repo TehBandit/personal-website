@@ -18,7 +18,7 @@ on:
       reasoning_effort:
         description: Reasoning level for this test run
         required: true
-        default: low
+        default: medium
         type: choice
         options:
           - low
