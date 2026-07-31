@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "title": "a clearer first run, a sharper name",
+    "description": "this week i refreshed onboarding, added subscription access, and gave do or die more polish.",
+    "slug": "building-in-public-2026-07-26",
+    "tag": "Development",
+    "date": "2026-07-26",
+    "periodStart": "2026-07-19T12:00:00-04:00",
+    "periodEnd": "2026-07-26T12:00:00-04:00",
+    "headerPhotos": []
+  },
+  "blocks": [
+    {
+      "type": "intro",
+      "variant": "blue",
+      "text": "this week was about making do or die feel more understandable from the first screen, rather than asking people to decipher its whole deal through vibes alone.",
+      "items": [],
+      "evidenceIds": [
+        "e2",
+        "e6"
+      ]
+    },
+    {
+      "type": "heading",
+      "variant": "plain",
+      "text": "the problem",
+      "items": [],
+      "evidenceIds": []
+    },
+    {
+      "type": "paragraph",
+      "variant": "plain",
+      "text": "the app has a fairly direct premise: deadlines should have consequences. but a direct premise can still turn into a confusing first run if the setup, pricing, and everyday screens do not tell the same story.",
+      "items": [],
+      "evidenceIds": [
+        "e2",
+        "e3",
+        "e4",
+        "e5",
+        "e6"
+      ]
+    },
+    {
+      "type": "shipped",
+      "variant": "emerald",
+      "text": "i shipped a more complete onboarding flow, including a clearer path into the app’s setup and premium access. i also added a paywall with plan selection, purchase restoration, and a place to manage an existing subscription. the boring-but-important part is that the available plans and trial details now come through more reliably, instead of being treated like permanent wall decor.",
+      "items": [],
+      "evidenceIds": [
+        "e2",
+        "e4",
+        "e5",
+        "e6"
+      ]
+    },
+    {
+      "type": "shipped",
+      "variant": "violet",
+      "text": "i refreshed screens outside the admin-oriented areas so the product feels more coherent in normal use. i also added more motion and feedback throughout the experience. not every interaction needs fireworks, but a completely static task app is how you accidentally build a tax form.",
+      "items": [],
+      "evidenceIds": [
+        "e1",
+        "e3"
+      ]
+    },
+    {
+      "type": "divider",
+      "variant": "plain",
+      "text": "",
+      "items": [],
+      "evidenceIds": []
+    },
+    {
+      "type": "heading",
+      "variant": "plain",
+      "text": "a more accountable weekly loop",
+      "items": [],
+      "evidenceIds": []
+    },
+    {
+      "type": "paragraph",
+      "variant": "plain",
+      "text": "i also shipped a weekly summary notification that looks back at missed tasks and time spent under app restrictions. the goal is not to turn sunday evening into a performance review with a tiny angry manager, although it is admittedly adjacent to that.",
+      "items": [],
+      "evidenceIds": [
+        "e6"
+      ]
+    }
+  ]
+}
