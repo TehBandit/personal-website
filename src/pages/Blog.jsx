@@ -2,6 +2,7 @@ import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
 import BlogPost from "../components/BlogPost.jsx";
 import { posts } from "../blogposts";
+import { formatDate } from "../utils/formatDate.js";
 
 function Blog() {
   const sortedPosts = [...posts].sort(
@@ -35,7 +36,7 @@ function Blog() {
                 key={post.meta.slug}
                 title={post.meta.title}
                 desc={post.meta.desc}
-                date={post.meta.date}
+                date={formatDate(post.meta.date)}
                 slug={post.meta.slug}
                 tag={post.meta.tag}
                 isLeft={index % 2 === 0}

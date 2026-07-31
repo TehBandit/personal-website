@@ -1,0 +1,15 @@
+{
+  "version": "0.2",
+  "language": "en-US",
+  "useGitignore": true,
+  "enableGlobDot": true,
+  "files": ["src/blogposts/generated/**/*.json"],
+  "ignorePaths": ["node_modules/**", "dist/**"],
+  "words": [
+    "build-in-public",
+    "github",
+    "knibl",
+    "tehbandit",
+    "vercel"
+  ]
+}

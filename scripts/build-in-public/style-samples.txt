@@ -1,0 +1,17 @@
+voice rules
+- write in first person and keep all public-facing prose lowercase.
+- use clean spelling, punctuation, and contractions even though the tone is casual.
+- focus on the problem, the user-facing change, what shipped, and what is still taking shape.
+- prefer short paragraphs and concrete language over launch-marketing language.
+- a little dry humor or self-awareness is welcome when it fits naturally.
+- never describe exact code, filenames, APIs, endpoints, schemas, database structures, credentials, or internal architecture.
+
+human-written style excerpts
+
+one problem i've routinely run into as a home cook is trying to be creative and try new meals without having a bunch of the ingredients leftover that i may not use before they go bad.
+
+i started just with a simple recipe generator that would take in some preferences and then output a list of meals i could make. i even added a reroll button to gamify it and help narrow down options, but i don't think it really solved the core problem.
+
+the hope is that this approach makes it useful for people who are constantly moving between notes and half-formed ideas. the app is meant to feel less like admin work and more like augmenting an existing process.
+
+this is still a work in progress, but i've got the main pieces in place and now i want to give the whole thing a more creative feel.

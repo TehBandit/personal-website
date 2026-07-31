@@ -30,7 +30,7 @@ function BlogPost({
         {/* Tag + date row */}
         <div className={`flex items-center gap-2 mb-3 ${isLeft ? "justify-end" : "justify-start"}`}>
           <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${tagStyle}`}>
-            {tag}
+            {tag.toLowerCase()}
           </span>
           <span className="text-xs text-gray-400 tabular-nums">{date}</span>
         </div>

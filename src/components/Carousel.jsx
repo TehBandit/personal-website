@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-const Carousel = ({ images = ["/vite.svg", "/profile.jpg", "/logo.png"] , h="h-128", w="w-full"}) => {
+const Carousel = ({ images = [], h="h-128", w="w-full" }) => {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
 
   const scrollPrev = useCallback(() => {
@@ -12,6 +12,8 @@ const Carousel = ({ images = ["/vite.svg", "/profile.jpg", "/logo.png"] , h="h-1
   const scrollNext = useCallback(() => {
     if (emblaApi) emblaApi.scrollNext();
   }, [emblaApi]);
+
+  if (images.length === 0) return null;
 
   return (
     <div className={`embla ${h} ${w}`}>

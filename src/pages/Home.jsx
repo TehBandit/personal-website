@@ -7,6 +7,7 @@ import { ReactTyped } from "react-typed";
 import { posts } from "../blogposts";
 import { Link } from "react-router-dom";
 import { Github, Linkedin, Twitter, Mail, Swords } from "lucide-react";
+import { formatDate } from "../utils/formatDate.js";
 
 function Home() {
   // Youtube API Setup
@@ -79,25 +80,27 @@ function Home() {
         {/* Blog Highlight */}
         <Divider rotate={0} text="latest blog post" />
         <div className="flex flex-col md:flex-row items-center bg-white rounded-2xl shadow-xl w-full p-4 md:p-[2vw] gap-4 md:gap-[2vw] h-auto overflow-hidden">
-          <div className="flex-shrink-0 w-full md:w-auto">
-            <Link to={`blog/${posts[0].meta.slug}`}>
-              <div className="relative w-full md:w-[14vw] aspect-square overflow-hidden rounded-2xl shadow-xl">
-                <img
-                  src={posts[0]?.meta?.headerPhotos?.[0]}
-                  aria-hidden="true"
-                  className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-50"
-                />
-                <img
-                  src={posts[0]?.meta?.headerPhotos?.[0]}
-                  alt={posts[0].meta.title}
-                  className="relative w-full h-full object-contain"
-                />
-              </div>
-            </Link>
-          </div>
+          {posts[0]?.meta?.headerPhotos?.[0] && (
+            <div className="flex-shrink-0 w-full md:w-auto">
+              <Link to={`blog/${posts[0].meta.slug}`}>
+                <div className="relative w-full md:w-[14vw] aspect-square overflow-hidden rounded-2xl shadow-xl">
+                  <img
+                    src={posts[0].meta.headerPhotos[0]}
+                    aria-hidden="true"
+                    className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-50"
+                  />
+                  <img
+                    src={posts[0].meta.headerPhotos[0]}
+                    alt={posts[0].meta.title}
+                    className="relative w-full h-full object-contain"
+                  />
+                </div>
+              </Link>
+            </div>
+          )}
           <div className="flex flex-col justify-between w-full h-auto md:h-[14vw] py-2 md:py-[3vw] overflow-hidden">
             <div className="font-extralight italic text-gray-500 text-sm md:text-base truncate">
-              {posts[0].meta.date}
+              {formatDate(posts[0].meta.date)}
             </div>
 
             <div className="flex flex-col justify-center flex-grow overflow-hidden">

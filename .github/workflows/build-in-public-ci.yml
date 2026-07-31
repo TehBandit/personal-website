@@ -1,0 +1,69 @@
+name: build-in-public-ci
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: build-in-public-ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.18.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate generated posts
+        run: npm run validate:generated
+
+      - name: Spellcheck generated posts
+        run: npm run spellcheck:generated
+
+      - name: Test build-in-public safeguards
+        run: npm run test:build-in-public
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build production site
+        run: npm run build
+
+  notify-on-failure:
+    name: notify build-in-public failure
+    if: ${{ always() && needs.verify.result != 'success' && needs.verify.result != 'skipped' && startsWith(github.head_ref, 'build-in-public/') }}
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out notification script
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.18.0
+
+      - name: Send failure email
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          BUILD_IN_PUBLIC_ALERT_TO: ${{ vars.BUILD_IN_PUBLIC_ALERT_TO }}
+          BUILD_IN_PUBLIC_ALERT_FROM: ${{ vars.BUILD_IN_PUBLIC_ALERT_FROM }}
+          ALERT_SUBJECT: build-in-public pull request checks failed
+          ALERT_MESSAGE: >-
+            The automated build-in-public pull request failed its required check.
+            Review ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}.
+        run: node scripts/build-in-public/notify.mjs

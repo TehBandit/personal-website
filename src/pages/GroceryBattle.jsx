@@ -41,7 +41,8 @@ const GROCERY_FLAVOR = [
   "estimating portion sizes...",
 ];
 
-function LoadingOverlay({ visible, flavor, icon: Icon = ChefHat }) {
+function LoadingOverlay({ visible, flavor, icon = ChefHat }) {
+  const LoadingIcon = icon;
   const [idx, setIdx] = useState(0);
 
   useEffect(() => {
@@ -71,7 +72,7 @@ function LoadingOverlay({ visible, flavor, icon: Icon = ChefHat }) {
       `}</style>
       <div className="bg-white rounded-2xl shadow-2xl px-6 py-7 sm:px-10 sm:py-8 flex flex-col items-center gap-5 w-[88vw] max-w-sm sm:w-72">
         <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-          <Icon size={24} className="text-blue-600" />
+          <LoadingIcon size={24} className="text-blue-600" />
         </div>
         <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden relative">
           <div className="loading-bar-inner absolute top-0 h-full bg-blue-500 rounded-full" />

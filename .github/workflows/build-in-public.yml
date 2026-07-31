@@ -1,0 +1,195 @@
+name: weekly build in public
+
+on:
+  schedule:
+    - cron: "0 12 * * 0"
+      timezone: America/New_York
+  workflow_dispatch:
+    inputs:
+      window_end:
+        description: Sunday window end in YYYY-MM-DD form; blank uses the latest completed window
+        required: false
+        type: string
+      publish:
+        description: Open and automatically merge a publishing pull request
+        required: true
+        default: false
+        type: boolean
+      reasoning_effort:
+        description: Reasoning level for this test run
+        required: true
+        default: low
+        type: choice
+        options:
+          - low
+          - medium
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-build-in-public
+  cancel-in-progress: false
+
+jobs:
+  generate-and-publish:
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.BUILD_IN_PUBLIC_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Check out default branch
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.18.0
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create read-only collector token
+        id: collector-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.COLLECTOR_GH_APP_ID }}
+          private-key: ${{ secrets.COLLECTOR_GH_APP_PRIVATE_KEY }}
+          owner: TehBandit
+          permission-contents: read
+          permission-pull-requests: read
+
+      - name: Generate preview
+        id: generate-preview
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish != true }}
+        env:
+          COLLECTOR_GITHUB_TOKEN: ${{ steps.collector-token.outputs.token }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          WINDOW_END: ${{ inputs.window_end }}
+          REASONING_EFFORT: ${{ inputs.reasoning_effort }}
+        run: >-
+          node scripts/build-in-public/generate.mjs
+          --dry-run
+          --window-end "$WINDOW_END"
+          --reasoning-effort "$REASONING_EFFORT"
+
+      - name: Upload preview
+        if: ${{ steps.generate-preview.outputs.has_post == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-in-public-preview-${{ steps.generate-preview.outputs.post_date }}
+          path: ${{ steps.generate-preview.outputs.post_path }}
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 7
+
+      - name: Generate publishable post
+        id: generate-post
+        if: ${{ github.event_name == 'schedule' || inputs.publish == true }}
+        env:
+          COLLECTOR_GITHUB_TOKEN: ${{ steps.collector-token.outputs.token }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          WINDOW_END: ${{ inputs.window_end }}
+          REASONING_EFFORT: ${{ inputs.reasoning_effort }}
+        run: >-
+          node scripts/build-in-public/generate.mjs
+          --window-end "$WINDOW_END"
+          --reasoning-effort "$REASONING_EFFORT"
+
+      - name: Validate generated post
+        if: ${{ steps.generate-post.outputs.has_post == 'true' }}
+        run: npm run validate:generated -- "${{ steps.generate-post.outputs.post_path }}"
+
+      - name: Spellcheck generated post
+        if: ${{ steps.generate-post.outputs.has_post == 'true' }}
+        run: npm run spellcheck:generated -- "${{ steps.generate-post.outputs.post_path }}"
+
+      - name: Test safeguards
+        if: ${{ steps.generate-post.outputs.has_post == 'true' }}
+        run: npm run test:build-in-public
+
+      - name: Lint
+        if: ${{ steps.generate-post.outputs.has_post == 'true' }}
+        run: npm run lint
+
+      - name: Build production site
+        if: ${{ steps.generate-post.outputs.has_post == 'true' }}
+        run: npm run build
+
+      - name: Create publisher token
+        id: publisher-token
+        if: ${{ steps.generate-post.outputs.has_post == 'true' }}
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.PUBLISHER_GH_APP_ID }}
+          private-key: ${{ secrets.PUBLISHER_GH_APP_PRIVATE_KEY }}
+          permission-checks: read
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Commit and push generated post
+        id: push-post
+        if: ${{ steps.generate-post.outputs.has_post == 'true' }}
+        env:
+          PUBLISHER_GITHUB_TOKEN: ${{ steps.publisher-token.outputs.token }}
+          GH_TOKEN: ${{ steps.publisher-token.outputs.token }}
+          PUBLISHER_APP_SLUG: ${{ steps.publisher-token.outputs.app-slug }}
+          POST_PATH: ${{ steps.generate-post.outputs.post_path }}
+          POST_DATE: ${{ steps.generate-post.outputs.post_date }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$POST_DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]
+          [[ "$POST_PATH" == "src/blogposts/generated/${POST_DATE}.json" ]]
+          branch="build-in-public/${POST_DATE}"
+          publisher_user_id="$(gh api "/users/${PUBLISHER_APP_SLUG}[bot]" --jq .id)"
+          git config user.name "${PUBLISHER_APP_SLUG}[bot]"
+          git config user.email "${publisher_user_id}+${PUBLISHER_APP_SLUG}[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add -- "$POST_PATH"
+          git diff --cached --quiet && { echo "No generated change to publish."; exit 1; }
+          [[ "$(git diff --cached --name-only)" == "$POST_PATH" ]]
+          git commit -m "build in public: ${POST_DATE}"
+          remote="https://x-access-token:${PUBLISHER_GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          expected_sha="$(git ls-remote "$remote" "refs/heads/${branch}" | cut -f1)"
+          git push --force-with-lease="refs/heads/${branch}:${expected_sha}" "$remote" "HEAD:refs/heads/${branch}"
+          echo "branch=${branch}" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Open, verify, and merge pull request
+        if: ${{ steps.generate-post.outputs.has_post == 'true' }}
+        env:
+          PUBLISHER_GITHUB_TOKEN: ${{ steps.publisher-token.outputs.token }}
+          PUBLISH_BRANCH: ${{ steps.push-post.outputs.branch }}
+          PUBLISH_HEAD_SHA: ${{ steps.push-post.outputs.head_sha }}
+          POST_DATE: ${{ steps.generate-post.outputs.post_date }}
+        run: node scripts/build-in-public/publish-pr.mjs
+
+  notify-on-failure:
+    name: notify build-in-public failure
+    if: ${{ always() && needs.generate-and-publish.result != 'success' && needs.generate-and-publish.result != 'skipped' }}
+    needs: generate-and-publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out notification script
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.18.0
+
+      - name: Send failure email
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          BUILD_IN_PUBLIC_ALERT_TO: ${{ vars.BUILD_IN_PUBLIC_ALERT_TO }}
+          BUILD_IN_PUBLIC_ALERT_FROM: ${{ vars.BUILD_IN_PUBLIC_ALERT_FROM }}
+          ALERT_SUBJECT: weekly build-in-public automation failed
+          ALERT_MESSAGE: >-
+            The weekly build-in-public workflow failed.
+            Review ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}.
+        run: node scripts/build-in-public/notify.mjs
