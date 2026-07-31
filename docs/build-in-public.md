@@ -77,8 +77,9 @@ input. Sensitive paths, binary files, lockfiles, credentials, URLs, emails,
 identifiers, high-entropy tokens, and diff coordinates are removed or excluded.
 Path-like strings, filenames, internal hostnames, and common database-object
 references inside otherwise eligible patches are generalized before model input.
-Per-commit, per-repository, and total prompt ceilings stop oversized evidence
-from being submitted.
+Per-commit, per-repository, and total prompt ceilings compact oversized evidence
+before submission, prioritizing production and recent activity while preserving
+the broad activity records that fit safely inside the configured budgets.
 The model receives only the resulting sanitized evidence and must return strict
 JSON using approved presentation blocks. Generated prose is then checked for
 schema validity, evidence references, production/development claims, secrets,

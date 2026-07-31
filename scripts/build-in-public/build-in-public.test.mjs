@@ -8,6 +8,7 @@ import {
   isAutomationActor,
   isCommitInWindow,
   isConfiguredAuthor,
+  limitEvidenceWithinCharacterBudgets,
   redactPrivateProjectName,
 } from "./collect.mjs";
 import { githubPaginateObject, githubRequest } from "./github.mjs";
@@ -82,18 +83,28 @@ test("collector retains only the configured author and excludes bot identities",
   assert.equal(isAutomationActor({ author: null, commit: { author: { name: "publisher[bot]" } } }), true);
 });
 
-test("collector enforces an input ceiling for each repository", () => {
+test("collector compacts evidence to repository and total input ceilings", () => {
   const enriched = [
-    { repositoryFullName: "TehBandit/one", projectLabel: "one" },
-    { repositoryFullName: "TehBandit/one", projectLabel: "one" },
+    { repositoryFullName: "TehBandit/one", projectLabel: "one", committedAt: "2026-07-20T12:00:00Z" },
+    { repositoryFullName: "TehBandit/one", projectLabel: "one", committedAt: "2026-07-21T12:00:00Z" },
   ];
-  const evidence = [{ summary: "first" }, { summary: "second" }];
-  assert.throws(
-    () => assertRepositoryEvidenceWithinLimits(enriched, evidence, {
-      maximumEvidenceCharactersPerRepository: 10,
-    }),
-    /per-repository privacy and cost ceiling/
-  );
+  const evidence = [
+    { id: "e1", status: "development", summary: "first", sanitizedPatches: ["x".repeat(200)] },
+    { id: "e2", status: "production", summary: "second", sanitizedPatches: ["y".repeat(200)] },
+  ];
+  const limited = limitEvidenceWithinCharacterBudgets(enriched, evidence, {
+    maximumEvidenceCharactersPerRepository: 225,
+    maximumPromptCharacters: 225,
+  });
+
+  assert.ok(limited.length > 0);
+  assert.ok(JSON.stringify(limited).length <= 225);
+  assert.equal(limited[0].sanitizedPatches.length, 0);
+  assert.doesNotThrow(() => assertRepositoryEvidenceWithinLimits(
+    limited.map(() => ({ repositoryFullName: "TehBandit/one", projectLabel: "one" })),
+    limited,
+    { maximumEvidenceCharactersPerRepository: 225 }
+  ));
 });
 
 test("commits linked to the same pull request are consolidated and production wins", () => {

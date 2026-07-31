@@ -56,6 +56,83 @@ export function assertRepositoryEvidenceWithinLimits(enriched, evidence, config)
   }
 }
 
+function compactEvidenceEntry(entry) {
+  return {
+    ...entry,
+    pullRequestDescription: String(entry.pullRequestDescription ?? "").slice(0, 600).trim(),
+    sanitizedPatches: [],
+  };
+}
+
+export function limitEvidenceWithinCharacterBudgets(enriched, evidence, config) {
+  if (enriched.length !== evidence.length) {
+    throw new Error("Collector evidence and repository metadata are out of sync.");
+  }
+
+  const candidates = evidence.map((entry, index) => ({
+    entry,
+    index,
+    repository: enriched[index].repositoryFullName,
+    committedAt: enriched[index].committedAt,
+  })).sort((left, right) => {
+    const productionPriority = Number(right.entry.status === "production") -
+      Number(left.entry.status === "production");
+    if (productionPriority !== 0) return productionPriority;
+    return String(right.committedAt).localeCompare(String(left.committedAt));
+  });
+
+  const selected = new Map();
+  const repositoryCharacters = new Map();
+  let totalCharacters = 2;
+
+  for (const candidate of candidates) {
+    const compact = compactEvidenceEntry(candidate.entry);
+    const characters = JSON.stringify(compact).length + 1;
+    const repositoryTotal = repositoryCharacters.get(candidate.repository) ?? 0;
+    if (
+      repositoryTotal + characters > config.maximumEvidenceCharactersPerRepository ||
+      totalCharacters + characters > config.maximumPromptCharacters
+    ) continue;
+
+    selected.set(candidate.index, compact);
+    repositoryCharacters.set(candidate.repository, repositoryTotal + characters);
+    totalCharacters += characters;
+  }
+
+  if (evidence.length > 0 && selected.size === 0) {
+    throw new Error("The configured evidence character budgets are too small for one compact activity record.");
+  }
+
+  for (const candidate of candidates) {
+    let selectedEntry = selected.get(candidate.index);
+    if (!selectedEntry) continue;
+
+    for (const patch of candidate.entry.sanitizedPatches) {
+      const previousCharacters = JSON.stringify(selectedEntry).length + 1;
+      const expanded = {
+        ...selectedEntry,
+        sanitizedPatches: [...selectedEntry.sanitizedPatches, patch],
+      };
+      const nextCharacters = JSON.stringify(expanded).length + 1;
+      const additionalCharacters = nextCharacters - previousCharacters;
+      const repositoryTotal = repositoryCharacters.get(candidate.repository) ?? 0;
+      if (
+        repositoryTotal + additionalCharacters > config.maximumEvidenceCharactersPerRepository ||
+        totalCharacters + additionalCharacters > config.maximumPromptCharacters
+      ) continue;
+
+      selectedEntry = expanded;
+      selected.set(candidate.index, expanded);
+      repositoryCharacters.set(candidate.repository, repositoryTotal + additionalCharacters);
+      totalCharacters += additionalCharacters;
+    }
+  }
+
+  return [...selected.entries()]
+    .sort(([leftIndex], [rightIndex]) => leftIndex - rightIndex)
+    .map(([, entry]) => entry);
+}
+
 export function consolidatePullRequestEvidence(commits) {
   const grouped = new Map();
   for (const commit of commits) {
@@ -306,11 +383,11 @@ export async function collectWeeklyEvidence({ token, config, window }) {
     sanitizedPatches: commit.patches,
   }));
 
-  assertRepositoryEvidenceWithinLimits(consolidated, evidence, config);
+  const limitedEvidence = limitEvidenceWithinCharacterBudgets(consolidated, evidence, config);
 
   return {
     repositoryCount: repositories.length,
-    evidence,
+    evidence: limitedEvidence,
     sourceTexts: consolidated.map((commit) => commit.sourceText).filter(Boolean),
   };
 }
