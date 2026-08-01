@@ -36,6 +36,7 @@ export async function loadConfig() {
     "maximumQualifyingCommits",
     "maximumFilesPerCommit",
     "maximumPatchCharactersPerFile",
+    "maximumImageBytes",
     "maximumEvidenceCharactersPerRepository",
     "maximumPromptCharacters",
     "maximumOutputTokens",

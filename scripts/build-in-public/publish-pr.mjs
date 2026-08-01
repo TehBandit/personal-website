@@ -27,7 +27,7 @@ const pullRequest = pulls[0] ?? await githubRequest(token, `/repos/${owner}/${re
     body: [
       "automated weekly build-in-public post.",
       "",
-      "the content passed privacy, grounding, spelling, lint, and production build checks before this pull request was opened.",
+      "the content passed privacy, grounding, lint, and production build checks before this pull request was opened.",
     ].join("\n"),
   },
 });

@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import {
   assertRepositoryEvidenceWithinLimits,
@@ -11,6 +14,8 @@ import {
   limitEvidenceWithinCharacterBudgets,
   redactPrivateProjectName,
 } from "./collect.mjs";
+import { normalizeProjectUrl, summarizeProjects } from "./project-metadata.mjs";
+import { addedImageCandidate, prepareProjectMedia } from "./media.mjs";
 import { githubPaginateObject, githubRequest } from "./github.mjs";
 import { openAIGeneratedPostSchema } from "./schema.mjs";
 import {
@@ -28,6 +33,7 @@ test("weekly window uses Sunday noon in New York and is end-exclusive", () => {
   assert.equal(atNoon.date, "2026-07-26");
   assert.equal(atNoon.apiSince, "2026-07-19T16:00:00Z");
   assert.equal(atNoon.apiUntil, "2026-07-26T16:00:00Z");
+  assert.equal(atNoon.title, "Devlog: July 19, 2026 - July 26, 2026");
 });
 
 test("weekly window preserves local noon across daylight saving changes", () => {
@@ -110,10 +116,13 @@ test("collector compacts evidence to repository and total input ceilings", () =>
 test("commits linked to the same pull request are consolidated and production wins", () => {
   const base = {
     repositoryFullName: "TehBandit/project",
+    projectLabel: "Example Project",
+    projectUrl: null,
     pullRequestNumber: 12,
     sha: "one",
     changedAreas: ["interface"],
     patches: ["first"],
+    images: [],
     fileCount: 1,
     additions: 1,
     deletions: 0,
@@ -135,6 +144,77 @@ test("commits linked to the same pull request are consolidated and production wi
   assert.equal(consolidated.length, 1);
   assert.equal(consolidated[0].status, "production");
   assert.deepEqual(consolidated[0].changedAreas, ["interface", "tests"]);
+  assert.deepEqual(summarizeProjects(consolidated), [
+    { name: "Example Project", url: null, additions: 2, deletions: 0 },
+  ]);
+});
+
+test("GitHub About links are normalized to safe HTTP(S) URLs", () => {
+  assert.equal(normalizeProjectUrl("example.com/product"), "https://example.com/product");
+  assert.equal(normalizeProjectUrl("http://example.com"), "http://example.com/");
+  assert.equal(normalizeProjectUrl("javascript:alert(1)"), null);
+  assert.equal(normalizeProjectUrl("not a url"), null);
+});
+
+test("only newly added raster files become project image candidates", () => {
+  const commit = { projectLabel: "Example Project", repositoryFullName: "TehBandit/example" };
+  assert.deepEqual(
+    addedImageCandidate({ status: "added", filename: "assets/preview.PNG", sha: "blob1" }, commit),
+    {
+      project: "Example Project",
+      repositoryFullName: "TehBandit/example",
+      blobSha: "blob1",
+      extension: "png",
+    }
+  );
+  assert.equal(
+    addedImageCandidate({ status: "modified", filename: "assets/preview.png", sha: "blob2" }, commit),
+    null
+  );
+  assert.equal(
+    addedImageCandidate({ status: "added", filename: "assets/preview.svg", sha: "blob3" }, commit),
+    null
+  );
+});
+
+test("selected project media is copied to a bounded public path", async () => {
+  const originalFetch = globalThis.fetch;
+  const temporaryDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "build-in-public-media-"));
+  const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      encoding: "base64",
+      size: png.length,
+      content: png.toString("base64"),
+    }),
+  });
+
+  try {
+    const prepared = await prepareProjectMedia({
+      token: "test-token",
+      projects: [{ name: "Example Project", url: null, additions: 2, deletions: 1 }],
+      candidates: [{
+        project: "Example Project",
+        repositoryFullName: "TehBandit/example",
+        blobSha: "image-blob",
+        extension: "png",
+      }],
+      date: "2026-07-26",
+      targetDirectory: temporaryDirectory,
+      maximumImageBytes: 100,
+      chooseIndex: () => 0,
+    });
+    assert.equal(
+      prepared.projects[0].image,
+      "/build-in-public/2026-07-26/example-project-1.png"
+    );
+    assert.deepEqual(await fs.readFile(prepared.writtenPaths[0]), png);
+  } finally {
+    globalThis.fetch = originalFetch;
+    await fs.rm(temporaryDirectory, { recursive: true, force: true });
+  }
 });
 
 test("private repository names are removed from model-bound evidence", () => {
@@ -222,6 +302,7 @@ test("collector integration filters, deduplicates, classifies, and sanitizes evi
           name: "secret-project",
           full_name: "TehBandit/secret-project",
           private: true,
+          homepage: "product.example",
           default_branch: "main",
           owner: { login: "TehBandit" },
         }],
@@ -235,7 +316,10 @@ test("collector integration filters, deduplicates, classifies, and sanitizes evi
     } else if (path.endsWith("/commits/production")) {
       body = {
         commit: { message: "secret-project navigation improvement" },
-        files: [{ filename: "src/private/navigation.jsx", patch: "+import item from '../private/module.js'" }],
+        files: [
+          { filename: "src/private/navigation.jsx", status: "modified", patch: "+import item from '../private/module.js'" },
+          { filename: "assets/preview.png", status: "added", sha: "image-blob" },
+        ],
         stats: { additions: 4, deletions: 1 },
       };
     } else if (path.endsWith("/commits/development")) {
@@ -278,9 +362,25 @@ test("collector integration filters, deduplicates, classifies, and sanitizes evi
     assert.equal(collection.repositoryCount, 1);
     assert.equal(collection.evidence.length, 2);
     assert.deepEqual(collection.evidence.map((item) => item.status).sort(), ["development", "production"]);
+    assert.deepEqual(collection.projects, [
+      {
+        name: "Private Project 1",
+        url: "https://product.example/",
+        additions: 6,
+        deletions: 1,
+      },
+    ]);
+    assert.deepEqual(collection.imageCandidates, [
+      {
+        project: "Private Project 1",
+        repositoryFullName: "TehBandit/secret-project",
+        blobSha: "image-blob",
+        extension: "png",
+      },
+    ]);
     const serialized = JSON.stringify(collection.evidence);
     assert.doesNotMatch(serialized, /secret-project|navigation\.jsx|module\.js|drafts\.internal|dependabot/i);
-    assert.match(serialized, /a private project 1/);
+    assert.match(serialized, /Private Project 1/);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -339,9 +439,9 @@ test("collector errors do not expose private repository names", async () => {
 
 function postFixture(overrides = {}) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 4,
     meta: {
-      title: "a week of useful improvements",
+      title: "Devlog: July 19, 2026 - July 26, 2026",
       description: "a short look at what shipped and what is still taking shape",
       slug: "building-in-public-2026-07-26",
       tag: "Development",
@@ -350,9 +450,20 @@ function postFixture(overrides = {}) {
       periodEnd: "2026-07-26T12:00:00-04:00",
       headerPhotos: [],
     },
-    blocks: [
-      { type: "intro", variant: "plain", text: "this week brought a focused improvement to the experience.", items: [], evidenceIds: ["e1"] },
-      { type: "in-progress", variant: "violet", text: "another idea is still being explored.", items: [], evidenceIds: ["e2"] },
+    projects: [
+      {
+        name: "Example Project",
+        url: "https://example.com/",
+        image: null,
+        changes: { additions: 12, deletions: 3 },
+        bullets: [
+          { text: "shipped a more focused experience for everyday use.", evidenceIds: ["e1"] },
+        ],
+        summary: {
+          text: "i'm also exploring another idea that could simplify the broader workflow.",
+          evidenceIds: ["e2"],
+        },
+      },
     ],
     ...overrides,
   };
@@ -361,8 +472,17 @@ function postFixture(overrides = {}) {
 const validationOptions = {
   config: { minimumWords: 1, maximumWords: 200 },
   evidence: [
-    { id: "e1", status: "production" },
-    { id: "e2", status: "development" },
+    { id: "e1", project: "Example Project", status: "production" },
+    { id: "e2", project: "Example Project", status: "development" },
+  ],
+  collectedProjects: [
+    {
+      name: "Example Project",
+      url: "https://example.com/",
+      image: null,
+      additions: 12,
+      deletions: 3,
+    },
   ],
 };
 
@@ -370,16 +490,39 @@ test("valid generated post passes static and evidence checks", () => {
   assert.deepEqual(validateGeneratedPost(postFixture(), validationOptions), []);
 });
 
+test("validation preserves unconventional source wording instead of rejecting typos", () => {
+  const post = postFixture();
+  post.projects[0].summary.text = "i'm doing alot of exploratory work around the broader workflow.";
+  assert.deepEqual(validateGeneratedPost(post, validationOptions), []);
+});
+
+test("validation rejects line changes that differ from collected GitHub totals", () => {
+  const post = postFixture();
+  post.projects[0].changes.additions = 11;
+  const errors = validateGeneratedPost(post, validationOptions);
+  assert.ok(errors.some((error) => error.includes("must be +12 / -3")));
+});
+
+test("validation rejects project URLs that differ from GitHub About metadata", () => {
+  const post = postFixture();
+  post.projects[0].url = "https://other.example/";
+  const errors = validateGeneratedPost(post, validationOptions);
+  assert.ok(errors.some((error) => error.includes("must exactly match")));
+});
+
+test("validation rejects project images that differ from the collector selection", () => {
+  const post = postFixture();
+  post.projects[0].image = "/build-in-public/2026-07-26/other-project-1.png";
+  const errors = validateGeneratedPost(post, validationOptions);
+  assert.ok(errors.some((error) => error.includes("random selection")));
+});
+
 test("validation rejects uppercase prose and development work described as shipped", () => {
   const post = postFixture();
-  post.blocks[1] = {
-    ...post.blocks[1],
-    type: "shipped",
-    text: "Shipped this experiment.",
-  };
+  post.projects[0].summary.text = "Shipped this experiment.";
   const errors = validateGeneratedPost(post, validationOptions);
   assert.ok(errors.some((error) => error.includes("lowercase")));
-  assert.ok(errors.some((error) => error.includes("production evidence only")));
+  assert.ok(errors.some((error) => error.includes("cannot be described as shipped")));
 });
 
 test("validation rejects a slug that is not derived from the post date", () => {
@@ -391,13 +534,21 @@ test("validation rejects a slug that is not derived from the post date", () => {
 
 test("OpenAI schema omits unsupported uniqueness while local validation enforces it", () => {
   const evidenceIds = openAIGeneratedPostSchema
-    .properties.blocks.items.properties.evidenceIds;
+    .properties.projects.items.properties.bullets.items.properties.evidenceIds;
   assert.equal("uniqueItems" in evidenceIds, false);
 
   const post = postFixture();
-  post.blocks[0].evidenceIds = ["e1", "e1"];
+  post.projects[0].bullets[0].evidenceIds = ["e1", "e1"];
   const errors = validateGeneratedPost(post, validationOptions);
   assert.ok(errors.some((error) => error.includes("duplicate items")));
+});
+
+test("validation requires one correctly named section for every active project", () => {
+  const post = postFixture();
+  post.projects[0].name = "Wrong Project";
+  const errors = validateGeneratedPost(post, validationOptions);
+  assert.ok(errors.some((error) => error.includes("missing project section: Example Project")));
+  assert.ok(errors.some((error) => error.includes("project section has no evidence: Wrong Project")));
 });
 
 test("deployment monitoring recognizes a generated post by changed file or merge title", () => {

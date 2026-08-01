@@ -8,17 +8,19 @@
   ],
   "productionBranchOverrides": {},
   "publicRepositoryLabels": {
-    "TehBandit/personal-website": "this site"
+    "TehBandit/personal-website": "Personal Website",
+    "TehBandit/aggro-to-do": "Due or Die"
   },
   "model": "gpt-5.6-terra",
   "reasoningEffort": "medium",
-  "minimumWords": 180,
-  "maximumWords": 450,
+  "minimumWords": 40,
+  "maximumWords": 1200,
   "maximumRepositories": 200,
   "maximumBranchesPerRepository": 100,
   "maximumQualifyingCommits": 250,
   "maximumFilesPerCommit": 30,
   "maximumPatchCharactersPerFile": 2400,
+  "maximumImageBytes": 8000000,
   "maximumEvidenceCharactersPerRepository": 60000,
   "maximumPromptCharacters": 120000,
   "maximumOutputTokens": 8000

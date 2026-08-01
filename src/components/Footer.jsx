@@ -2,8 +2,7 @@ import { Github, Linkedin, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 function Footer() {
   return (
-    // TODO: fix eventually
-    <footer className="border-t-2 border-blue-300 w-full bg-blue-50 mt-6 p-2 flex flex-col items-center justify-center">
+    <footer className="mt-auto flex w-full flex-col items-center justify-center border-t-2 border-blue-300 bg-blue-50 p-2">
       <div className="flex items-center space-x-4">
         <a
           href="https://www.linkedin.com/in/taylor-marcus/"

@@ -1,64 +1,87 @@
-const variantStyles = {
-  plain: "border-gray-200 bg-white text-gray-700",
-  blue: "border-blue-400 bg-blue-50 text-blue-950",
-  violet: "border-violet-400 bg-violet-50 text-violet-950",
-  emerald: "border-emerald-400 bg-emerald-50 text-emerald-950",
-  amber: "border-amber-400 bg-amber-50 text-amber-950",
-};
-
-function GeneratedPost({ blocks = [] }) {
+function GeneratedPost({ projects = [] }) {
   return (
-    <article className="mx-auto max-w-3xl pb-12 text-base leading-8 md:text-lg">
-      {blocks.map((block, index) => {
-        const key = `${block.type}-${index}`;
-        const variant = variantStyles[block.variant] ?? variantStyles.plain;
-
-        if (block.type === "divider") {
-          return <hr key={key} className="my-8 border-gray-300" />;
-        }
-
-        if (block.type === "heading") {
-          return (
-            <h2 key={key} className="mb-3 mt-10 text-xl font-semibold text-gray-900 md:text-2xl">
-              {block.text}
-            </h2>
-          );
-        }
-
-        if (block.type === "bullet-list") {
-          return (
-            <section key={key} className={`my-6 rounded-2xl border p-5 ${variant}`}>
-              {block.text && <p className="mb-3 font-semibold">{block.text}</p>}
-              <ul className="list-disc space-y-2 pl-6">
-                {block.items.map((item) => <li key={item}>{item}</li>)}
-              </ul>
-            </section>
-          );
-        }
-
-        if (["callout", "shipped", "in-progress"].includes(block.type)) {
-          const label = block.type === "shipped"
-            ? "shipped"
-            : block.type === "in-progress"
-              ? "still in progress"
-              : null;
-          return (
-            <aside key={key} className={`my-6 rounded-r-2xl border-l-4 px-5 py-4 ${variant}`}>
-              {label && <p className="mb-1 text-sm font-semibold tracking-wide">{label}</p>}
-              <p>{block.text}</p>
-            </aside>
-          );
-        }
-
-        return (
-          <p
-            key={key}
-            className={block.type === "intro" ? "mb-6 text-xl leading-9 text-gray-800" : "mb-5 text-gray-700"}
+    <article className="w-full pb-12 text-left text-base leading-8 md:text-lg">
+      {projects.map((project, projectIndex) => (
+        <div key={project.name}>
+          <section
+            className={`w-full pb-8 ${
+              project.image
+                ? "sm:grid sm:grid-cols-[minmax(0,2fr)_minmax(14rem,1fr)] sm:gap-8 lg:gap-12"
+                : ""
+            }`}
           >
-            {block.text}
-          </p>
-        );
-      })}
+            <div className="min-w-0 flex-1">
+              <div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                <h2 className="text-xl font-semibold text-gray-900 md:text-2xl">
+                  {project.url ? (
+                    <a
+                      href={project.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="transition-colors hover:text-blue-600 hover:underline"
+                    >
+                      {project.name}
+                    </a>
+                  ) : (
+                    project.name
+                  )}
+                </h2>
+                <div
+                  className="flex items-center gap-3 text-sm font-semibold tabular-nums"
+                  aria-label={`${project.changes.additions} lines added and ${project.changes.deletions} lines removed`}
+                >
+                  <span className="text-emerald-600">
+                    +{project.changes.additions.toLocaleString()}
+                  </span>
+                  <span className="text-rose-600">
+                    -{project.changes.deletions.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+              <ul className="mb-4 list-disc space-y-2 pl-5 text-gray-800">
+                {project.bullets.map((bullet, index) => (
+                  <li key={`${project.name}-${index}`}>{bullet.text}</li>
+                ))}
+              </ul>
+              <p className="text-gray-600">{project.summary.text}</p>
+            </div>
+            {project.image && (
+              <>
+                <div className="relative hidden min-h-0 sm:block">
+                  <img
+                    src={project.image}
+                    alt={`${project.name} project update`}
+                    loading="lazy"
+                    className="absolute right-0 top-1/2 h-auto w-auto max-h-full max-w-full -translate-y-1/2 rounded-2xl object-contain shadow-xl ring-1 ring-black/5"
+                  />
+                </div>
+                <img
+                  src={project.image}
+                  alt={`${project.name} project update`}
+                  loading="lazy"
+                  className="mt-6 block h-auto max-h-80 w-auto max-w-full rounded-2xl object-contain object-left shadow-xl ring-1 ring-black/5 sm:hidden"
+                />
+              </>
+            )}
+          </section>
+          {projectIndex < projects.length - 1 && (
+            <hr className="mb-10 w-full border-gray-200" />
+          )}
+        </div>
+      ))}
+
+      <p className="mt-10 text-center text-sm italic leading-6 text-gray-400">
+        summaries are generated by AI from my github diffs. source code available in{" "}
+        <a
+          href="https://github.com/TehBandit/personal-website"
+          target="_blank"
+          rel="noreferrer"
+          className="underline transition-colors hover:text-blue-500"
+        >
+          TehBandit/personal-website
+        </a>
+        .
+      </p>
     </article>
   );
 }

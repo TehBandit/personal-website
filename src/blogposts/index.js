@@ -8,7 +8,7 @@ const generatedModules = import.meta.glob("./generated/*.json", {
 
 const generatedPosts = Object.values(generatedModules).map((post) => ({
   generated: true,
-  blocks: post.blocks,
+  projects: post.projects,
   meta: {
     ...post.meta,
     desc: post.meta.description,

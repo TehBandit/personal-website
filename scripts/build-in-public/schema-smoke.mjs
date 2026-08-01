@@ -12,6 +12,7 @@ const client = new OpenAI({
   timeout: 120000,
 });
 const window = {
+  title: "Devlog: July 19, 2026 - July 26, 2026",
   slug: "building-in-public-2026-07-26",
   date: "2026-07-26",
   periodStart: "2026-07-19T12:00:00-04:00",
@@ -22,8 +23,9 @@ const response = await client.responses.create({
   model: config.model,
   instructions: [
     "Return a synthetic build-in-public post for schema compatibility testing.",
-    "Use lowercase prose, correct spelling, 30-80 words, and no code or links.",
+    "Use lowercase, readable prose totaling 30-80 words, with no code or links.",
     `Use this metadata exactly: ${JSON.stringify({
+      title: window.title,
       slug: window.slug,
       tag: "Development",
       date: window.date,
@@ -31,7 +33,8 @@ const response = await client.responses.create({
       periodEnd: window.periodEnd,
       headerPhotos: [],
     })}.`,
-    "Use e1 for production facts and e2 for development facts.",
+    "Create one project named Example Project with url set to https://example.com/, image set to null, changes of exactly 12 additions and 3 deletions, 1-3 one-sentence bullets, and a 1-3 sentence casual summary.",
+    "Use e1 for production facts and e2 for development facts, and cite evidence on every bullet and summary.",
   ].join("\n"),
   input: "Synthetic evidence: e1 says a clearer navigation experience shipped. e2 says a simpler drafting flow is being explored.",
   reasoning: { effort: "low" },
@@ -55,8 +58,17 @@ assertValidGeneratedPost(post, {
   config: { ...config, minimumWords: 30, maximumWords: 80 },
   window,
   evidence: [
-    { id: "e1", status: "production" },
-    { id: "e2", status: "development" },
+    { id: "e1", project: "Example Project", status: "production" },
+    { id: "e2", project: "Example Project", status: "development" },
+  ],
+  collectedProjects: [
+    {
+      name: "Example Project",
+      url: "https://example.com/",
+      image: null,
+      additions: 12,
+      deletions: 3,
+    },
   ],
   requireGrounding: false,
 });
