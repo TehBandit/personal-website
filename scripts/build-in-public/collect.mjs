@@ -1,5 +1,7 @@
 import { githubPaginate, githubPaginateObject, githubRequest } from "./github.mjs";
 import { normalizeIdentity } from "./config.mjs";
+import { normalizeProjectUrl, summarizeProjects } from "./project-metadata.mjs";
+import { addedImageCandidate } from "./media.mjs";
 import {
   categorizeFile,
   containsSensitivePattern,
@@ -33,8 +35,10 @@ export function isCommitInWindow(commit, window) {
 function repositoryLabel(repository, privateIndex, config) {
   const configured = config.publicRepositoryLabels[repository.full_name];
   if (configured) return configured;
-  if (repository.private) return `a private project ${privateIndex}`;
-  return repository.name.replace(/[-_]+/g, " ").toLowerCase();
+  if (repository.private) return `Private Project ${privateIndex}`;
+  return repository.name
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function productionBranchFor(repository, config) {
@@ -145,6 +149,7 @@ export function consolidatePullRequestEvidence(commits) {
         ...commit,
         changedAreas: [...commit.changedAreas],
         patches: [...commit.patches],
+        images: [...commit.images],
       });
       continue;
     }
@@ -154,6 +159,14 @@ export function consolidatePullRequestEvidence(commits) {
       : "development";
     existing.changedAreas = [...new Set([...existing.changedAreas, ...commit.changedAreas])].sort();
     existing.patches = [...new Set([...existing.patches, ...commit.patches])];
+    existing.images = [
+      ...new Map(
+        [...existing.images, ...commit.images].map((image) => [
+          `${image.repositoryFullName}:${image.blobSha}`,
+          image,
+        ])
+      ).values(),
+    ];
     existing.fileCount += commit.fileCount;
     existing.additions += commit.additions;
     existing.deletions += commit.deletions;
@@ -228,6 +241,9 @@ async function enrichCommit(token, commit, config) {
     `/repos/${owner}/${repository}/commits/${commit.sha}/pulls`
   );
   const files = Array.isArray(details.files) ? details.files : [];
+  const images = files
+    .map((file) => addedImageCandidate(file, commit))
+    .filter(Boolean);
   const eligibleFiles = files
     .filter((file) => !shouldExcludePath(file.filename))
     .slice(0, config.maximumFilesPerCommit);
@@ -267,6 +283,7 @@ async function enrichCommit(token, commit, config) {
     additions: details.stats?.additions ?? 0,
     deletions: details.stats?.deletions ?? 0,
     patches: sanitizedPatches,
+    images,
     sourceText: sourceText.join("\n"),
   };
 }
@@ -333,6 +350,7 @@ export async function collectWeeklyEvidence({ token, config, window }) {
           sha: commit.sha,
           repositoryFullName: repository.full_name,
           projectLabel: label,
+          projectUrl: normalizeProjectUrl(repository.homepage),
           repositoryVisibility: repository.private ? "private" : "public",
           status: classifyBranchMembership([branch.name], productionBranch),
           branches: new Set([branch.name]),
@@ -365,6 +383,8 @@ export async function collectWeeklyEvidence({ token, config, window }) {
   }
 
   const consolidated = consolidatePullRequestEvidence(enriched);
+  const projects = summarizeProjects(consolidated);
+  const imageCandidates = consolidated.flatMap((commit) => commit.images);
 
   const evidence = consolidated.map((commit, index) => ({
     id: `e${index + 1}`,
@@ -384,10 +404,20 @@ export async function collectWeeklyEvidence({ token, config, window }) {
   }));
 
   const limitedEvidence = limitEvidenceWithinCharacterBudgets(consolidated, evidence, config);
+  const collectedProjects = new Set(consolidated.map((commit) => commit.projectLabel));
+  const retainedProjects = new Set(limitedEvidence.map((item) => item.project));
+  const omittedProjects = [...collectedProjects].filter((project) => !retainedProjects.has(project));
+  if (omittedProjects.length > 0) {
+    throw new Error(
+      `Evidence budgets are too small to retain activity for every project: ${omittedProjects.join(", ")}.`
+    );
+  }
 
   return {
     repositoryCount: repositories.length,
     evidence: limitedEvidence,
+    projects,
+    imageCandidates,
     sourceTexts: consolidated.map((commit) => commit.sourceText).filter(Boolean),
   };
 }

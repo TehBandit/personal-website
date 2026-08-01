@@ -85,14 +85,42 @@ the broad activity records that fit safely inside the configured budgets.
 The model receives only the resulting sanitized evidence and must return strict
 JSON using approved presentation blocks. Generated prose is then checked for
 schema validity, evidence references, production/development claims, secrets,
-code details, paths, hashes, capitalization, obvious typos, source-text copying,
-word count, and spelling.
+code details, paths, hashes, capitalization, source-text copying, and word count.
+Spelling is intentionally not normalized or used as a publishing gate so unusual
+product language and deliberate phrasing can remain faithful to the evidence.
+The agent's complete, reviewable behavior prompt lives in
+`scripts/build-in-public/system-prompt.md`; `generate.mjs` appends only the
+current window's metadata, project list, and word limits before each request.
 
 The JSON renderer—not the model—owns the actual React and Tailwind classes. This
-prevents generated executable markup while still allowing headings, paragraphs,
-lists, dividers, callouts, shipped sections, and in-progress sections. Metadata
-is standardized as title, description, slug, tag, date, coverage period, and an
-optional empty header image list.
+prevents generated executable markup and guarantees a consistent devlog layout.
+Each post title is derived from the coverage window as
+`Devlog: [start date] - [end date]`, while the subtitle is a single-line summary
+of the full period. Every active repository is represented once using its public
+project name, with one to three executive-facing bullets followed by a one- to
+three-sentence recap in the owner's more casual voice. Public project names that
+differ from repository names are configured in `publicRepositoryLabels`.
+Each project also displays GitHub's additions and deletions for all qualifying
+commits in the weekly window. The collector aggregates these totals before
+evidence compaction, validation requires the model to reproduce them exactly,
+and the renderer presents additions in green and deletions in red.
+When a repository has a valid website in its GitHub About metadata, the
+collector normalizes it to a safe HTTP(S) URL and the renderer links the project
+heading to it. Missing or invalid About URLs produce an ordinary plaintext
+heading, and validation prevents the model from inventing or changing links.
+If a qualifying commit added one or more PNG, JPEG, GIF, WebP, or AVIF images,
+the collector randomly chooses one image per project, verifies its raster
+signature and size, and copies it into the site's public devlog assets. The
+renderer places it beside the project copy on normal screens and stacks it only
+on narrow mobile screens. Intrinsic sizing, `max-width: 100%`, a bounded maximum
+height, and `object-contain` ensure the image scales down within the existing
+section instead of expanding its width. Preview artifacts include the selected
+media, and publishing commits both the JSON post and its generated media
+directory.
+
+The renderer adds the AI-generation disclosure and a link to
+`TehBandit/personal-website` at the bottom of every generated post, keeping the
+disclaimer identical even when model output changes.
 
 ## operational limits
 

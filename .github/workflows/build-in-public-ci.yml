@@ -28,9 +28,6 @@ jobs:
       - name: Validate generated posts
         run: npm run validate:generated
 
-      - name: Spellcheck generated posts
-        run: npm run spellcheck:generated
-
       - name: Test build-in-public safeguards
         run: npm run test:build-in-public
 

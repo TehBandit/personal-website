@@ -26,8 +26,8 @@ export default function BlogPage() {
           <div className="text-lg">{Post.meta.desc}</div>
           <div className="text-sm italic text-gray-400">{formatDate(Post.meta.date)}</div>
         </div>
-        <div className="px-8 text-xl">
-          {Post.generated ? <GeneratedPost blocks={Post.blocks} /> : <Post.default />}
+        <div className={Post.generated ? "px-4 text-xl" : "px-8 text-xl"}>
+          {Post.generated ? <GeneratedPost projects={Post.projects} /> : <Post.default />}
         </div>
       </div>
 

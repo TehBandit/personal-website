@@ -1,5 +1,20 @@
 import { DateTime } from "luxon";
 
+export function formatDevlogTitle(periodStart, periodEnd) {
+  const start = typeof periodStart === "string"
+    ? DateTime.fromISO(periodStart, { setZone: true })
+    : periodStart;
+  const end = typeof periodEnd === "string"
+    ? DateTime.fromISO(periodEnd, { setZone: true })
+    : periodEnd;
+
+  if (!start?.isValid || !end?.isValid) {
+    throw new Error("Devlog title dates must be valid ISO dates.");
+  }
+
+  return `Devlog: ${start.toFormat("LLLL d, yyyy")} - ${end.toFormat("LLLL d, yyyy")}`;
+}
+
 function parseExplicitWindowEnd(value, timezone) {
   if (!value) return null;
 
@@ -48,5 +63,6 @@ export function calculateWeeklyWindow({
     apiUntil: end.toUTC().toISO({ suppressMilliseconds: true }),
     date: end.toISODate(),
     slug: `building-in-public-${end.toISODate()}`,
+    title: formatDevlogTitle(start, end),
   };
 }
