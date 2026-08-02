@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 4,
+  "meta": {
+    "title": "Devlog: July 26, 2026 - August 2, 2026",
+    "description": "this week i tightened due or die’s public-facing experience and gave this site a safer, more complete weekly publishing flow.",
+    "slug": "building-in-public-2026-08-02",
+    "tag": "Development",
+    "date": "2026-08-02",
+    "periodStart": "2026-07-26T12:00:00-04:00",
+    "periodEnd": "2026-08-02T12:00:00-04:00",
+    "headerPhotos": []
+  },
+  "projects": [
+    {
+      "name": "Due or Die",
+      "url": "https://apps.apple.com/us/app/due-or-die-to-do-app-blocker/id6792173694",
+      "image": "/build-in-public/2026-08-02/due-or-die-1.png",
+      "changes": {
+        "additions": 1132,
+        "deletions": 315
+      },
+      "bullets": [
+        {
+          "text": "shipped the due or die name across the app experience and prepared the product for its public privacy policy.",
+          "evidenceIds": [
+            "e1"
+          ]
+        },
+        {
+          "text": "improved task enforcement messaging so app blocking feels clearer when a deadline is missed.",
+          "evidenceIds": [
+            "e3"
+          ]
+        },
+        {
+          "text": "updated onboarding and purchase information to make permissions, premium benefits, and renewal terms easier to understand.",
+          "evidenceIds": [
+            "e4"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i spent a lot of this week making the sharp edges feel intentional instead of mysterious. due or die is still supposed to be a little mean, but it should at least be clear about it.",
+        "evidenceIds": [
+          "e1",
+          "e3",
+          "e4"
+        ]
+      }
+    },
+    {
+      "name": "Due Or Die Privacy",
+      "url": null,
+      "image": null,
+      "changes": {
+        "additions": 599,
+        "deletions": 0
+      },
+      "bullets": [
+        {
+          "text": "shipped a public privacy policy for due or die.",
+          "evidenceIds": [
+            "e2"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "the privacy policy is now live, which is not the flashiest release but is a very necessary grown-up task.",
+        "evidenceIds": [
+          "e2"
+        ]
+      }
+    },
+    {
+      "name": "Personal Website",
+      "url": "https://www.marcustaylor.org/",
+      "image": "/build-in-public/2026-08-02/personal-website-3.png",
+      "changes": {
+        "additions": 5401,
+        "deletions": 486
+      },
+      "bullets": [
+        {
+          "text": "shipped an automated weekly devlog flow that turns qualifying product activity into a structured public update.",
+          "evidenceIds": [
+            "e5"
+          ]
+        },
+        {
+          "text": "added safeguards that keep weekly evidence bounded while preserving the most relevant production activity.",
+          "evidenceIds": [
+            "e6"
+          ]
+        },
+        {
+          "text": "refined the devlog format with project-level recaps, change summaries, optional media, and stronger publishing checks.",
+          "evidenceIds": [
+            "e8"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i finally put the weekly build-in-public process on a more repeatable path. the goal is to make these updates useful without turning them into a leak of the entire workshop floor.",
+        "evidenceIds": [
+          "e5",
+          "e6",
+          "e8"
+        ]
+      }
+    }
+  ]
+}
