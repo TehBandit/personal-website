@@ -198,6 +198,30 @@ function Home() {
             </div>
           </a>
 
+          {/* Due or Die */}
+          <a
+            href="https://apps.apple.com/us/app/due-or-die-to-do-app-blocker/id6792173694"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group block"
+          >
+            <div className="bg-white rounded-2xl shadow-xl p-6 flex flex-col items-center justify-center gap-3 h-40 md:h-48 hover:shadow-2xl hover:-translate-y-0.5 transition-all">
+              <div className="w-12 h-12 flex items-center justify-center flex-shrink-0 overflow-hidden rounded-xl">
+                <img
+                  src="/colonthree1024.png"
+                  alt="Due or Die icon"
+                  className="w-12 h-12 object-contain"
+                />
+              </div>
+              <div className="text-center">
+                <div className="font-semibold text-lg md:text-xl">Due or Die</div>
+                <div className="text-sm text-gray-500 mt-1 leading-snug">
+                  A meaner task planner where deadlines have consequences
+                </div>
+              </div>
+            </div>
+          </a>
+
           {/* Placeholders */}
           {["untitled project", "untitled project"].map((n, i) => (
             <div
