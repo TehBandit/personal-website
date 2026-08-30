@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 4,
+  "meta": {
+    "title": "Devlog: August 23, 2026 - August 30, 2026",
+    "description": "a broader due or die update is taking shape around feedback, playful challenges, and a clearer view of task outcomes.",
+    "slug": "building-in-public-2026-08-30",
+    "tag": "Development",
+    "date": "2026-08-30",
+    "periodStart": "2026-08-23T12:00:00-04:00",
+    "periodEnd": "2026-08-30T12:00:00-04:00",
+    "headerPhotos": []
+  },
+  "projects": [
+    {
+      "name": "Due or Die",
+      "url": "https://apps.apple.com/us/app/due-or-die-to-do-app-blocker/id6792173694",
+      "image": null,
+      "changes": {
+        "additions": 4361,
+        "deletions": 851
+      },
+      "bullets": [
+        {
+          "text": "i'm experimenting with more responsive interactions and mascot reactions, including a little acknowledgement when a task is finished early.",
+          "evidenceIds": [
+            "e2"
+          ]
+        },
+        {
+          "text": "i added a just-for-fun random punishment option so the app can occasionally manufacture trouble without waiting for a missed task.",
+          "evidenceIds": [
+            "e2"
+          ]
+        },
+        {
+          "text": "i'm building a clearer health view around completed, late, and missed work, with the deeper report reserved for premium access.",
+          "evidenceIds": [
+            "e2"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "this was a big pass at making due or die feel more alive while also giving the accountability side a little more memory. still in progress, but the app is getting better at both judging me and reacting when i briefly get my life together.",
+        "evidenceIds": [
+          "e2"
+        ]
+      }
+    }
+  ]
+}
