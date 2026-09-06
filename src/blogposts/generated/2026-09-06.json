@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 4,
+  "meta": {
+    "title": "Devlog: August 30, 2026 - September 6, 2026",
+    "description": "updates to due or die's onboarding and accountability controls, alongside a clearer privacy policy for analytics and cancellation feedback.",
+    "slug": "building-in-public-2026-09-06",
+    "tag": "Development",
+    "date": "2026-09-06",
+    "periodStart": "2026-08-30T12:00:00-04:00",
+    "periodEnd": "2026-09-06T12:00:00-04:00",
+    "headerPhotos": []
+  },
+  "projects": [
+    {
+      "name": "Due or Die",
+      "url": "https://apps.apple.com/us/app/due-or-die-to-do-app-blocker/id6792173694",
+      "image": null,
+      "changes": {
+        "additions": 4642,
+        "deletions": 349
+      },
+      "bullets": [
+        {
+          "text": "reworked onboarding around configurable accountability options for procrastination, distraction, structure, work time, and forgetfulness.",
+          "evidenceIds": [
+            "e3",
+            "e4"
+          ]
+        },
+        {
+          "text": "continued work on configurable reminders, lock now prompts, routine suggestions, and daily work-time lockouts.",
+          "evidenceIds": [
+            "e3",
+            "e4"
+          ]
+        },
+        {
+          "text": "made the accountability summary shorter and clearer, with more direct defaults for working time.",
+          "evidenceIds": [
+            "e4"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i spent this week making the app's accountability setup feel more like a useful starting point and less like a questionnaire. it's still in progress, but the pieces are starting to connect without making every new task feel like paperwork.",
+        "evidenceIds": [
+          "e3",
+          "e4"
+        ]
+      }
+    },
+    {
+      "name": "Due Or Die Privacy",
+      "url": null,
+      "image": null,
+      "changes": {
+        "additions": 70,
+        "deletions": 9
+      },
+      "bullets": [
+        {
+          "text": "released an updated privacy policy covering limited product analytics and cancellation feedback.",
+          "evidenceIds": [
+            "e1"
+          ]
+        },
+        {
+          "text": "clarified that task titles, display names, selfies, selected distractions, session replay, and location enrichment are not included in analytics.",
+          "evidenceIds": [
+            "e1"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i also updated the privacy policy to be more direct about the limited information used to improve the app. privacy copy is not glamorous, but it should at least be clear.",
+        "evidenceIds": [
+          "e1"
+        ]
+      }
+    }
+  ]
+}
