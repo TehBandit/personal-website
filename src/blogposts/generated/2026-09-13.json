@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 4,
+  "meta": {
+    "title": "Devlog: September 6, 2026 - September 13, 2026",
+    "description": "an onboarding rethink, new intervention experiments, and a tighter due or die experience took shape this week.",
+    "slug": "building-in-public-2026-09-13",
+    "tag": "Development",
+    "date": "2026-09-13",
+    "periodStart": "2026-09-06T12:00:00-04:00",
+    "periodEnd": "2026-09-13T12:00:00-04:00",
+    "headerPhotos": []
+  },
+  "projects": [
+    {
+      "name": "Due or Die",
+      "url": "https://apps.apple.com/us/app/due-or-die-to-do-app-blocker/id6792173694",
+      "image": null,
+      "changes": {
+        "additions": 6654,
+        "deletions": 2497
+      },
+      "bullets": [
+        {
+          "text": "i reworked onboarding to better introduce the app’s permissions and core setup.",
+          "evidenceIds": [
+            "e2"
+          ]
+        },
+        {
+          "text": "i continued experimenting with interventions, including scheduled work locks, task countdowns, and clearer follow-through around missed work.",
+          "evidenceIds": [
+            "e3"
+          ]
+        },
+        {
+          "text": "i trimmed unused surfaces and starter material to keep the product experience more focused.",
+          "evidenceIds": [
+            "e4"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i spent the week pulling the app back toward the parts that create accountability, then making those parts easier to enter and understand. still very much in progress, but the product is starting to feel less like a pile of features.",
+        "evidenceIds": [
+          "e2",
+          "e3",
+          "e4"
+        ]
+      }
+    }
+  ]
+}
