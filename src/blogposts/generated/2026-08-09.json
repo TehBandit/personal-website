@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 4,
+  "meta": {
+    "title": "Devlog: August 2, 2026 - August 9, 2026",
+    "description": "this week i kept shaping due or die’s deadline consequences and added it to my personal site.",
+    "slug": "building-in-public-2026-08-09",
+    "tag": "Development",
+    "date": "2026-08-09",
+    "periodStart": "2026-08-02T12:00:00-04:00",
+    "periodEnd": "2026-08-09T12:00:00-04:00",
+    "headerPhotos": []
+  },
+  "projects": [
+    {
+      "name": "Due or Die",
+      "url": "https://apps.apple.com/us/app/due-or-die-to-do-app-blocker/id6792173694",
+      "image": null,
+      "changes": {
+        "additions": 5644,
+        "deletions": 820
+      },
+      "bullets": [
+        {
+          "text": "continued developing voice feedback, reminders support, and more expressive deadline alerts.",
+          "evidenceIds": [
+            "e2",
+            "e3",
+            "e4",
+            "e5"
+          ]
+        },
+        {
+          "text": "worked on a clearer penalty system that responds to missed tasks, including carryover consequences and cooldowns.",
+          "evidenceIds": [
+            "e5"
+          ]
+        },
+        {
+          "text": "updated the app to version 1.1.0 while continuing to refine onboarding and subscription access.",
+          "evidenceIds": [
+            "e5",
+            "e6"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i spent most of the week making the consequences side of due or die feel more coherent. it is still being worked on, but the app is getting better at being appropriately annoying when deadlines lose.",
+        "evidenceIds": [
+          "e2",
+          "e3",
+          "e4",
+          "e5",
+          "e6"
+        ]
+      }
+    },
+    {
+      "name": "Personal Website",
+      "url": "https://www.marcustaylor.org/",
+      "image": "/build-in-public/2026-08-09/personal-website-2.png",
+      "changes": {
+        "additions": 24,
+        "deletions": 0
+      },
+      "bullets": [
+        {
+          "text": "shipped a new project card for due or die, with a short explanation of its deadline-driven task planning approach.",
+          "evidenceIds": [
+            "e1"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i also gave due or die a proper spot on my site. small update, but it is nice to have the project no longer hiding in the wings.",
+        "evidenceIds": [
+          "e1"
+        ]
+      }
+    }
+  ]
+}

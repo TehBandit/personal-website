@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 4,
+  "meta": {
+    "title": "Devlog: August 16, 2026 - August 23, 2026",
+    "description": "continued work on overdue-task accountability, consequence challenges, and a sharper reminder experience.",
+    "slug": "building-in-public-2026-08-23",
+    "tag": "Development",
+    "date": "2026-08-23",
+    "periodStart": "2026-08-16T12:00:00-04:00",
+    "periodEnd": "2026-08-23T12:00:00-04:00",
+    "headerPhotos": []
+  },
+  "projects": [
+    {
+      "name": "Due or Die",
+      "url": "https://apps.apple.com/us/app/due-or-die-to-do-app-blocker/id6792173694",
+      "image": null,
+      "changes": {
+        "additions": 2544,
+        "deletions": 258
+      },
+      "bullets": [
+        {
+          "text": "continued work on clearer overdue-task visibility and accountability when deadlines pass.",
+          "evidenceIds": [
+            "e1"
+          ]
+        },
+        {
+          "text": "expanded the consequence flow with motion-based and persistence-based challenges for missed tasks.",
+          "evidenceIds": [
+            "e1"
+          ]
+        },
+        {
+          "text": "refined reminder, lockout, and mascot messaging so the app's personality stays consistent across the experience.",
+          "evidenceIds": [
+            "e1"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i spent this week making the overdue loop feel more complete, from the moment a task slips through to the work needed to get back on track. still very much in progress, but it is becoming harder for a missed deadline to quietly disappear into the void.",
+        "evidenceIds": [
+          "e1"
+        ]
+      }
+    }
+  ]
+}

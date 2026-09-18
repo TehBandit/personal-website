@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 4,
+  "meta": {
+    "title": "Devlog: August 9, 2026 - August 16, 2026",
+    "description": "continued work on more reliable task alerts, fairer missed-task challenges, and smoother interactions in due or die.",
+    "slug": "building-in-public-2026-08-16",
+    "tag": "Development",
+    "date": "2026-08-16",
+    "periodStart": "2026-08-09T12:00:00-04:00",
+    "periodEnd": "2026-08-16T12:00:00-04:00",
+    "headerPhotos": []
+  },
+  "projects": [
+    {
+      "name": "Due or Die",
+      "url": "https://apps.apple.com/us/app/due-or-die-to-do-app-blocker/id6792173694",
+      "image": null,
+      "changes": {
+        "additions": 443,
+        "deletions": 53
+      },
+      "bullets": [
+        {
+          "text": "continued improving task alerts so completed or removed tasks do not leave behind stale notifications.",
+          "evidenceIds": [
+            "e1"
+          ]
+        },
+        {
+          "text": "made phrase-based challenges more forgiving of harmless punctuation and spacing differences while keeping meaningful answers distinct.",
+          "evidenceIds": [
+            "e1"
+          ]
+        },
+        {
+          "text": "worked on keeping missed-task challenges bounded and making mascot voice interactions feel more responsive.",
+          "evidenceIds": [
+            "e1"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i spent this week sanding down a few rough edges in the accountability loop. the goal is still simple: reminders and challenges should be annoying for the right reasons, not because the app is being weird.",
+        "evidenceIds": [
+          "e1"
+        ]
+      }
+    }
+  ]
+}
