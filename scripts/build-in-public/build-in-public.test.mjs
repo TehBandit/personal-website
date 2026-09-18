@@ -533,14 +533,28 @@ test("validation rejects a slug that is not derived from the post date", () => {
 });
 
 test("OpenAI schema omits unsupported uniqueness while local validation enforces it", () => {
-  const evidenceIds = openAIGeneratedPostSchema
-    .properties.projects.items.properties.bullets.items.properties.evidenceIds;
+  const bulletsSchema = openAIGeneratedPostSchema
+    .properties.projects.items.properties.bullets;
+  const evidenceIds = bulletsSchema.items.properties.evidenceIds;
+  assert.equal("maxItems" in bulletsSchema, false);
   assert.equal("uniqueItems" in evidenceIds, false);
 
   const post = postFixture();
   post.projects[0].bullets[0].evidenceIds = ["e1", "e1"];
   const errors = validateGeneratedPost(post, validationOptions);
   assert.ok(errors.some((error) => error.includes("duplicate items")));
+});
+
+test("validation accepts more than three changelog bullets for a project", () => {
+  const post = postFixture();
+  post.projects[0].bullets = [
+    { text: "shipped clearer navigation for everyday use.", evidenceIds: ["e1"] },
+    { text: "released a faster way to review recent activity.", evidenceIds: ["e1"] },
+    { text: "improved feedback when an action needs attention.", evidenceIds: ["e1"] },
+    { text: "added a more focused starting point for returning users.", evidenceIds: ["e1"] },
+  ];
+
+  assert.deepEqual(validateGeneratedPost(post, validationOptions), []);
 });
 
 test("validation requires one correctly named section for every active project", () => {

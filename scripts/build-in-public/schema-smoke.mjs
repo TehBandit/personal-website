@@ -33,7 +33,7 @@ const response = await client.responses.create({
       periodEnd: window.periodEnd,
       headerPhotos: [],
     })}.`,
-    "Create one project named Example Project with url set to https://example.com/, image set to null, changes of exactly 12 additions and 3 deletions, 1-3 one-sentence bullets, and a 1-3 sentence casual summary.",
+    "Create one project named Example Project with url set to https://example.com/, image set to null, changes of exactly 12 additions and 3 deletions, one one-sentence bullet for each distinct major change, and a 1-3 sentence casual summary.",
     "Use e1 for production facts and e2 for development facts, and cite evidence on every bullet and summary.",
   ].join("\n"),
   input: "Synthetic evidence: e1 says a clearer navigation experience shipped. e2 says a simpler drafting flow is being explored.",
