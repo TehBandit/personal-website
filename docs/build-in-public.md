@@ -97,9 +97,12 @@ prevents generated executable markup and guarantees a consistent devlog layout.
 Each post title is derived from the coverage window as
 `Devlog: [start date] - [end date]`, while the subtitle is a single-line summary
 of the full period. Every active repository is represented once using its public
-project name, with one to three executive-facing bullets followed by a one- to
-three-sentence recap in the owner's more casual voice. Public project names that
-differ from repository names are configured in `publicRepositoryLabels`.
+project name, with one executive-facing bullet for every distinct major change,
+followed by a one- to three-sentence recap in the owner's more casual voice.
+There is no fixed bullet limit: closely related work is rolled into a single
+changelog-style item, while unrelated major changes remain separate. Public
+project names that differ from repository names are configured in
+`publicRepositoryLabels`.
 Each project also displays GitHub's additions and deletions for all qualifying
 commits in the weekly window. The collector aggregates these totals before
 evidence compaction, validation requires the model to reproduce them exactly,
