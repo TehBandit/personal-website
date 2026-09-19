@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "update:spotify-age": "node scripts/update-spotify-age-data.mjs",
     "test:build-in-public": "node --test scripts/build-in-public/build-in-public.test.mjs",
     "validate:generated": "node scripts/build-in-public/validate-generated-files.mjs",
     "spellcheck:generated": "node scripts/build-in-public/spellcheck.mjs",
@@ -19,6 +20,7 @@
     "@tailwindcss/vite": "^4.1.12",
     "@vercel/analytics": "^2.0.1",
     "embla-carousel-react": "^8.6.0",
+    "lightweight-charts": "^5.2.1",
     "lucide-react": "^0.540.0",
     "openai": "^6.8.1",
     "react": "^19.1.1",
@@ -29,6 +31,7 @@
     "tailwindcss": "^4.1.12"
   },
   "devDependencies": {
+    "@duckdb/node-api": "^1.5.5-r.5",
     "@eslint/js": "^9.33.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",

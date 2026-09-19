@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router-dom";
 import { Analytics } from "@vercel/analytics/react";
 import Blog from "./pages/Blog.jsx";
@@ -7,6 +8,10 @@ import Resume from "./pages/Resume.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import GroceryBattle from "./pages/GroceryBattle.jsx";
 import Contact from "./pages/Contact.jsx";
+
+const RecessionIndicator = lazy(() =>
+  import("./pages/RecessionIndicator.jsx")
+);
 
 function App() {
   return (
@@ -18,6 +23,14 @@ function App() {
           <Route path="/blog/:slug" element={<BlogPage />} />
           <Route path="/resume" element={<Resume />} />
           <Route path="/grocerybattle" element={<GroceryBattle />} />
+          <Route
+            path="/recession-indicator"
+            element={
+              <Suspense fallback={null}>
+                <RecessionIndicator />
+              </Suspense>
+            }
+          />
           <Route path="/contact" element={<Contact />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
