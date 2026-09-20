@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 4,
+  "meta": {
+    "title": "Devlog: September 13, 2026 - September 20, 2026",
+    "description": "work this week centered on making due or die more dependable while expanding the personal website’s build-in-public tooling and exploring a new data view.",
+    "slug": "building-in-public-2026-09-20",
+    "tag": "Development",
+    "date": "2026-09-20",
+    "periodStart": "2026-09-13T12:00:00-04:00",
+    "periodEnd": "2026-09-20T12:00:00-04:00",
+    "headerPhotos": []
+  },
+  "projects": [
+    {
+      "name": "Due or Die",
+      "url": "https://apps.apple.com/us/app/due-or-die-to-do-app-blocker/id6792173694",
+      "image": null,
+      "changes": {
+        "additions": 8564,
+        "deletions": 1802
+      },
+      "bullets": [
+        {
+          "text": "continued exploratory work on responsiveness improvements across the app.",
+          "evidenceIds": [
+            "e1",
+            "e2"
+          ]
+        },
+        {
+          "text": "continued building one-time update messages so existing users can be introduced to new capabilities in a controlled order.",
+          "evidenceIds": [
+            "e3",
+            "e5"
+          ]
+        },
+        {
+          "text": "improved task completion handling so completion timing can remain consistent across app experiences.",
+          "evidenceIds": [
+            "e4"
+          ]
+        },
+        {
+          "text": "strengthened scheduled work-lock safeguards with clearer validation, save feedback, and health-status reporting.",
+          "evidenceIds": [
+            "e4"
+          ]
+        },
+        {
+          "text": "refined health reporting so newly completed work is evaluated at the time the report refreshes.",
+          "evidenceIds": [
+            "e5"
+          ]
+        },
+        {
+          "text": "continued the android port with platform-specific onboarding, notification, purchasing, and visual compatibility work.",
+          "evidenceIds": [
+            "e7"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i spent a lot of this week making the app less likely to get confused at the exact moment it is supposed to be strict. the android version is also taking shape, though it is still very much a work in progress.",
+        "evidenceIds": [
+          "e1",
+          "e3",
+          "e4",
+          "e5",
+          "e7"
+        ]
+      }
+    },
+    {
+      "name": "Personal Website",
+      "url": "https://www.marcustaylor.org/",
+      "image": null,
+      "changes": {
+        "additions": 3717,
+        "deletions": 20
+      },
+      "bullets": [
+        {
+          "text": "shipped more flexible build-in-public posts that can cover each meaningful project update without an arbitrary bullet cap.",
+          "evidenceIds": [
+            "e8"
+          ]
+        },
+        {
+          "text": "started building a new recession-indicator page that brings together market movement and music-chart age data.",
+          "evidenceIds": [
+            "e9"
+          ]
+        },
+        {
+          "text": "started adding a refreshed data pipeline and interactive charts for the new indicator experience.",
+          "evidenceIds": [
+            "e9"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i loosened the devlog format so it can better reflect a busy week without pretending everything fits into three bullets. i also started a small data experiment for the site, because apparently looking at charts is a hobby now.",
+        "evidenceIds": [
+          "e8",
+          "e9"
+        ]
+      }
+    }
+  ]
+}
