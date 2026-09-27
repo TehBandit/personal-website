@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 4,
+  "meta": {
+    "title": "Devlog: September 20, 2026 - September 27, 2026",
+    "description": "continued building out the android experience for deadline alerts, app blocking, onboarding, and accessibility.",
+    "slug": "building-in-public-2026-09-27",
+    "tag": "Development",
+    "date": "2026-09-27",
+    "periodStart": "2026-09-20T12:00:00-04:00",
+    "periodEnd": "2026-09-27T12:00:00-04:00",
+    "headerPhotos": []
+  },
+  "projects": [
+    {
+      "name": "Due or Die",
+      "url": "https://apps.apple.com/us/app/due-or-die-to-do-app-blocker/id6792173694",
+      "image": null,
+      "changes": {
+        "additions": 3171,
+        "deletions": 260
+      },
+      "bullets": [
+        {
+          "text": "continued building android deadline alerts, including clearer guidance when system settings may delay or limit them.",
+          "evidenceIds": [
+            "e1"
+          ]
+        },
+        {
+          "text": "continued building android app blocking with app selection, an up-front privacy disclosure, and lock-status messaging.",
+          "evidenceIds": [
+            "e1"
+          ]
+        },
+        {
+          "text": "added guidance for android's restricted-settings step so people can reach accessibility setup with fewer dead ends.",
+          "evidenceIds": [
+            "e3",
+            "e4"
+          ]
+        },
+        {
+          "text": "expanded the android onboarding experience with work-time setup, time picking, mascot voice support, and layout and accessibility polish.",
+          "evidenceIds": [
+            "e4"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i spent this week making the android version feel less like a reluctant houseguest. the main flows are taking shape, especially around alerts, blocking, and the many system settings android would prefer users discover by accident.",
+        "evidenceIds": [
+          "e1",
+          "e3",
+          "e4"
+        ]
+      }
+    }
+  ]
+}
