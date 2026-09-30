@@ -93,6 +93,7 @@ export default function GuestBookVote() {
           <p className="bookclub-eyebrow">{vote.club_name} · {vote.status === "open" ? "Vote open" : "Vote closed"}</p>
           <h1 className="bookclub-title">{vote.title}</h1>
           {vote.status === "open" ? <>
+            <div className="bookclub-card"><span className="bookclub-label">Live turnout</span><p>{vote.turnout} {vote.turnout === 1 ? "reader has" : "readers have"} voted</p></div>
             <div className="bookclub-card">
               <span className="bookclub-label">How it works</span>
               <p>Rank every book from your favorite to your least favorite. First place earns {vote.options.length} points. You can update your ballot from this browser until the organizer closes voting.</p>
@@ -119,6 +120,17 @@ export default function GuestBookVote() {
               <h2 className="bookclub-heading">{winner?.title || "Voting has ended"}</h2>
               {winner?.authors?.length > 0 && <p className="bookclub-muted">{winner.authors.join(", ")}</p>}
             </div>
+            <h2 className="bookclub-heading">Final ranking</h2>
+            {vote.results?.map((result, index) => {
+              const option = vote.options.find(item => item.id === result.option_id);
+              return option && <div className="bookclub-card" key={result.option_id}>
+                <span className="bookclub-label">#{index + 1} · {result.points} points</span>
+                <div className="bookclub-book" style={{ marginTop: 12 }}>
+                  {option.cover_url ? <img className="bookclub-cover" src={option.cover_url} alt="" /> : <div className="bookclub-cover" />}
+                  <div><h3 className="bookclub-book-title">{option.title}</h3><p className="bookclub-muted">{option.authors?.join(", ") || "Unknown author"}</p></div>
+                </div>
+              </div>;
+            })}
             {saved && <div className="bookclub-notice">Your ballot was counted.</div>}
           </>}
         </>}
