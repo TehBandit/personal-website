@@ -1,5 +1,13 @@
 # React + Vite
 
+## Bookclubr guest voting
+
+`/bookclub` is the public landing page. An organizer-generated URL at `/bookclub/v/<code>` opens the ranked ballot in the browser. The React routes rely on the existing Vercel rewrite in `vercel.json` for direct visits.
+
+The Supabase project URL and publishable key are in `src/pages/bookclubConfig.js`. This key is intentionally public; the database migration in the Bookclubr app repository grants anonymous callers only token-scoped guest vote RPCs. Do not put a Supabase secret or service-role key in this file.
+
+Vercel Analytics is disabled on guest vote routes so ballot links are not recorded as analytics page paths. Browser local storage supplies a stable ballot ID for edits. It does not prevent someone from voting again in another browser.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
