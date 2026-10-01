@@ -99,3 +99,26 @@
 .bookclub-notice { padding: 15px; border-radius: 14px; background: #dbe9dd; color: #1e5b43; line-height: 1.5; }
 .bookclub-notice.error { background: #f8e2dd; color: #b2463d; }
 .bookclub-footer { margin-top: 45px; color: #62726c; font-size: 12px; }
+
+.bookclub-search {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid #d6d9cd;
+  border-radius: 14px;
+  background: #fffdf8;
+  color: #172b27;
+  font: inherit;
+}
+.bookclub-search:focus-visible { outline: 3px solid #cf6a45; outline-offset: 2px; }
+.bookclub-countdown { text-align: center; }
+.bookclub-spinner {
+  width: 56px;
+  height: 56px;
+  margin: 12px auto;
+  border: 5px solid #dbe9dd;
+  border-top-color: #1e5b43;
+  border-radius: 50%;
+  animation: bookclub-spin .8s linear infinite;
+}
+@keyframes bookclub-spin { to { transform: rotate(360deg); } }
