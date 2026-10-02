@@ -42,6 +42,7 @@ export default function GuestBookVote() {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [query, setQuery] = useState("");
+  const [guestName, setGuestName] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -102,11 +103,13 @@ export default function GuestBookVote() {
   }, [query, vote?.status, vote?.my_nomination]);
 
   async function nominate(book) {
+    if (!guestName.trim()) { setError("Enter your name before suggesting a book."); return; }
     setSaving(true); setError("");
     try {
       await rpc("submit_guest_nomination", {
         p_code: code, p_voter: voterId, p_work_id: book.key.split("/").pop(),
         p_title: book.title, p_authors: (book.author_name || []).slice(0, 10),
+        p_name: guestName.trim(),
         p_cover_url: book.cover_i ? `https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg` : null,
         p_page_count: book.number_of_pages_median || null,
       });
@@ -155,7 +158,9 @@ export default function GuestBookVote() {
             </div>
             {vote.my_nomination ? <div className="bookclub-notice" role="status">Your book is nominated. This page will move to voting when the organizer is ready.</div> : <>
               <h2 className="bookclub-heading">Suggest one book</h2>
-              <p className="bookclub-muted">Search by title, author, or ISBN and choose one book to nominate.</p>
+              <p className="bookclub-muted">Add your name, then search by title, author, or ISBN and choose one book to nominate.</p>
+              <label className="bookclub-name-label" htmlFor="guest-name">Your name</label>
+              <input id="guest-name" className="bookclub-search" autoComplete="name" maxLength={80} value={guestName} onChange={event => setGuestName(event.target.value)} placeholder="Name shown with your suggestion" />
               <input className="bookclub-search" aria-label="Search books" placeholder="Title, author, or ISBN" value={query} onChange={event => setQuery(event.target.value)} />
               {searching && <p className="bookclub-muted">Searching books…</p>}
               {searchResults.map(book => <div className="bookclub-card" key={book.key}>
@@ -163,7 +168,7 @@ export default function GuestBookVote() {
                   {book.cover_i ? <img className="bookclub-cover" src={`https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`} alt="" /> : <div className="bookclub-cover" />}
                   <div><h3 className="bookclub-book-title">{book.title}</h3><p className="bookclub-muted">{book.author_name?.join(", ") || "Unknown author"}</p></div>
                 </div>
-                <button className="bookclub-button bookclub-submit" disabled={saving} onClick={() => nominate(book)}>{saving ? "Suggesting…" : "Suggest this book"}</button>
+                <button className="bookclub-button bookclub-submit" disabled={saving || !guestName.trim()} onClick={() => nominate(book)}>{saving ? "Suggesting…" : "Suggest this book"}</button>
               </div>)}
             </>}
             {error && <div className="bookclub-notice error" role="alert">{error}</div>}
