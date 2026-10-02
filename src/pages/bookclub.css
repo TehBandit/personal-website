@@ -100,7 +100,9 @@
 .bookclub-notice.error { background: #f8e2dd; color: #b2463d; }
 .bookclub-footer { margin-top: 45px; color: #62726c; font-size: 12px; }
 
+.bookclub-name-label { display: block; margin: 18px 0 8px; font-weight: 700; }
 .bookclub-search {
+  margin-bottom: 12px;
   width: 100%;
   min-height: 48px;
   padding: 12px 14px;
