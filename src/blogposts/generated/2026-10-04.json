@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 4,
+  "meta": {
+    "title": "Devlog: September 27, 2026 - October 4, 2026",
+    "description": "guest bookclubr voting expanded, while android support for due or die and a new shared-reading app moved forward.",
+    "slug": "building-in-public-2026-10-04",
+    "tag": "Development",
+    "date": "2026-10-04",
+    "periodStart": "2026-09-27T12:00:00-04:00",
+    "periodEnd": "2026-10-04T12:00:00-04:00",
+    "headerPhotos": []
+  },
+  "projects": [
+    {
+      "name": "Due or Die",
+      "url": "https://apps.apple.com/us/app/due-or-die-to-do-app-blocker/id6792173694",
+      "image": "/build-in-public/2026-10-04/due-or-die-1.png",
+      "changes": {
+        "additions": 2524,
+        "deletions": 471
+      },
+      "bullets": [
+        {
+          "text": "continued android work on more forceful deadline alerts, including full-screen alarm controls, sound, vibration, and lock-screen behavior.",
+          "evidenceIds": [
+            "e1"
+          ]
+        },
+        {
+          "text": "continued android task countdown work so upcoming deadlines can remain visible in a lock-screen notification.",
+          "evidenceIds": [
+            "e1"
+          ]
+        },
+        {
+          "text": "continued improving android app blocking with a dedicated block screen that can keep users focused when a configured lock is active.",
+          "evidenceIds": [
+            "e1"
+          ]
+        },
+        {
+          "text": "continued refining android permission guidance and settings flows for alarms, notifications, and app blocking.",
+          "evidenceIds": [
+            "e1"
+          ]
+        },
+        {
+          "text": "improved keyboard behavior and first-task permission setup across supported mobile platforms.",
+          "evidenceIds": [
+            "e1"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i spent a lot of this week making the android version feel less like an afterthought. it is still in progress, but the core deadline and blocking experience is taking shape.",
+        "evidenceIds": [
+          "e1"
+        ]
+      }
+    },
+    {
+      "name": "Personal Website",
+      "url": "https://www.marcustaylor.org/",
+      "image": null,
+      "changes": {
+        "additions": 392,
+        "deletions": 6
+      },
+      "bullets": [
+        {
+          "text": "shipped a bookclubr landing page and browser-based guest voting so invited readers can participate without downloading the app.",
+          "evidenceIds": [
+            "e2"
+          ]
+        },
+        {
+          "text": "added live turnout during open guest votes and full final rankings once organizers close voting.",
+          "evidenceIds": [
+            "e3"
+          ]
+        },
+        {
+          "text": "let guests nominate one book from the shared vote page before voting begins, with a synchronized countdown into ranked voting.",
+          "evidenceIds": [
+            "e5"
+          ]
+        },
+        {
+          "text": "added a name field for guest nominations so suggestions can be identified in club history.",
+          "evidenceIds": [
+            "e6"
+          ]
+        },
+        {
+          "text": "kept guest ballot links out of site analytics paths.",
+          "evidenceIds": [
+            "e2"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i wanted guest voting to feel like a real part of bookclubr rather than a side quest. now people can suggest a book, see the room warming up, vote, and follow the final result from one shared page.",
+        "evidenceIds": [
+          "e2",
+          "e3",
+          "e5",
+          "e6"
+        ]
+      }
+    },
+    {
+      "name": "Private Project 3",
+      "url": null,
+      "image": null,
+      "changes": {
+        "additions": 23840,
+        "deletions": 0
+      },
+      "bullets": [
+        {
+          "text": "released the initial shared-reading app with profiles, friend requests, personal shelves, book search, and reviews.",
+          "evidenceIds": [
+            "e4"
+          ]
+        },
+        {
+          "text": "released public reading clubs with member roles, reading goals, progress updates, reactions, replies, and club activity.",
+          "evidenceIds": [
+            "e4"
+          ]
+        },
+        {
+          "text": "released organizer-led ranked book voting, including member nominations, guest vote links, vote results, and tie handling.",
+          "evidenceIds": [
+            "e4"
+          ]
+        },
+        {
+          "text": "released notifications for reading and club activity, along with calendar support for reading deadlines.",
+          "evidenceIds": [
+            "e4"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i got the first version of this shared-reading app out into the world. there are a lot of moving parts, but the main loop of finding books, reading together, and picking the next one is now there.",
+        "evidenceIds": [
+          "e4"
+        ]
+      }
+    }
+  ]
+}
