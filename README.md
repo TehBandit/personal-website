@@ -1,5 +1,18 @@
 # React + Vite
 
+## Bookclubr App Store URLs
+
+- Marketing URL: https://www.marcustaylor.org/bookclub
+- Support URL: https://www.marcustaylor.org/bookclub/support
+- Privacy Policy URL: https://www.marcustaylor.org/bookclub/privacy
+
+The marketing page describes Bookclubr's reading and club features. The support
+page provides troubleshooting, account deletion guidance, and a direct email
+contact without requiring sign-in. The privacy policy covers app and guest data,
+service providers, permissions, visibility, retention, and deletion. All three
+are public routes served by the existing Vercel SPA rewrite. Guest voting remains
+at `/bookclub/v/:code`.
+
 ## Bookclubr guest voting
 
 `/bookclub` is the public landing page. An organizer-generated URL at `/bookclub/v/<code>` opens the ranked ballot in the browser. The React routes rely on the existing Vercel rewrite in `vercel.json` for direct visits.

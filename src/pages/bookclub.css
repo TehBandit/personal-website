@@ -99,6 +99,9 @@
 .bookclub-notice { padding: 15px; border-radius: 14px; background: #dbe9dd; color: #1e5b43; line-height: 1.5; }
 .bookclub-notice.error { background: #f8e2dd; color: #b2463d; }
 .bookclub-footer { margin-top: 45px; color: #62726c; font-size: 12px; }
+.bookclub-guest-footer-links { display: flex; gap: 20px; margin-top: 12px; }
+.bookclub-guest-footer-links a { color: #1e5b43; text-underline-offset: 4px; }
+.bookclub-guest-footer-links a:focus-visible { outline: 3px solid #cf6a45; outline-offset: 3px; }
 
 .bookclub-name-label { display: block; margin: 18px 0 8px; font-weight: 700; }
 .bookclub-search {
@@ -124,3 +127,79 @@
   animation: bookclub-spin .8s linear infinite;
 }
 @keyframes bookclub-spin { to { transform: rotate(360deg); } }
+
+/* Public marketing and support pages. Guest voting keeps its existing layout. */
+.bookclub-public-wrap { width: min(100% - 40px, 1040px); margin: 0 auto; }
+.bookclub-public { font-size: 16px; line-height: 1.6; }
+.bookclub-public a { text-underline-offset: 4px; }
+.bookclub-public a:focus-visible, .bookclub-public summary:focus-visible {
+  outline: 3px solid #cf6a45;
+  outline-offset: 4px;
+}
+.bookclub-public .bookclub-brand { font-size: 25px; letter-spacing: -.8px; }
+.bookclub-public .bookclub-brand span { color: #172b27; }
+.bookclub-nav { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 25px 0; border-bottom: 1px solid #d6d9cd; }
+.bookclub-nav-links { display: flex; gap: 22px; font-size: 14px; }
+.bookclub-nav-links a { color: #1e5b43; text-decoration: none; padding: 8px 0; }
+.bookclub-nav-links a:hover, .bookclub-nav-links a.active { text-decoration: underline; }
+.bookclub-skip { position: absolute; top: 0; left: 20px; z-index: 10; padding: 12px 18px; background: #fffdf8; color: #1e5b43; transform: translateY(-150%); }
+.bookclub-skip:focus { transform: translateY(0); }
+.bookclub-hero { display: grid; grid-template-columns: 1.35fr 1fr; align-items: center; gap: 48px; padding: 64px 0; }
+.bookclub-public .bookclub-eyebrow { margin: 0 0 14px; }
+.bookclub-public .bookclub-title { font-size: clamp(40px, 6vw, 64px); letter-spacing: -1.5px; }
+.bookclub-lead { max-width: 620px; color: #52645c; font-size: 18px; line-height: 1.7; }
+.bookclub-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
+.bookclub-public .bookclub-button { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.bookclub-reading-note { padding: 36px; border-radius: 24px 24px 72px 24px; background: #1e5b43; color: #fffdf8; box-shadow: 8px 8px 0 #dbe9dd; }
+.bookclub-reading-note .bookclub-label { color: #dbe9dd; }
+.bookclub-reading-note h2 { margin: 22px 0; font-family: Georgia, serif; font-size: clamp(28px, 4vw, 38px); line-height: 1.2; }
+.bookclub-reading-note ol { list-style: none; margin: 26px 0; padding: 0; }
+.bookclub-reading-note li { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid #658573; }
+.bookclub-reading-note li span { color: #dbe9dd; font-size: 12px; }
+.bookclub-reading-note > p { margin: 0; font-size: 14px; color: #dbe9dd; }
+.bookclub-section { padding: 32px 0; scroll-margin-top: 24px; }
+.bookclub-section-title { margin: 0 0 28px; font-family: Georgia, serif; font-size: clamp(28px, 4vw, 36px); line-height: 1.25; }
+.bookclub-feature-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.bookclub-public .bookclub-card { margin: 0; padding: 26px; }
+.bookclub-feature-grid h3 { margin: 10px 0; font-family: Georgia, serif; font-size: 23px; line-height: 1.3; }
+.bookclub-feature-grid p, .bookclub-guest-info p { color: #52645c; }
+.bookclub-public .bookclub-guest-info { display: flex; align-items: center; gap: 32px; margin-top: 20px; }
+.bookclub-guest-info .bookclub-heading { margin: 10px 0; }
+.bookclub-text-link { color: #1e5b43; font-weight: 700; flex: 0 0 185px; }
+.bookclub-support-intro { padding: 64px 0 32px; }
+.bookclub-public .bookclub-contact-card { max-width: 760px; }
+.bookclub-contact-card .bookclub-heading { margin-top: 10px; }
+.bookclub-contact-address { overflow-wrap: anywhere; }
+.bookclub-contact-address a { color: #1e5b43; }
+.bookclub-contact-card .bookclub-muted { font-size: 14px; }
+.bookclub-faq { max-width: 760px; }
+.bookclub-faq details { border-bottom: 1px solid #d6d9cd; scroll-margin-top: 24px; }
+.bookclub-faq summary { padding: 20px 4px; font-weight: 700; cursor: pointer; }
+.bookclub-faq details[open] summary { color: #1e5b43; }
+.bookclub-faq details > div { padding: 0 4px 20px; color: #52645c; }
+.bookclub-faq p { margin: 0 0 12px; }
+.bookclub-faq p:last-child { margin-bottom: 0; }
+.bookclub-public-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 16px 24px; margin-top: 48px; padding: 24px 0 32px; border-top: 1px solid #d6d9cd; color: #62726c; font-size: 13px; }
+.bookclub-public-footer p { flex: 1 1 300px; margin: 0; }
+.bookclub-public-footer a { color: #1e5b43; }
+.bookclub-policy { max-width: 760px; padding: 64px 0 0; }
+.bookclub-policy h2 { margin: 32px 0 12px; font-family: Georgia, serif; font-size: 25px; line-height: 1.3; }
+.bookclub-policy p { margin: 0 0 16px; }
+.bookclub-policy ul { list-style: disc; padding-left: 24px; margin: 0 0 20px; }
+.bookclub-policy li { margin-bottom: 12px; }
+.bookclub-policy a { color: #1e5b43; overflow-wrap: anywhere; }
+@media (max-width: 720px) {
+  .bookclub-hero { grid-template-columns: 1fr; gap: 32px; padding: 44px 0; }
+  .bookclub-reading-note { padding: 28px; }
+  .bookclub-feature-grid { grid-template-columns: 1fr; }
+  .bookclub-public .bookclub-guest-info { flex-direction: column; align-items: flex-start; gap: 20px; }
+  .bookclub-text-link { flex: auto; }
+  .bookclub-support-intro { padding-top: 44px; }
+  .bookclub-policy { padding-top: 44px; }
+}
+@media (max-width: 380px) {
+  .bookclub-public-wrap { width: calc(100% - 32px); }
+  .bookclub-nav { flex-wrap: wrap; gap: 8px; }
+  .bookclub-nav-links { gap: 14px; font-size: 13px; }
+  .bookclub-public .bookclub-title { font-size: 36px; }
+}
