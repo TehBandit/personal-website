@@ -220,7 +220,13 @@ export default function GuestBookVote() {
         </>}
         {!vote && <div className="bookclub-notice error" role="alert">{error || "This vote is unavailable."}</div>}
       </>}
-      <footer className="bookclub-footer">Bookclubr · Find your next read together.</footer>
+      <footer className="bookclub-footer">
+        <p>Bookclubr · Find your next read together.</p>
+        <div className="bookclub-guest-footer-links">
+          <Link to="/bookclub/support">Support</Link>
+          <Link to="/bookclub/privacy">Privacy policy</Link>
+        </div>
+      </footer>
     </div>
   </main>;
 }
