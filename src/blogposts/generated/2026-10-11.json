@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 4,
+  "meta": {
+    "title": "Devlog: October 4, 2026 - October 11, 2026",
+    "description": "a week of product safety, clearer app support, and new windows desktop tools.",
+    "slug": "building-in-public-2026-10-11",
+    "tag": "Development",
+    "date": "2026-10-11",
+    "periodStart": "2026-10-04T12:00:00-04:00",
+    "periodEnd": "2026-10-11T12:00:00-04:00",
+    "headerPhotos": []
+  },
+  "projects": [
+    {
+      "name": "Personal Website",
+      "url": "https://www.marcustaylor.org/",
+      "image": null,
+      "changes": {
+        "additions": 384,
+        "deletions": 15
+      },
+      "bullets": [
+        {
+          "text": "published a fuller bookclubr overview alongside dedicated help and privacy information, with clearer navigation from the app’s public touchpoints.",
+          "evidenceIds": [
+            "e5"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i gave bookclubr’s public home a little more of the information it should have had from the start. less scavenger hunt, more useful context.",
+        "evidenceIds": [
+          "e5"
+        ]
+      }
+    },
+    {
+      "name": "Private Project 3",
+      "url": null,
+      "image": "/build-in-public/2026-10-11/private-project-3-2.png",
+      "changes": {
+        "additions": 21512,
+        "deletions": 1593
+      },
+      "bullets": [
+        {
+          "text": "shipped updated safety controls that can block prohibited posts, limit access to removed or blocked content, and prevent suspended accounts from posting or messaging.",
+          "evidenceIds": [
+            "e6"
+          ]
+        },
+        {
+          "text": "improved the reading-club experience with a shared book list, richer vote history, recommendations, and easier sharing of reader and club pages.",
+          "evidenceIds": [
+            "e6"
+          ]
+        },
+        {
+          "text": "improved photo handling with better loading states, caching, and smaller uploads for reader and club images.",
+          "evidenceIds": [
+            "e6"
+          ]
+        },
+        {
+          "text": "prepared an updated ios build for testing, while physical-device checks remain necessary before a public release.",
+          "evidenceIds": [
+            "e6"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "this was a big week of making the app feel more complete and more responsible at the same time. the public-release checklist is shorter now, but it still has a very real iphone-shaped item on it.",
+        "evidenceIds": [
+          "e1",
+          "e2",
+          "e3",
+          "e4",
+          "e6"
+        ]
+      }
+    },
+    {
+      "name": "Stoplight",
+      "url": null,
+      "image": "/build-in-public/2026-10-11/stoplight-3.png",
+      "changes": {
+        "additions": 1321,
+        "deletions": 0
+      },
+      "bullets": [
+        {
+          "text": "released a windows tray companion that shows active, unread, and failed codex chats at a glance.",
+          "evidenceIds": [
+            "e7"
+          ]
+        },
+        {
+          "text": "added a searchable status view that opens matching chats while keeping monitoring read-only.",
+          "evidenceIds": [
+            "e7"
+          ]
+        },
+        {
+          "text": "documented installation, startup, troubleshooting, and validation steps for windows users.",
+          "evidenceIds": [
+            "e7"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i wanted a quieter way to keep an eye on codex without repeatedly opening the panel. three tiny lights felt like a reasonable answer.",
+        "evidenceIds": [
+          "e7"
+        ]
+      }
+    },
+    {
+      "name": "Traybridge",
+      "url": null,
+      "image": null,
+      "changes": {
+        "additions": 21154,
+        "deletions": 227
+      },
+      "bullets": [
+        {
+          "text": "released a standalone multi-monitor tray manager for windows, giving people control over where app and system tray items appear.",
+          "evidenceIds": [
+            "e8"
+          ]
+        },
+        {
+          "text": "kept selected application and system icons interactive while making custom icon choices clearer.",
+          "evidenceIds": [
+            "e9"
+          ]
+        },
+        {
+          "text": "separated monitor viewing from monitor targeting so settings can be reviewed without accidentally changing where they will be applied.",
+          "evidenceIds": [
+            "e10"
+          ]
+        },
+        {
+          "text": "added complete configuration snapshots, an option to restore windows defaults, and a more modern manager interface.",
+          "evidenceIds": [
+            "e11"
+          ]
+        },
+        {
+          "text": "made long icon lists easier to work through with search and added system, light, and dark appearance choices.",
+          "evidenceIds": [
+            "e12"
+          ]
+        },
+        {
+          "text": "corrected initialization issues and improved the local development setup.",
+          "evidenceIds": [
+            "e13"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "traybridge went from a promising proof of concept to something much easier to configure without second-guessing every checkbox. windows trays are apparently a full-time hobby now.",
+        "evidenceIds": [
+          "e8",
+          "e9",
+          "e10",
+          "e11",
+          "e12",
+          "e13"
+        ]
+      }
+    }
+  ]
+}
