@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 4,
+  "meta": {
+    "title": "Devlog: October 11, 2026 - October 18, 2026",
+    "description": "released traybridge and stoplight updates while expanding local media-production workflows and continuing due or die optimization.",
+    "slug": "building-in-public-2026-10-18",
+    "tag": "Development",
+    "date": "2026-10-18",
+    "periodStart": "2026-10-11T12:00:00-04:00",
+    "periodEnd": "2026-10-18T12:00:00-04:00",
+    "headerPhotos": []
+  },
+  "projects": [
+    {
+      "name": "Due or Die",
+      "url": "https://apps.apple.com/us/app/due-or-die-to-do-app-blocker/id6792173694",
+      "image": null,
+      "changes": {
+        "additions": 63,
+        "deletions": 0
+      },
+      "bullets": [
+        {
+          "text": "optimization work across the app, configuration, and test coverage is still in progress.",
+          "evidenceIds": [
+            "e5"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i spent some time tightening up due or die this week. it is still a work in progress, but the optimization pass is moving along.",
+        "evidenceIds": [
+          "e5"
+        ]
+      }
+    },
+    {
+      "name": "Private Project 6",
+      "url": null,
+      "image": "/build-in-public/2026-10-18/private-project-6-2.png",
+      "changes": {
+        "additions": 22533,
+        "deletions": 1665
+      },
+      "bullets": [
+        {
+          "text": "launched the initial cutroom workspace for reviewing existing footage and assembling local portrait videos with source audio.",
+          "evidenceIds": [
+            "e6",
+            "e8"
+          ]
+        },
+        {
+          "text": "added optional local caption-removal previews so editors can review repairs before approving a clip.",
+          "evidenceIds": [
+            "e8"
+          ]
+        },
+        {
+          "text": "expanded the studio to support photo slideshows alongside video-based edits.",
+          "evidenceIds": [
+            "e8"
+          ]
+        },
+        {
+          "text": "added product-context and hashtag research suggestions that remain reviewable before becoming approved settings.",
+          "evidenceIds": [
+            "e8"
+          ]
+        },
+        {
+          "text": "documented installation, design standards, and validation guidance for using the workspace on another windows device.",
+          "evidenceIds": [
+            "e8"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i got the core of cutroom into place this week. the goal is a calmer local workspace for turning existing media into edits, with a few more useful review steps before anything gets published.",
+        "evidenceIds": [
+          "e6",
+          "e8"
+        ]
+      }
+    },
+    {
+      "name": "Private Project 7",
+      "url": null,
+      "image": null,
+      "changes": {
+        "additions": 211,
+        "deletions": 0
+      },
+      "bullets": [
+        {
+          "text": "created an initial set of draft benchmark assemblies built from approved hook and product-demo clips.",
+          "evidenceIds": [
+            "e7"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i also put together some early benchmark edits to pressure-test the assembly workflow. they are drafts for now, which is exactly where experiments should be.",
+        "evidenceIds": [
+          "e7"
+        ]
+      }
+    },
+    {
+      "name": "Stoplight",
+      "url": null,
+      "image": null,
+      "changes": {
+        "additions": 298,
+        "deletions": 96
+      },
+      "bullets": [
+        {
+          "text": "released stoplight 0.1.1 with clearer tray and dashboard states for completed unread chats, chats awaiting input, and chats still running.",
+          "evidenceIds": [
+            "e3"
+          ]
+        },
+        {
+          "text": "improved recovery of saved chat status so completed replies and pending input are represented more reliably after reconnecting.",
+          "evidenceIds": [
+            "e3"
+          ]
+        },
+        {
+          "text": "documented how stoplight can pair with traybridge to keep chat status visible on additional displays.",
+          "evidenceIds": [
+            "e4"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i wanted stoplight to answer the more useful question at a glance: what finished, what needs me, and what is still going. this release makes those states a lot easier to read.",
+        "evidenceIds": [
+          "e3",
+          "e4"
+        ]
+      }
+    },
+    {
+      "name": "Traybridge",
+      "url": "https://github.com/TehBandit/traybridge/releases/tag/v0.1.5",
+      "image": "/build-in-public/2026-10-18/traybridge-5.png",
+      "changes": {
+        "additions": 3542,
+        "deletions": 179
+      },
+      "bullets": [
+        {
+          "text": "released the traybridge 0.1.5 preview with portable downloads and a walkthrough for setting up native notification areas on additional displays.",
+          "evidenceIds": [
+            "e1"
+          ]
+        },
+        {
+          "text": "added stronger release, recovery, and cleanup safeguards to make setup and removal more dependable.",
+          "evidenceIds": [
+            "e1"
+          ]
+        },
+        {
+          "text": "clarified supported windows requirements and added guidance for security reports and ongoing compatibility review.",
+          "evidenceIds": [
+            "e1"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i shipped an early traybridge preview this week. it is intentionally narrow in supported scope, but the release path and recovery work now have much more of the necessary guardrail energy.",
+        "evidenceIds": [
+          "e1",
+          "e2"
+        ]
+      }
+    }
+  ]
+}
