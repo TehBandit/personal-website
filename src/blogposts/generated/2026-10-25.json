@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 4,
+  "meta": {
+    "title": "Devlog: October 18, 2026 - October 25, 2026",
+    "description": "shipped clearer publishing, editing, and finished-output workflows while refining due or die’s trial messaging.",
+    "slug": "building-in-public-2026-10-25",
+    "tag": "Development",
+    "date": "2026-10-25",
+    "periodStart": "2026-10-18T12:00:00-04:00",
+    "periodEnd": "2026-10-25T12:00:00-04:00",
+    "headerPhotos": []
+  },
+  "projects": [
+    {
+      "name": "Due or Die",
+      "url": "https://apps.apple.com/us/app/due-or-die-to-do-app-blocker/id6792173694",
+      "image": null,
+      "changes": {
+        "additions": 112,
+        "deletions": 15
+      },
+      "bullets": [
+        {
+          "text": "refined the in-progress paywall and onboarding to clearly explain eligible free trials, renewal terms, and store confirmation before purchase.",
+          "evidenceIds": [
+            "e5"
+          ]
+        },
+        {
+          "text": "updated trial calls to action so they accurately reflect whether a plan is eligible, available, and not a lifetime purchase.",
+          "evidenceIds": [
+            "e5"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i'm tightening up the subscription flow so it says what it means before anyone gets sent to the store. small copy changes, fewer chances for a surprise plot twist.",
+        "evidenceIds": [
+          "e5"
+        ]
+      }
+    },
+    {
+      "name": "Private Project 6",
+      "url": null,
+      "image": null,
+      "changes": {
+        "additions": 16327,
+        "deletions": 1197
+      },
+      "bullets": [
+        {
+          "text": "shipped finished-video uploads with review, editing, playback preparation, and publishing support while preserving the original video’s framing and audio.",
+          "evidenceIds": [
+            "e4"
+          ]
+        },
+        {
+          "text": "added relative clip-length choices to video assembly so creators can guide pacing with short, medium, long, or unrestricted slots without automatic trimming.",
+          "evidenceIds": [
+            "e4"
+          ]
+        },
+        {
+          "text": "added safer deletion flows for completed videos and slideshows, with clear confirmations and protection for source media and other finished outputs.",
+          "evidenceIds": [
+            "e4"
+          ]
+        },
+        {
+          "text": "expanded slideshow publishing with optional trending audio for converted videos and platform-specific posting controls.",
+          "evidenceIds": [
+            "e4"
+          ]
+        },
+        {
+          "text": "improved publishing checks for required post copy and platform-specific title requirements before a batch is prepared.",
+          "evidenceIds": [
+            "e4"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "this week was mostly about making finished work easier to bring in, shape, publish, and clean up afterward. the editor has more room for pacing and audio now, which is a much nicer problem to have than losing track of a render.",
+        "evidenceIds": [
+          "e1",
+          "e2",
+          "e3",
+          "e4"
+        ]
+      }
+    }
+  ]
+}
