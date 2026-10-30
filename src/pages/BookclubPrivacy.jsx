@@ -10,7 +10,7 @@ export default function BookclubPrivacy() {
     <article className="bookclub-policy">
       <p className="bookclub-eyebrow">Your information</p>
       <h1 className="bookclub-title">Privacy policy</h1>
-      <p className="bookclub-muted">Effective October 6, 2026 · Last updated October 6, 2026</p>
+      <p className="bookclub-muted">Effective October 6, 2026 · Last updated October 29, 2026</p>
       <p>Bookclubr is a reading and book club app operated by Marcus Taylor. This policy covers the Bookclubr app and its marketing, support, privacy, and guest voting pages at marcustaylor.org/bookclub. It explains what information is handled when you use these services.</p>
 
       <h2>Information we collect</h2>
@@ -19,7 +19,7 @@ export default function BookclubPrivacy() {
         <li><strong>Reading information:</strong> books you save, shelf status, reading and completion dates, ratings, reviews, reading goals, and progress. If you import a Goodreads CSV, the file is read on your device; imported book and reading information is saved to your account. The CSV file itself is not uploaded to Bookclubr's backend.</li>
         <li><strong>Social and club information:</strong> friendships, follows, club memberships, posts, replies, reactions, direct messages and their read status, nominations, rankings, votes, and discussion locations or addresses you enter.</li>
         <li><strong>Library preferences:</strong> the names and identifiers of libraries you choose for Libby searches, and your default library preference. Bookclubr does not ask for your library card number, library PIN, or Libby password.</li>
-        <li><strong>Guest participation:</strong> a random browser identifier, the name you enter when nominating, your nominated book, ballot rankings, and submission records. The browser identifier is stored in local storage so the same browser can return to its participation.</li>
+        <li><strong>Guest participation:</strong> a random browser identifier, the name you enter when nominating or voting, your nominated book, ballot rankings, and submission records. The same saved name is used for your nomination and ballot in that vote. The browser identifier is stored in local storage so the same browser can return to its participation.</li>
         <li><strong>Device and service information:</strong> a push notification token and device platform if you allow notifications. Hosting and infrastructure providers may process IP addresses, request details, timestamps, and operational logs when providing the service.</li>
         <li><strong>Support correspondence:</strong> your email address and the information or attachments you choose to send when contacting support.</li>
       </ul>
