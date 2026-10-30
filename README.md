@@ -21,6 +21,8 @@ The Supabase project URL and publishable key are in `src/pages/bookclubConfig.js
 
 Vercel Analytics is disabled on guest vote routes so ballot links are not recorded as analytics page paths. Browser local storage supplies a stable ballot ID for edits. It does not prevent someone from voting again in another browser.
 
+Guest nomination and ballot forms require a name, mark it with a red asterisk, and disable submission until it is filled in. The backend returns `my_name` for the current browser and vote; the ballot reuses that saved name in a read-only field. New ballot requests include `p_name`. Apply the Bookclubr app repository's `202610290001` and `202610290002` migrations before deploying this UI; the older ballot endpoint remains compatible during rollout.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

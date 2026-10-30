@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabaseUrl, publishableKey } from "./bookclubConfig.js";
+import VoteResultBreakdown from "../components/VoteResultBreakdown.jsx";
 import "./bookclub.css";
 
 async function rpc(name, body) {
@@ -52,6 +53,7 @@ export default function GuestBookVote() {
     const result = await rpc("get_guest_vote", { p_code: code, p_voter: voterId });
     if (!result) throw new Error("This guest vote link is unavailable. Ask the organizer for a new link.");
     setVote(result);
+    if (result.my_name) setGuestName(result.my_name);
     setRanking(result.my_ballot?.length === result.options.length
       ? result.my_ballot : result.options.map(option => option.id));
     setSaved(result.my_ballot?.length === result.options.length && result.options.length > 0);
@@ -131,9 +133,11 @@ export default function GuestBookVote() {
   }
 
   async function submit() {
+    if (!guestName.trim()) { setError("Enter your name before submitting your ballot."); return; }
+    if (saving || ranking.length < 2 || ranking.length !== vote.options.length || new Set(ranking).size !== ranking.length) return;
     setSaving(true); setError("");
     try {
-      await rpc("submit_guest_ballot", { p_code: code, p_voter: voterId, p_options: ranking });
+      await rpc("submit_guest_ballot", { p_code: code, p_voter: voterId, p_options: ranking, p_name: guestName.trim() });
       await load();
       setSaved(true);
     } catch (e) { setError(e.message); }
@@ -141,7 +145,10 @@ export default function GuestBookVote() {
   }
 
   const ordered = ranking.map(id => vote?.options.find(option => option.id === id)).filter(Boolean);
+  const validBallot = ordered.length >= 2 && ordered.length === vote?.options.length && new Set(ranking).size === ordered.length;
   const winner = vote?.options.find(option => option.id === vote.winner_option_id);
+  const maxPickCount = (vote?.results || []).reduce((maximum, result) =>
+    (result.rank_counts || []).reduce((max, count) => Math.max(max, count), maximum), 0);
   return <main className="bookclub-shell">
     <div className="bookclub-wrap">
       <Link className="bookclub-brand" to="/bookclub">Bookclubr</Link>
@@ -159,8 +166,9 @@ export default function GuestBookVote() {
             {vote.my_nomination ? <div className="bookclub-notice" role="status">Your book is nominated. This page will move to voting when the organizer is ready.</div> : <>
               <h2 className="bookclub-heading">Suggest one book</h2>
               <p className="bookclub-muted">Add your name, then search by title, author, or ISBN and choose one book to nominate.</p>
-              <label className="bookclub-name-label" htmlFor="guest-name">Your name</label>
-              <input id="guest-name" className="bookclub-search" autoComplete="name" maxLength={80} value={guestName} onChange={event => setGuestName(event.target.value)} placeholder="Name shown with your suggestion" />
+              <p className="bookclub-muted"><span className="bookclub-required" aria-hidden="true">*</span> Required field. This name will also be used for your ballot.</p>
+              <label className="bookclub-name-label" htmlFor="guest-name">Your name <span className="bookclub-required" aria-hidden="true">*</span></label>
+              <input id="guest-name" className="bookclub-search" autoComplete="name" required aria-required="true" disabled={saving} maxLength={80} value={guestName} onChange={event => setGuestName(event.target.value)} placeholder="Name shown with your suggestion and ballot" />
               <input className="bookclub-search" aria-label="Search books" placeholder="Title, author, or ISBN" value={query} onChange={event => setQuery(event.target.value)} />
               {searching && <p className="bookclub-muted">Searching books…</p>}
               {searchResults.map(book => <div className="bookclub-card" key={book.key}>
@@ -182,6 +190,10 @@ export default function GuestBookVote() {
               <span className="bookclub-label">How it works</span>
               <p>Rank every book from your favorite to your least favorite. First place earns {vote.options.length} points. You can update your ballot from this browser until the organizer closes voting.</p>
             </div>
+            <p className="bookclub-muted"><span className="bookclub-required" aria-hidden="true">*</span> Required field</p>
+            <label className="bookclub-name-label" htmlFor="guest-name">Your name <span className="bookclub-required" aria-hidden="true">*</span></label>
+            <input id="guest-name" className="bookclub-search" autoComplete="name" required aria-required="true" disabled={saving} readOnly={Boolean(vote.my_name)} maxLength={80} value={guestName} onChange={event => { setGuestName(event.target.value); setSaved(false); }} placeholder="Name used with your ballot" aria-describedby="guest-name-help" />
+            <p id="guest-name-help" className="bookclub-muted">{vote.my_nomination && vote.my_name ? "Using the same name as your nomination." : vote.my_name ? "Using the name saved with your ballot." : "Enter your name before submitting your ballot."}</p>
             <h2 className="bookclub-heading">Rank your choices</h2>
             {ordered.map((option, index) => <div className="bookclub-card" key={option.id}>
               <span className="bookclub-label">#{index + 1} · {ordered.length - index} points</span>
@@ -196,7 +208,7 @@ export default function GuestBookVote() {
             </div>)}
             {saved && <div className="bookclub-notice" role="status">Your ranked ballot is saved. You can change it until the vote closes.</div>}
             {error && <div className="bookclub-notice error" role="alert">{error}</div>}
-            <button className="bookclub-button bookclub-submit" onClick={submit} disabled={saving || ordered.length < 2}>{saving ? "Saving…" : saved ? "Update my ballot" : "Submit my ballot"}</button>
+            <button className="bookclub-button bookclub-submit" onClick={submit} disabled={saving || !guestName.trim() || !validBallot}>{saving ? "Saving…" : saved ? "Update my ballot" : "Submit my ballot"}</button>
             <p className="bookclub-muted">A shared link admits anyone who has it. This browser can update its ballot; another browser can submit separately.</p>
           </> : <>
             <div className="bookclub-card">
@@ -205,6 +217,13 @@ export default function GuestBookVote() {
               {winner?.authors?.length > 0 && <p className="bookclub-muted">{winner.authors.join(", ")}</p>}
             </div>
             <h2 className="bookclub-heading">Final ranking</h2>
+            <div className="bookclub-card">
+              <span className="bookclub-label">How the points add up</span>
+              <p>{vote.turnout} {vote.turnout === 1 ? "ballot" : "ballots"} counted, including {vote.guest_count} from guests.</p>
+              <p className="bookclub-muted">With {vote.options.length} books, a 1st pick earns {vote.options.length} points, and each place after that earns one fewer, down to 1 point for last place.</p>
+              <p className="bookclub-muted">Each row shows picks × points per pick = points earned. Bars compare pick counts on the same scale for every book.</p>
+              {vote.tie_break_rule && <p className="bookclub-muted">{vote.tie_break_rule}</p>}
+            </div>
             {vote.results?.map((result, index) => {
               const option = vote.options.find(item => item.id === result.option_id);
               return option && <div className="bookclub-card" key={result.option_id}>
@@ -213,6 +232,7 @@ export default function GuestBookVote() {
                   {option.cover_url ? <img className="bookclub-cover" src={option.cover_url} alt="" /> : <div className="bookclub-cover" />}
                   <div><h3 className="bookclub-book-title">{option.title}</h3><p className="bookclub-muted">{option.authors?.join(", ") || "Unknown author"}</p></div>
                 </div>
+                <VoteResultBreakdown rankCounts={result.rank_counts} optionCount={vote.options.length} maxCount={maxPickCount} />
               </div>;
             })}
             {saved && <div className="bookclub-notice">Your ballot was counted.</div>}
