@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 4,
+  "meta": {
+    "title": "Devlog: October 25, 2026 - November 1, 2026",
+    "description": "a week of library sharing, direct media uploads, voting transparency, and connection-flow updates.",
+    "slug": "building-in-public-2026-11-01",
+    "tag": "Development",
+    "date": "2026-11-01",
+    "periodStart": "2026-10-25T12:00:00-04:00",
+    "periodEnd": "2026-11-01T12:00:00-05:00",
+    "headerPhotos": []
+  },
+  "projects": [
+    {
+      "name": "Due or Die",
+      "url": "https://apps.apple.com/us/app/due-or-die-to-do-app-blocker/id6792173694",
+      "image": null,
+      "changes": {
+        "additions": 0,
+        "deletions": 4
+      },
+      "bullets": [
+        {
+          "text": "continued routine maintenance work is in progress.",
+          "evidenceIds": [
+            "e2"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i kept this one tidy behind the scenes this week.",
+        "evidenceIds": [
+          "e2"
+        ]
+      }
+    },
+    {
+      "name": "Personal Website",
+      "url": "https://www.marcustaylor.org/",
+      "image": null,
+      "changes": {
+        "additions": 141,
+        "deletions": 7
+      },
+      "bullets": [
+        {
+          "text": "shipped a dedicated, privacy-conscious return page to help people complete an instagram connection in their local studio.",
+          "evidenceIds": [
+            "e7"
+          ]
+        },
+        {
+          "text": "added the required website verification response for tiktok ownership checks.",
+          "evidenceIds": [
+            "e8"
+          ]
+        },
+        {
+          "text": "made guest book voting more transparent with ranked pick breakdowns and required participant names for nominations and ballots.",
+          "evidenceIds": [
+            "e11"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i spent some time making the site a more useful bridge for connected tools, while also making the book vote flow easier to trust at a glance.",
+        "evidenceIds": [
+          "e7",
+          "e8",
+          "e11"
+        ]
+      }
+    },
+    {
+      "name": "Private Project 3",
+      "url": null,
+      "image": null,
+      "changes": {
+        "additions": 330,
+        "deletions": 35
+      },
+      "bullets": [
+        {
+          "text": "released transparent ranked-vote results that show pick counts and how points are calculated.",
+          "evidenceIds": [
+            "e12"
+          ]
+        },
+        {
+          "text": "made guest names required across nominations and ballots, with saved names carried through the voting flow.",
+          "evidenceIds": [
+            "e12"
+          ]
+        },
+        {
+          "text": "improved required-field states and disabled actions across key account, club, and onboarding forms.",
+          "evidenceIds": [
+            "e12"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i wanted the voting experience to feel more legible and a little less mysterious, because arithmetic should not be the plot twist.",
+        "evidenceIds": [
+          "e12"
+        ]
+      }
+    },
+    {
+      "name": "Private Project 6",
+      "url": null,
+      "image": null,
+      "changes": {
+        "additions": 5841,
+        "deletions": 83
+      },
+      "bullets": [
+        {
+          "text": "shipped media-library sharing between devices so saved editorial work can travel with a shared library while local work stays local.",
+          "evidenceIds": [
+            "e3",
+            "e4"
+          ]
+        },
+        {
+          "text": "added sharing readiness checks that surface unavailable files and help people resolve issues without blocking usable media.",
+          "evidenceIds": [
+            "e4"
+          ]
+        },
+        {
+          "text": "shipped direct uploads for complete clips and slides, with manual categories and optional descriptive analysis.",
+          "evidenceIds": [
+            "e6"
+          ]
+        },
+        {
+          "text": "kept direct uploads separate from source ingestion so manually added library items do not clutter source workflows.",
+          "evidenceIds": [
+            "e6"
+          ]
+        },
+        {
+          "text": "continued exploratory analytics testing.",
+          "evidenceIds": [
+            "e9"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "this was a big week for making the media library feel portable and less precious. i also started poking at analytics, because apparently the work is never allowed to stay in one lane.",
+        "evidenceIds": [
+          "e3",
+          "e4",
+          "e6",
+          "e9"
+        ]
+      }
+    },
+    {
+      "name": "Private Project 7",
+      "url": null,
+      "image": "/build-in-public/2026-11-01/private-project-7-5.jpg",
+      "changes": {
+        "additions": 2618,
+        "deletions": 218
+      },
+      "bullets": [
+        {
+          "text": "updated the production creative library with refreshed video and slideshow assets.",
+          "evidenceIds": [
+            "e1",
+            "e5",
+            "e10"
+          ]
+        },
+        {
+          "text": "revised video drafts with new clip selections, messaging, and accountability-focused demonstrations.",
+          "evidenceIds": [
+            "e1",
+            "e10"
+          ]
+        },
+        {
+          "text": "added and organized new slideshow material for future social content.",
+          "evidenceIds": [
+            "e5"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i refreshed the creative bench this week and kept iterating on how the product story comes across in short-form content.",
+        "evidenceIds": [
+          "e1",
+          "e5",
+          "e10"
+        ]
+      }
+    }
+  ]
+}
