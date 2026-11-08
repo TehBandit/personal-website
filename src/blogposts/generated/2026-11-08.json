@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 4,
+  "meta": {
+    "title": "Devlog: November 1, 2026 - November 8, 2026",
+    "description": "analytics, media-library workflow improvements, and new screen-time tools took shape this week.",
+    "slug": "building-in-public-2026-11-08",
+    "tag": "Development",
+    "date": "2026-11-08",
+    "periodStart": "2026-11-01T12:00:00-05:00",
+    "periodEnd": "2026-11-08T12:00:00-05:00",
+    "headerPhotos": []
+  },
+  "projects": [
+    {
+      "name": "Due or Die",
+      "url": "https://apps.apple.com/us/app/due-or-die-to-do-app-blocker/id6792173694",
+      "image": null,
+      "changes": {
+        "additions": 2516,
+        "deletions": 314
+      },
+      "bullets": [
+        {
+          "text": "timed app access is in progress, letting people choose a short allowance when opening selected apps while counting only active use and returning to blocking when time runs out.",
+          "evidenceIds": [
+            "e3"
+          ]
+        },
+        {
+          "text": "a new screen-time onboarding step is in progress, with a private on-device usage view, manual fallback, motion-aware presentation, and a recovery path when usage data cannot load.",
+          "evidenceIds": [
+            "e3",
+            "e5"
+          ]
+        },
+        {
+          "text": "custom recurring tasks are being expanded to support intervals across minutes, days, weeks, months, and years while preserving task timing and reminder settings.",
+          "evidenceIds": [
+            "e4"
+          ]
+        },
+        {
+          "text": "task creation is being updated to better coordinate notification setup and introduce a first-task alert after onboarding for eligible subscribers.",
+          "evidenceIds": [
+            "e3"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i'm working on making the app's screen-time features feel more useful without turning them into another thing to manage. the recurring-task work is also getting more flexible, because apparently calendars enjoy finding edge cases.",
+        "evidenceIds": [
+          "e3",
+          "e4",
+          "e5"
+        ]
+      }
+    },
+    {
+      "name": "Private Project 6",
+      "url": null,
+      "image": null,
+      "changes": {
+        "additions": 7077,
+        "deletions": 451
+      },
+      "bullets": [
+        {
+          "text": "shipped analytics syncing and content insights that compare formats, creative approaches, story structure, descriptions, and hashtags using separate reach and engagement views.",
+          "evidenceIds": [
+            "e1",
+            "e2"
+          ]
+        },
+        {
+          "text": "shipped clearer analytics safeguards, including matched-age comparisons, median-based reporting, visible sample coverage, and labels that frame findings as signals rather than proof of causation.",
+          "evidenceIds": [
+            "e2"
+          ]
+        },
+        {
+          "text": "shipped post previews and historical attribution support so analytics can connect published work to the relevant saved edit without exposing provider data in the workspace.",
+          "evidenceIds": [
+            "e2"
+          ]
+        },
+        {
+          "text": "shipped bulk selection and deletion workflows across media and finished-output libraries, with confirmations, retained selections, and protections for related active work.",
+          "evidenceIds": [
+            "e2"
+          ]
+        },
+        {
+          "text": "shipped unique visible media names across the library, including automatic repair of existing collisions without changing original media files or publishing history.",
+          "evidenceIds": [
+            "e2"
+          ]
+        },
+        {
+          "text": "shipped more flexible assembly controls by making target length optional, allowing edits to be assembled around the available source material when no duration is set.",
+          "evidenceIds": [
+            "e2"
+          ]
+        },
+        {
+          "text": "shipped improved draft posting copy that prioritizes readable on-media text and saved overlays, while keeping manual edits intact.",
+          "evidenceIds": [
+            "e2"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i spent a lot of this week making analytics more honest and more useful at the same time. the goal is to help me spot patterns without pretending a small pile of posts has solved marketing forever.",
+        "evidenceIds": [
+          "e1",
+          "e2"
+        ]
+      }
+    }
+  ]
+}
