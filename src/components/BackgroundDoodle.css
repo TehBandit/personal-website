@@ -1,0 +1,35 @@
+/* Scatter marks across section gaps, including both edges of the content. */
+.background-doodle {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: calc(var(--doodle-left) + var(--doodle-offset));
+  translate: -50% 0;
+  rotate: var(--doodle-rotation);
+  color: oklch(0.48 0.015 260);
+  opacity: 0.14;
+  pointer-events: none;
+  user-select: none;
+}
+
+.background-doodle svg { display: block; }
+.background-doodle--right { --doodle-left: 100%; color: oklch(0.52 0.035 255); }
+.background-doodle--left { --doodle-left: 0%; }
+.background-doodle--middle { --doodle-left: 43%; color: oklch(0.56 0.035 25); }
+
+/* Opaque paper cards cover the inner half of each margin mark. */
+.doodle-surface { position: relative; isolation: isolate; }
+.doodle-surface > .background-doodle { z-index: -1; }
+.doodle-surface > .background-doodle--right { top: 18%; bottom: auto; }
+.doodle-surface > .background-doodle--left { top: 57%; bottom: auto; }
+.doodle-surface > .background-doodle--middle { bottom: -46px; }
+
+@media (width < 640px) {
+  .background-doodle--desktop { display: none; }
+  .background-doodle svg { width: 64px; height: 64px; }
+  .background-doodle--right { --doodle-left: calc(100% - 40px); }
+  .doodle-surface > .background-doodle--right { --doodle-left: 100%; }
+}
+
+@media print {
+  .background-doodle { display: none; }
+}

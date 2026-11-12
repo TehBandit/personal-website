@@ -1,0 +1,168 @@
+/* Homepage-only notebook visuals copied from marcus-taylor-showcase (b6e87ea). */
+/* ===== Notebook design system ===== */
+.home-notebook-page {
+  color: var(--ink);
+  font-family: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --paper: oklch(0.985 0.004 95);
+  --paper-card: oklch(0.997 0.002 95);
+  --ink: oklch(0.22 0.02 265);
+  --ink-soft: oklch(0.48 0.02 265);
+  --graphite: oklch(0.38 0.005 260);
+  --rule: oklch(0.82 0.06 235 / 0.45);
+  --margin-red: oklch(0.63 0.19 25 / 0.75);
+  --hole: oklch(0.9 0.006 95);
+  --hole-shadow: oklch(0.7 0.01 95 / 0.6);
+  --highlighter: oklch(0.93 0.16 105 / 0.7);
+  --ink-blue: oklch(0.48 0.2 262);
+  --tape: oklch(0.92 0.04 85 / 0.75);
+  --tape-blue: oklch(0.88 0.05 230 / 0.7);
+  --pin-red: oklch(0.6 0.2 25);
+  --pin-blue: oklch(0.55 0.17 255);
+  --pin-yellow: oklch(0.82 0.15 85);
+  --pin-metal: oklch(0.72 0.01 250);
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--paper-card);
+  --muted-foreground: var(--ink-soft);
+  --primary: var(--ink-blue);
+  --border: oklch(0.22 0.02 265 / 0.1);
+
+  --line-gap: 32px;
+  --margin-x: clamp(52px, 7vw, 112px);
+  --shadow-sheet: 0 1px 0 oklch(0.22 0.02 265 / 0.04), 0 12px 32px -18px oklch(0.22 0.02 265 / 0.25);
+  --shadow-lift: 0 1px 0 oklch(0.22 0.02 265 / 0.04), 0 22px 40px -20px oklch(0.22 0.02 265 / 0.35);
+}
+
+@theme inline {
+  --color-home-paper: var(--paper);
+  --color-home-paper-card: var(--paper-card);
+  --color-home-ink: var(--ink);
+  --color-home-ink-soft: var(--ink-soft);
+  --color-home-graphite: var(--graphite);
+  --color-home-margin-red: var(--margin-red);
+  --color-home-ink-blue: var(--ink-blue);
+  --color-home-highlighter: var(--highlighter);
+  --color-home-rule: var(--rule);
+  --font-home-hand: "Waiting for the Sunrise", cursive;
+  --font-home-name: "Rock Salt", cursive;
+  --font-home-mono: "JetBrains Mono", ui-monospace, monospace;
+  --shadow-home-sheet: var(--shadow-sheet);
+  --shadow-home-lift: var(--shadow-lift);
+}
+
+@layer base {
+  .home-notebook-page,
+  .home-notebook-page * {
+    border-color: var(--border);
+  }
+}
+
+/* Thicken the handwriting strokes in proportion to the text size. */
+.home-notebook-page .font-home-hand {
+  -webkit-text-stroke: 0.015em currentColor;
+}
+
+/* Override the shared header's background and shadow only on the homepage. */
+.home-notebook-page > header {
+  background-color: color-mix(in oklab, var(--paper) 80%, transparent);
+  box-shadow: none;
+}
+
+@utility home-notebook-page {
+  position: relative;
+  min-height: 100dvh;
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(90deg, transparent calc(var(--margin-x) - 1px), var(--margin-red) calc(var(--margin-x) - 1px), var(--margin-red) var(--margin-x), transparent var(--margin-x), transparent calc(var(--margin-x) + 3px), var(--margin-red) calc(var(--margin-x) + 3px), var(--margin-red) calc(var(--margin-x) + 4px), transparent calc(var(--margin-x) + 4px)),
+    linear-gradient(to bottom, transparent calc(var(--line-gap) - 1px), var(--rule) calc(var(--line-gap) - 1px), var(--rule) var(--line-gap));
+  background-size: 100% 100%, 100% var(--line-gap);
+  background-attachment: local;
+}
+
+@utility home-notebook-holes {
+  position: absolute; inset: 0 auto 0 0; width: var(--margin-x); pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='240' viewBox='0 0 28 240'%3E%3Cdefs%3E%3CradialGradient id='g' cx='50%' cy='30%' r='75%'%3E%3Cstop offset='0' stop-color='%23b9b3a6'/%3E%3Cstop offset='.55' stop-color='%23d9d4c8'/%3E%3Cstop offset='1' stop-color='%23eeeae1'/%3E%3C/radialGradient%3E%3ClinearGradient id='r' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%237d776b'/%3E%3Cstop offset='.6' stop-color='%23b5afa3'/%3E%3Cstop offset='1' stop-color='%23fff'/%3E%3C/linearGradient%3E%3Cfilter id='b'%3E%3CfeGaussianBlur stdDeviation='1.2'/%3E%3C/filter%3E%3C/defs%3E%3Ccircle cx='14' cy='121.6' r='11.2' fill='%23fff' opacity='.95'/%3E%3Ccircle cx='14' cy='120' r='11' fill='url(%23g)' stroke='url(%23r)' stroke-width='1'/%3E%3Cpath d='M3.6 120 A10.4 10.4 0 0 1 24.4 120 A10.4 6 0 0 0 3.6 120Z' fill='%233a352c' opacity='.28' filter='url(%23b)'/%3E%3Cellipse cx='17' cy='125' rx='4' ry='2' fill='%23fff' opacity='.35' filter='url(%23b)'/%3E%3C/svg%3E");
+  background-size: 28px 240px; background-position: center 60px; background-repeat: repeat-y;
+  @media (width < 640px) { background-size: 20px 172px; background-position: center 40px; }
+}
+
+@utility home-margin-content {
+  padding-left: calc(var(--margin-x) + clamp(20px, 3vw, 48px));
+  padding-right: clamp(20px, 4vw, 64px);
+}
+
+@utility home-sheet {
+  background: var(--paper-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-sheet);
+}
+
+@utility home-tape {
+  position: absolute; width: 92px; height: 26px; background: var(--tape);
+  box-shadow: 0 1px 2px oklch(0.22 0.02 265 / 0.08);
+  clip-path: polygon(3% 0, 97% 4%, 100% 50%, 96% 100%, 2% 96%, 0 50%);
+}
+
+@utility home-highlight {
+  background: linear-gradient(104deg, transparent 0.4em, var(--highlighter) 0.5em, var(--highlighter) calc(100% - 0.3em), transparent calc(100% - 0.2em)) no-repeat 0 85% / 0% 55%;
+  animation: home-highlight-in 900ms 1.4s cubic-bezier(.6,0,.3,1) forwards;
+  padding: 0 0.1em; margin: 0 -0.1em;
+}
+
+@utility home-nav-highlight {
+  @apply home-highlight;
+  animation: none;
+  transition: background-size 200ms ease-out;
+  :where(.group):hover &, :where(.group):focus-visible & { background-size: 100% 55%; }
+}
+
+@utility home-type-caret {
+  display: inline-block; width: 0.06em; height: 0.82em; margin-left: 0.04em; translate: 0 0.08em;
+  background: var(--ink-blue); animation: home-blink 1s steps(1) infinite;
+}
+
+@utility home-draw-path {
+  stroke-dasharray: 1; stroke-dashoffset: 1;
+  transition: stroke-dashoffset 1.3s cubic-bezier(.65,0,.35,1);
+  [data-drawn="true"] & { stroke-dashoffset: 0; }
+}
+
+@utility home-rise-in {
+  opacity: 0; translate: 0 14px;
+  transition: opacity .7s ease, translate .7s cubic-bezier(.2,.7,.2,1);
+  [data-drawn="true"] & , &[data-drawn="true"] { opacity: 1; translate: 0 0; }
+}
+
+@keyframes home-blink { 50% { opacity: 0; } }
+@keyframes home-highlight-in { to { background-size: 100% 55%; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .home-notebook-page .home-draw-path { transition: none; stroke-dashoffset: 0; }
+  .home-notebook-page .home-rise-in { transition: none; opacity: 1; translate: 0 0; }
+  .home-notebook-page .home-highlight { animation: none; background-size: 100% 55%; }
+  .home-notebook-page .home-nav-highlight { transition: none; }
+  .home-notebook-page .home-type-caret { animation: none; }
+}
+
+@utility home-tape-blue { background: var(--tape-blue); }
+@utility home-pin-red { --pin: var(--pin-red); }
+@utility home-pin-blue { --pin: var(--pin-blue); }
+@utility home-pin-yellow { --pin: var(--pin-yellow); }
+
+/* Draw each group's doodles on hover or keyboard focus. */
+@utility home-doodle {
+  stroke-dasharray: 1; stroke-dashoffset: 1;
+  transition: stroke-dashoffset 600ms cubic-bezier(.6,0,.3,1);
+  :where(.group):hover &, :where(.group):focus-visible & { stroke-dashoffset: 0; }
+}
+@utility home-pin-wiggle {
+  transform-origin: 50% 90%;
+  transition: rotate 300ms cubic-bezier(.3,1.6,.5,1);
+  :where(.group):hover & { rotate: -10deg; }
+}
+@utility home-tape-lift {
+  transition: rotate 300ms ease, translate 300ms ease;
+  :where(.group):hover & { translate: 0 -2px; }
+}
+@media (prefers-reduced-motion: reduce) { .home-notebook-page .home-doodle { transition: none; } }

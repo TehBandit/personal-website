@@ -13,7 +13,8 @@
     "spellcheck:generated": "node scripts/build-in-public/spellcheck.mjs",
     "smoke:build-in-public-schema": "node scripts/build-in-public/schema-smoke.mjs",
     "postbuild": "node scripts/prerender-blog.mjs",
-    "test:seo": "node --test scripts/blog-seo.test.mjs"
+    "test:seo": "node --test scripts/blog-seo.test.mjs",
+    "test:blog-search": "node --test scripts/blog-search.test.mjs"
   },
   "dependencies": {
     "@cyntler/react-doc-viewer": "^1.17.1",
@@ -31,6 +32,7 @@
     "tailwindcss": "^4.1.12"
   },
   "devDependencies": {
+    "@babel/parser": "7.28.4",
     "@eslint/js": "^9.33.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",

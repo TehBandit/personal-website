@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
 import react from "@vitejs/plugin-react";
+import blogSearchPlugin from "./blog-search-plugin.mjs";
 import { renderHead, sitemap } from "../src/seo/blog-seo.js";
 
 const repository = fileURLToPath(new URL("../", import.meta.url));
@@ -15,7 +16,7 @@ export async function prerenderBlog({ outputDirectory = path.join(repository, "d
   // Middleware mode does not listen on a port. Load the existing application
   // components for static rendering; the deployment stays entirely static.
   const server = await createServer({
-    root: repository, configFile: false, plugins: [react()],
+    root: repository, configFile: false, plugins: [blogSearchPlugin(), react()],
     server: { middlewareMode: true, hmr: false, watch: null },
     appType: "custom", logLevel: "error",
   });
