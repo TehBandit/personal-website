@@ -16,9 +16,9 @@ const Carousel = ({ images = [], h="h-128", w="w-full" }) => {
   if (images.length === 0) return null;
 
   return (
-    <div className={`embla ${h} ${w}`}>
+    <div className={`embla ${h} ${w}`} role="region" aria-label="Post photos">
       <div
-        className="embla__viewport"
+        className="embla__viewport touch-pan-y"
         ref={emblaRef}
       >
         <div className="embla__container">
@@ -27,42 +27,41 @@ const Carousel = ({ images = [], h="h-128", w="w-full" }) => {
               key={index}
               className="embla__slide"
             >
-              {/* Blurred backdrop fills empty space */}
               <img
                 src={src}
+                alt=""
                 aria-hidden="true"
-                className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-50"
+                className="embla__backdrop absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-50"
               />
               <img
                 src={src}
-                alt={`Slide ${index + 1}`}
+                alt={`Post photo ${index + 1} of ${images.length}`}
                 className="embla__img"
               />
             </div>
           ))}
         </div>
 
-        {/* Left overlay with gradient + chevron */}
-        <div
-          className="group absolute left-0 top-0 h-full w-1/5 cursor-pointer transition bg-gradient-to-r from-gray-700/40 to-transparent opacity-0 hover:opacity-100 flex items-center"
-          onClick={scrollPrev}
-        >
-          <ChevronLeft
-            size={128}
-            className="text-white ml-2 opacity-0 group-hover:opacity-100 transition"
-          />
-        </div>
-
-        {/* Right overlay with gradient + chevron */}
-        <div
-          className="group absolute right-0 top-0 h-full w-1/5 cursor-pointer transition bg-gradient-to-l from-gray-700/40 to-transparent opacity-0 hover:opacity-100 flex items-center justify-end"
-          onClick={scrollNext}
-        >
-          <ChevronRight
-            size={128}
-            className="text-white mr-2 opacity-0 group-hover:opacity-100 transition"
-          />
-        </div>
+        {images.length > 1 && (
+          <>
+            <button
+              type="button"
+              className="absolute left-3 top-1/2 -translate-y-1/2 flex size-11 cursor-pointer items-center justify-center rounded-full border border-gray-300 bg-white/95 text-gray-700 hover:bg-white"
+              onClick={scrollPrev}
+              aria-label="Previous photo"
+            >
+              <ChevronLeft size={20} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="absolute right-3 top-1/2 -translate-y-1/2 flex size-11 cursor-pointer items-center justify-center rounded-full border border-gray-300 bg-white/95 text-gray-700 hover:bg-white"
+              onClick={scrollNext}
+              aria-label="Next photo"
+            >
+              <ChevronRight size={20} aria-hidden="true" />
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
