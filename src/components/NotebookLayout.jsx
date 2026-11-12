@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { createElement, useId } from "react";
 import { Github, Linkedin, Mail } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 import SectionDoodle from "./SectionDoodle.jsx";
@@ -18,7 +18,7 @@ export function NotebookTitle({ children, as: Tag = "h1", doodle = "pencil", act
   return (
     <div className="notebook-title-row" data-drawn="true">
       <div className="notebook-title-heading">
-        <Tag className="font-home-hand notebook-title">{children}</Tag>
+        {createElement(Tag, { className: "font-home-hand notebook-title" }, children)}
         <SectionDoodle variant={doodle} className="notebook-title-doodle" />
       </div>
       <svg className="notebook-pencil-rule" viewBox="0 0 1000 20" preserveAspectRatio="none" aria-hidden="true">
