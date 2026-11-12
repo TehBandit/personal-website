@@ -17,26 +17,59 @@ export default function ScreenTimePost() {
   return (
     <article className="screen-time-post" aria-label="Debugging timed app access on iOS">
       <p className="stp-lead">
-        I wanted a screen that asked a fairly reasonable question before you opened a distracting app:
-        how much time do you need? Pick a duration, use the app, and see the screen again when time runs out.
-        Getting those three steps to work together was considerably less reasonable.
+        For Due or Die, my task and accountability app, we wanted to connect Apple's Screen Time
+        permission sheet, its app-selection screen, and a custom shield that asks “How much time do
+        you need?” The user would approve access, choose distracting apps, and get an interruption
+        before opening one while unfinished tasks remained. Choosing a duration should reveal that
+        app immediately; running out of time should bring the shield back.
       </p>
       <p>
-        This was for Due or Die, my task and accountability app. The reminder is supposed to interrupt
-        an automatic trip into a blocklisted app while you still have things to do. It offers a small,
-        deliberate allowance without turning every reminder into a strict punishment. The finished
-        choices are <strong>1 minute</strong>, <strong>10 minutes</strong>, and <strong>Until tomorrow</strong>.
+        The app uses React Native and Expo, but this flow depends on native Swift code and Apple's
+        Screen Time frameworks. These were the screens and APIs we wanted to work together:
+      </p>
+      <ol>
+        <li>
+          <strong>The permission sheet.</strong> Use <code>FamilyControls</code> and{" "}
+          <code>AuthorizationCenter.requestAuthorization(for: .individual)</code> to request Screen
+          Time access. Once approved, the host app and its extensions should agree that access is enabled.
+        </li>
+        <li>
+          <strong>The app-selection screen.</strong> Present <code>FamilyActivityPicker</code>, save
+          the chosen application tokens in the App Group, and make that selection available to the
+          extensions before reporting that setup is complete.
+        </li>
+        <li>
+          <strong>The “How much time do you need?” shield.</strong> Describe the interruption through{" "}
+          <code>ShieldConfiguration</code> in <code>ManagedSettingsUI</code>, handle its buttons in{" "}
+          <code>ShieldActionDelegate</code>, and change the restrictions in a{" "}
+          <code>ManagedSettingsStore</code>. The finished choices are <strong>1 minute</strong>,{" "}
+          <strong>10 minutes</strong>, and <strong>Until tomorrow</strong>.
+        </li>
+        <li>
+          <strong>The “Time's up” shield.</strong> Use a <code>DeviceActivitySchedule</code> and{" "}
+          <code>DeviceActivityMonitor</code> callbacks to restore the restriction and show the expired
+          state of the shield, even while the distracting app stays open and Due or Die is backgrounded.
+        </li>
+      </ol>
+      <p>
+        In practice, the handoffs between those APIs broke. The shield sometimes appeared only after
+        reopening Due or Die. Selecting a duration could leave it in place. If an app did open, getting
+        the shield back at expiry was another problem. We also showed permission errors while iOS
+        Settings still showed Screen Time access enabled.
       </p>
       <p>
-        Along the way, the screen appeared late, stayed over an app after I chose a time, failed to
-        return when time expired, and insisted I needed to approve Screen Time while Settings showed
-        that I already had. Reopening Due or Die sometimes seemed to fix things, which made debugging
-        particularly misleading.
+        There were several reasons. Our extensions read a process-local authorization value as though
+        it were a confirmed system-wide answer. Our save checks could reject a successful permission
+        approval because <code>UserDefaults.synchronize()</code> returned false. The timer design had
+        to reconcile a one-minute allowance with DeviceActivity's fifteen-minute minimum monitoring
+        interval, and an intermediate schedule could trigger callbacks while registration was still
+        in progress. Finally, accepting a shield button action did not itself remove the restrictions
+        covering the app. Each of those failures needed a separate fix.
       </p>
       <p>
         The normal flow now works on my physical iPhone: choosing a duration opens the app on the first
-        try, and the shield returns when the allowance expires. This is the account of what changed,
-        including the approaches that looked correct in code and still failed on the phone.
+        try, and the shield returns when the allowance expires. The rest of this post traces the failed
+        approaches, the evidence that separated these problems, and the implementation that finally worked.
       </p>
 
       <nav className="stp-contents" aria-label="In this article">
