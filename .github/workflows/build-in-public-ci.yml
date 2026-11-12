@@ -31,6 +31,9 @@ jobs:
       - name: Test build-in-public safeguards
         run: npm run test:build-in-public
 
+      - name: Test blog SEO and static rendering
+        run: npm run test:seo
+
       - name: Lint
         run: npm run lint
 

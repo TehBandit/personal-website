@@ -1,3 +1,4 @@
+import BlogSeo from "../components/BlogSeo.jsx";
 import Header from "../components/Header.jsx";
 import Footer from "../components/Footer.jsx";
 import BlogPost from "../components/BlogPost.jsx";
@@ -11,6 +12,7 @@ function Blog() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <BlogSeo posts={sortedPosts} />
       <Header />
 
       <main className="flex-grow beyond-red-line py-8">
