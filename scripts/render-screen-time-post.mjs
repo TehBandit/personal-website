@@ -59,6 +59,7 @@ const html = `<!doctype html>
     .post-heading h1 { font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1.14; letter-spacing: -0.035em; margin: 1rem 0; overflow-wrap: anywhere; }
     .post-heading .description { color: #526174; font-size: 1.15rem; line-height: 1.65; }
     .post-heading .metadata { color: #526174; font-size: 0.875rem; margin-top: 1.3rem; }
+    .screen-time-post { font-size: 1.25rem; line-height: 1.75rem; }
     .review-footer { max-width: 48rem; margin: 0 auto 2rem; border-top: 1px solid #d5dfe7; padding-top: 1rem; color: #526174; font-size: 0.85rem; line-height: 1.7; }
     @media (max-width: 640px) {
       main { margin: 0; padding: 2rem 1.1rem 1rem; border-left: 0; border-right: 0; }
