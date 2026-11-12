@@ -33,3 +33,11 @@ Currently, two official plugins are available:
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+## Blog publishing and SEO
+
+- [iOS Screen Time API debugging guide](https://www.marcustaylor.org/blog/ios-screen-time-timed-access) covers the shields, timers, authorization, and persistence fixes in Due or Die.
+- Blog posts continue to use the existing JSX metadata/component format and shared page layout. Optional `seoTitle`, `author`, `modified`, and `socialImage` fields supply search and sharing metadata.
+- The normal deployment build runs `postbuild` to pre-render `/blog` and each public post using the same React application. The browser hydrates those pages; other routes retain their current client rendering. No runtime server or new dependency is required.
+- Canonical URLs, Open Graph/Twitter tags, and JSON-LD share one metadata helper. Related-post links provide internal discovery. `sitemap.xml` is generated from the current public post list, and `robots.txt` advertises it while excluding API, OAuth, and guest-voting routes.
+- Run `npm run test:seo` for metadata escaping, dates, canonical URLs, sitemap coverage, production-component static rendering, internal links, and social image checks. The publishing CI runs these checks before its normal production build.

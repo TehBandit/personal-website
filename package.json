@@ -11,7 +11,9 @@
     "test:build-in-public": "node --test scripts/build-in-public/build-in-public.test.mjs",
     "validate:generated": "node scripts/build-in-public/validate-generated-files.mjs",
     "spellcheck:generated": "node scripts/build-in-public/spellcheck.mjs",
-    "smoke:build-in-public-schema": "node scripts/build-in-public/schema-smoke.mjs"
+    "smoke:build-in-public-schema": "node scripts/build-in-public/schema-smoke.mjs",
+    "postbuild": "node scripts/prerender-blog.mjs",
+    "test:seo": "node --test scripts/blog-seo.test.mjs"
   },
   "dependencies": {
     "@cyntler/react-doc-viewer": "^1.17.1",

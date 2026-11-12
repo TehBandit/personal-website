@@ -80,7 +80,7 @@ const html = `<!doctype html>
       <div class="eyebrow">Development · Due or Die</div>
       <h1>${escapeHTML(meta.title)}</h1>
       <p class="description">${escapeHTML(meta.desc)}</p>
-      <p class="metadata"><time datetime="${meta.date}">November 11, 2026</time> · ${readMinutes} minute read · iOS / Swift / Expo</p>
+      <p class="metadata"><time datetime="${meta.date}">${escapeHTML(new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(meta.date + "T12:00:00Z")))}</time> · ${readMinutes} minute read · iOS / Swift / Expo</p>
     </header>
     ${article}
     <footer class="review-footer">This preview renders the same article component and article styles prepared for the blog. The review banner and this note are preview-only. The website’s navigation and page heading are supplied by its existing blog layout.</footer>

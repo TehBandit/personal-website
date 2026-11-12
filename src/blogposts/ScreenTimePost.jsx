@@ -3,9 +3,16 @@ import "./ScreenTimePost.css";
 
 export const meta = {
   title: '“How much time do you need?” Debugging iOS Screen Time in Due or Die',
-  desc: "The failed timers, false permission errors, and cross-process state bugs behind a seemingly simple app-blocking screen.",
+  desc: "Debug iOS Screen Time shields, DeviceActivity timers, FamilyControls authorization, and App Group storage with real failures and fixes from Due or Die.",
+  seoTitle: "iOS Screen Time API: Fixing Shields, Timers and Permissions",
+  author: "Marcus Taylor",
+  modified: "2026-11-12",
+  socialImage: "/social/ios-screen-time-timed-access.png",
+  socialImageAlt: "iOS Screen Time: shields, timers and permissions - a Due or Die debugging guide",
+  socialImageWidth: 1200,
+  socialImageHeight: 630,
   slug: "ios-screen-time-timed-access",
-  date: "2026-11-11",
+  date: "2026-11-12",
   tag: "Development",
 };
 
@@ -326,7 +333,7 @@ try center.startMonitoring(activity, during: schedule)`}</Code>
         monitors rather than evicting a real punishment to make room for a break.
       </p>
 
-      <h2 id="authorization">The timer fix exposed a permission check that was wrong</h2>
+      <h2 id="authorization">FamilyControls authorization: permission was enabled, but our check failed</h2>
       <p>
         The revised schedule still did not make the app open on the affected iPhone. It did produce
         a more useful failure: Screen Time needed approval, despite access being enabled in Settings.
@@ -397,7 +404,7 @@ case .notDetermined:
         “Screen Time permission is broken” was too broad a diagnosis to help.
       </p>
 
-      <h2 id="storage">The last failure was our definition of a successful save</h2>
+      <h2 id="storage">App Group storage: a save check rejected successful authorization</h2>
       <p>
         In build 118, I approved Apple's permission sheet and then got another error: “Screen Time
         access is updating. Try again.” This time the persistent diagnostic journal let us see the
