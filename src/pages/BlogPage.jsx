@@ -1,5 +1,5 @@
 import BlogSeo from "../components/BlogSeo.jsx";
-import { AUTHOR_NAME, isoDate } from "../seo/blog-seo.js";
+import { isoDate } from "../seo/blog-seo.js";
 import { Link, useParams } from "react-router-dom";
 import { posts } from "../blogposts";
 import Header from "../components/Header.jsx";
@@ -7,6 +7,7 @@ import Footer from "../components/Footer.jsx";
 import Carousel from "../components/Carousel.jsx";
 import GeneratedPost from "../components/GeneratedPost.jsx";
 import { formatDate } from "../utils/formatDate.js";
+import "./BlogPage.css";
 
 export default function BlogPage() {
   const { slug } = useParams();
@@ -18,33 +19,46 @@ export default function BlogPage() {
     <>
       <BlogSeo post={Post} />
       <Header />
-      <main className="beyond-red-line">
-        {Post.meta.headerPhotos?.length > 0 && (
-          <Carousel images={Post.meta.headerPhotos} />
-        )}
-        <div className={`mb-6 pl-4 ${Post.meta.headerPhotos?.length ? "" : "pt-8"}`}>
-          <h1 className="text-3xl font-semibold">{Post.meta.title}</h1>
-          <div className="text-lg">{Post.meta.desc}</div>
-          <div className="text-sm italic text-gray-400">
-            by <Link to="/resume" className="underline underline-offset-2">{Post.meta.author ?? AUTHOR_NAME}</Link>
-            {" · "}<time dateTime={isoDate(Post.meta.date)}>{formatDate(Post.meta.date)}</time>
-          </div>
-        </div>
-        <div className={Post.generated ? "px-4 text-xl" : "px-8 text-xl"}>
-          {Post.generated ? <GeneratedPost projects={Post.projects} /> : <Post.default />}
-        </div>
-        {relatedPosts.length > 0 && (
-          <aside className="mx-8 my-8 border-t border-gray-200 pt-4" aria-label="Related posts">
-            <h2 className="pb-2 text-lg font-semibold text-gray-800">more from the blog</h2>
-            <ul className="list-disc space-y-2 pl-5 text-base">
-              {relatedPosts.map((post) => (
-                <li key={post.meta.slug}>
-                  <Link to={`/blog/${post.meta.slug}`} className="text-blue-600 underline underline-offset-2">{post.meta.title}</Link>
-                </li>
-              ))}
-            </ul>
+      <main className="blog-post-page beyond-red-line">
+        <div className="blog-post-layout">
+          <aside className="blog-post-margin" aria-label="Post details">
+            <Link to="/blog" className="blog-post-back">← all posts</Link>
+            <div className="blog-post-meta">
+              <time dateTime={isoDate(Post.meta.date)}>{formatDate(Post.meta.date)}</time>
+              {Post.meta.tag && <span className="blog-post-category">{Post.meta.tag}</span>}
+            </div>
           </aside>
-        )}
+
+          <article className="blog-post-article" aria-labelledby="blog-post-title">
+            <div className="blog-post-heading">
+              <h1 id="blog-post-title">{Post.meta.title}</h1>
+              {Post.meta.desc && <p className="blog-post-description">{Post.meta.desc}</p>}
+            </div>
+
+            {Post.meta.headerPhotos?.length > 0 && (
+              <div className="blog-post-banner">
+                <Carousel images={Post.meta.headerPhotos} h="blog-post-banner-height" />
+              </div>
+            )}
+
+            <div className="blog-post-body">
+              {Post.generated ? <GeneratedPost projects={Post.projects} /> : <Post.default />}
+            </div>
+
+            {relatedPosts.length > 0 && (
+              <aside className="blog-post-related" aria-label="Related posts">
+                <h2>more from the blog</h2>
+                <ul>
+                  {relatedPosts.map((post) => (
+                    <li key={post.meta.slug}>
+                      <Link to={`/blog/${post.meta.slug}`}>{post.meta.title}</Link>
+                    </li>
+                  ))}
+                </ul>
+              </aside>
+            )}
+          </article>
+        </div>
       </main>
       <Footer />
     </>

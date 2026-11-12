@@ -24,11 +24,23 @@ export default function ScreenTimePost() {
   return (
     <article className="screen-time-post" aria-label="Debugging timed app access on iOS">
       <p className="stp-lead">
-        For Due or Die, my task and accountability app, we wanted to connect Apple's Screen Time
+        For <a href="https://apps.apple.com/us/app/due-or-die-to-do-app-blocker/id6792173694">Due or Die</a>,
+        my task and accountability app, we wanted to connect Apple's Screen Time
         permission sheet, its app-selection screen, and a custom shield that asks “How much time do
         you need?” The user would approve access, choose distracting apps, and get an interruption
         before opening one while unfinished tasks remained. Choosing a duration should reveal that
         app immediately; running out of time should bring the shield back.
+      </p>
+      <h2>TL;DR</h2>
+      <p>
+        The host app confirms <code>FamilyControls</code> authorization and saves it alongside app
+        selections, task state, and timed passes in the shared App Group. The shield extensions read
+        that state to decide when to interrupt. When a user chooses a duration, we save a pending pass,
+        register a <code>DeviceActivity</code> monitor whose interval starts at expiry, then remove
+        the app's reminder restriction through <code>ManagedSettings</code> and commit the pass.
+        Monitor callbacks restore the shield at the stored deadline while the host is backgrounded.
+        Reliable shared storage and this ordering keep the separate processes working together;
+        required locks always take priority over extra time.
       </p>
       <p>
         The app uses React Native and Expo, but this flow depends on native Swift code and Apple's
@@ -164,7 +176,7 @@ export default function ScreenTimePost() {
 
       <h2 id="timers">Attempt one: count active usage</h2>
       <p>
-        The first committed version, on November 5, offered 2, 5, or 10 minutes of <em>active use</em>.
+        The initial implementation offered 2, 5, or 10 minutes of <em>active use</em>.
         It registered an app-specific <code>DeviceActivityEvent</code> with a usage threshold inside a
         monitoring window ending at midnight. Leaving the app was intended to preserve the remainder.
         The threshold and the monitoring window were separate concepts.
@@ -337,8 +349,8 @@ try center.startMonitoring(activity, during: schedule)`}</Code>
       <p>
         The revised schedule still did not make the app open on the affected iPhone. It did produce
         a more useful failure: Screen Time needed approval, despite access being enabled in Settings.
-        The report from build 117 recorded <code>lastGrantFailure.phase: "grant_ineligible"</code>,
-        no sessions, and schedule revision 3. That attempt had stopped at eligibility, before session
+        A diagnostic report recorded <code>lastGrantFailure.phase: "grant_ineligible"</code>
+        and no sessions despite using the revised schedule. That attempt had stopped at eligibility, before session
         preparation or timer registration. More timer tuning would not address that recorded failure.
       </p>
       <p>
@@ -391,7 +403,7 @@ case .notDetermined:
         that share state.
       </p>
       <p>
-        We inspected the already-built IPA for build 117 rather than starting another build on a hunch.
+        We inspected the affected app's existing IPA to check its signing configuration.
         The host, ShieldAction, ShieldConfiguration, and monitor binaries had signed Family Controls
         and the intended App Group. Their embedded profiles matched, the identifiers and team lined
         up, and the extensions contained the shared controller. That ruled out missing declared or
@@ -406,7 +418,7 @@ case .notDetermined:
 
       <h2 id="storage">App Group storage: a save check rejected successful authorization</h2>
       <p>
-        In build 118, I approved Apple's permission sheet and then got another error: “Screen Time
+        In a later device test, I approved Apple's permission sheet and then got another error: “Screen Time
         access is updating. Try again.” This time the persistent diagnostic journal let us see the
         sequence. The already-approved repeat request completed successfully in roughly three
         milliseconds. Then our receipt save was rejected:
@@ -486,7 +498,7 @@ defaults.set(data, forKey: legacyKey)`}</Code>
           <tbody>
             <tr><td><code>grant_ineligible</code> before a session exists</td><td>Authorization receipt, selection, task/demo state, or a real required lock.</td></tr>
             <tr><td><code>monitor_failed</code></td><td>The SDK's actual error, including capacity or registration rejection.</td></tr>
-            <tr><td>Successful system approval, rejected receipt</td><td>Our persistence path, as in build 118.</td></tr>
+            <tr><td>Successful system approval, rejected receipt</td><td>The persistence path that saves the authorization receipt.</td></tr>
             <tr><td>Accepted grant, settings write returned, shield still visible</td><td>Other stores, current lock inputs, and the observed OS presentation.</td></tr>
             <tr><td>Expiry callback recorded, reconciliation failed</td><td>State, lock contention, or enforcement writes after delivery.</td></tr>
             <tr><td>Expiry repaired only after opening the host</td><td>Whether autonomous delivery/enforcement worked before that repair.</td></tr>
@@ -505,60 +517,12 @@ defaults.set(data, forKey: legacyKey)`}</Code>
         is read-only, but getting back into the app can already have changed the situation.
       </p>
 
-      <h3>What passed, and what that actually means</h3>
-      <p>
-        The saved November 9 verification run had 100 related checks: 95 passed, none failed, and five
-        Swift checks were skipped. The full run had 533 checks: 521 passed, six existing failures, and
-        six skipped Swift checks. The recorded failures covered Android permission/alarm expectations,
-        starter-task scheduling, and onboarding markup. That was useful regression evidence, but it
-        was not a clean full-suite result or proof of iOS behavior.
-      </p>
-      <p>
-        Some tests execute production JavaScript with native stubs; others inspect native wiring.
-        Foundation-only Swift harnesses cover deadline math, stale callbacks, request races,
-        authorization ordering, and state-store migration when a Swift compiler is available. This
-        Windows development machine could not run those Swift harnesses. Source assertions and a
-        grammar check were never a substitute for compiling and testing the installed extensions.
-      </p>
-      <p>
-        After the implementation changes, I confirmed the two normal-path failures were resolved on
-        my physical iPhone: a selected duration reveals the app on the first attempt, and expiry
-        brings the shield back. That confirmation updates the older notes, which still marked the
-        last device run as pending. It does not supply a measured latency distribution, establish
-        which expiry callback fired, or validate every supported device and edge case.
-      </p>
-      <p>
-        For the recovery path, there is a development-only probe that deliberately ignores one new
-        allowance's primary callback. The intended test is to stay in the distracting app, observe
-        the shield return through the warning five seconds later, then inspect the saved receipts.
-        I would require that separate trial before calling the backup proven. An ordinary successful
-        expiry does not exercise a missed primary callback.
-      </p>
-
-      <h2>The checks I would run before shipping another Screen Time change</h2>
-      <ol>
-        <li><strong>Test the first attempt.</strong> Save the selection, start the gate, open the target app, and select each duration without using a host-app detour as a workaround.</li>
-        <li><strong>Stay on a static screen.</strong> Let one minute expire without switching apps, reopening the host, or relying on an unrelated UI event to trigger enforcement.</li>
-        <li><strong>Repeat expiry and regrant.</strong> Request another pass from the time-up shield. Verify duplicate taps do not refill it and old callbacks cannot end the new generation.</li>
-        <li><strong>Leave across the deadline.</strong> Background the app or lock the phone. Elapsed allowances should continue to expire while away.</li>
-        <li><strong>Separate demo and ordinary tests.</strong> Test a ten-minute allowance outside the ten-minute demo; the demo ending can otherwise conceal an allowance problem.</li>
-        <li><strong>Exercise required locks.</strong> Start task, work, focus, and punishment locks during a pass. Extra-time choices must disappear and the real lock must win.</li>
-        <li><strong>Test midnight and lifecycle changes.</strong> Verify the local day boundary, time-zone/DST cases, permission revocation, process restarts, and stale saved state.</li>
-        <li><strong>Force recovery and failure.</strong> Skip the primary in development, exercise registration and save failures, and confirm errors stay responsive without granting unmonitored access.</li>
-        <li><strong>Use the installed native build.</strong> These Swift and extension changes need an updated development client or distribution build. Expo Go and a JS reload cannot add them.</li>
-      </ol>
-      <p>
-        Due or Die's Android implementation reaches the same elapsed-time behavior through its
-        Accessibility service and overlay, with its own native enforcement loop. The product rules
-        are shared; the iOS callback strategy is not an Android implementation recipe.
-      </p>
-
       <h2>What ultimately worked</h2>
       <p>
         The working flow came from fixing the whole chain: explicit eligibility, persisted deadlines,
         future monitor registration, bounded grant handling, host-confirmed authorization, and a
         critical-state save that could report its own failure correctly. The final storage correction
-        addressed the concrete build-118 rejection, but it sat on top of the earlier scheduling and
+        addressed the rejected authorization receipt, but it sat on top of the earlier scheduling and
         authorization repairs. A single API call was never going to repair every failure.
       </p>
       <p>
