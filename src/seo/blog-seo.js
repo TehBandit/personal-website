@@ -30,7 +30,7 @@ export function blogMetadata(post, posts = []) {
   const url = SITE_URL + path;
   const title = post
     ? post.meta.seoTitle ?? `${post.meta.title} | ${AUTHOR_NAME}`
-    : `Development Blog and Project Notes | ${AUTHOR_NAME}`;
+    : `mingus`;
   const description = post
     ? post.meta.desc
     : "Technical write-ups, debugging stories, and build-in-public notes from Marcus Taylor's apps and independent software projects.";
