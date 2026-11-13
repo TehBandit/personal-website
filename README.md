@@ -1,5 +1,18 @@
 # React + Vite
 
+## Homepage Instagram feed
+
+The homepage embeds the public Juicer feed `artworkbymarcus`, with one post per
+page. A local wrapper at `public/embeds/instagram.html` runs Juicer's standard
+embed in an iframe, keeping its styles and scripts separate from the React app.
+Both social cards use a 16:9 media area, with Instagram images cropped to fill.
+No Juicer API key or Vercel environment variable is required.
+
+Keep the Instagram source connected in Juicer so new posts sync on the account's
+plan schedule. For a single latest-post card, set **Templates → Posts Per Page**
+to **1** and **Pagination** to **None** in Juicer. The wrapper styles the feed as
+an image-only card; its heading links directly to the Instagram profile.
+
 ## Bookclubr App Store URLs
 
 - Marketing URL: https://www.marcustaylor.org/bookclub

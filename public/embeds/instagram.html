@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Latest art from @artworkbymarcus</title>
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: transparent;
+      }
+
+      /* Fill the homepage's 16:9 viewport instead of using the post's height. */
+      .juicer-feed,
+      .juicer-feed .jcr-feed-align,
+      .juicer-feed .jcr-feed-container,
+      .juicer-feed .jcr-feed-container > div,
+      .juicer-feed .jcr-masonry-grid,
+      .juicer-feed .jcr-feed-slider,
+      .juicer-feed .swiper-wrapper,
+      .juicer-feed .swiper-slide,
+      .juicer-feed .jcr-post,
+      .juicer-feed .jcr-post-image,
+      .juicer-feed .post-swiper,
+      .juicer-feed [data-jcr-media-wrapper] {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        aspect-ratio: auto !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-sizing: border-box;
+      }
+
+      .juicer-feed .jcr-post-media {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        object-position: center !important;
+      }
+
+      /* This card shows the artwork; the account link is in its outer heading. */
+      .juicer-feed .jcr-post-overlay,
+      .juicer-feed .jcr-post-header,
+      .juicer-feed .jcr-post-content,
+      .juicer-feed .jcr-slider-autoplay-toggle,
+      .juicer-feed .jcr-feed-slider > .swiper-button-next,
+      .juicer-feed .jcr-feed-slider > .swiper-button-prev,
+      .juicer-feed .jcr-feed-slider > .swiper-pagination {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="juicer-feed" data-feed-id="artworkbymarcus" data-per="1" data-overlay="false"></div>
+    <script src="https://www.juicer.io/embed/artworkbymarcus/embed-code.js?per=1&amp;overlay=false" async defer></script>
+  </body>
+</html>

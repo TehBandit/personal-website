@@ -5,6 +5,7 @@ import { formatDate } from "../utils/formatDate.js";
 import SectionDoodle from "../components/SectionDoodle.jsx";
 import BackgroundDoodle from "../components/BackgroundDoodle.jsx";
 import useBackgroundDoodles from "../components/doodles/useBackgroundDoodles.js";
+import InstagramFeed from "../components/InstagramFeed.jsx";
 
 function HomeLink({ href, children, ...props }) {
   return href.startsWith("/") ? (
@@ -138,7 +139,7 @@ function PushPin({ tone = "home-pin-red", className = "" }) {
 
 /* ---------- typed name ---------- */
 
-const TYPED_NAMES = ["mingus.", "shmigly.", "minkris.", "marcus."];
+const TYPED_NAMES = ["mingus.", "TehBandit.", "minkris.", "marcus."];
 
 function TypedName() {
   const [text, setText] = useState("mingus.");
@@ -345,11 +346,11 @@ function Home() {
 
         {/* socials */}
         <SectionHeading n="02" seed={23} doodle={headingDoodles[1]} tone="text-home-ink-blue" backgroundMark={backgroundDoodles[1]}>latest socials</SectionHeading>
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid items-start gap-6 md:grid-cols-2">
           <figure className="group home-sheet relative rotate-[-0.6deg] p-4 transition hover:rotate-0">
             <div className="home-tape home-tape-lift -top-3 left-8 -rotate-6" />
-            <figcaption className="mb-3 flex items-baseline justify-between px-1">
-              <span className="relative font-home-hand text-3xl text-home-ink">YouTube<ScribbleWave /></span>
+            <figcaption className="mb-3 flex flex-col gap-1 px-1 sm:flex-row sm:items-baseline sm:justify-between">
+              <span className="relative font-home-hand text-2xl text-home-ink sm:text-3xl">YouTube<ScribbleWave /></span>
               <span className="font-home-mono text-xs text-home-ink-soft">latest short</span>
             </figcaption>
             <div className="aspect-video overflow-hidden rounded-lg bg-home-ink/5">
@@ -372,16 +373,16 @@ function Home() {
               )}
             </div>
           </figure>
-          <HomeLink href="https://www.instagram.com/p/Cnu1c6wvns5/?img_index=1" target="_blank" rel="noopener noreferrer" className="group home-sheet relative block rotate-[0.6deg] p-4 transition hover:rotate-0">
+          <figure className="group home-sheet relative min-w-0 rotate-[0.6deg] p-4 transition hover:rotate-0">
             <PushPin tone="home-pin-blue" className="home-pin-wiggle -top-5 right-10" />
-            <div className="mb-3 flex items-baseline justify-between px-1">
-              <span className="relative font-home-hand text-3xl text-home-ink">(art) instagram<ScribbleWave tone="text-home-ink-blue" /></span>
-              <span className="font-home-mono text-xs text-home-ink-soft">painting</span>
-            </div>
+            <figcaption className="mb-3 flex flex-col gap-1 px-1 sm:flex-row sm:items-baseline sm:justify-between">
+              <a href="https://www.instagram.com/artworkbymarcus/" target="_blank" rel="noopener noreferrer" className="relative font-home-hand text-2xl text-home-ink sm:text-3xl">(art) instagram<ScribbleWave tone="text-home-ink-blue" /></a>
+              <span className="font-home-mono text-xs text-home-ink-soft">latest post</span>
+            </figcaption>
             <div className="aspect-video overflow-hidden rounded-lg bg-home-ink/5">
-              <img className="h-full w-full object-cover" alt="Painted portrait on a yellow background" src="/testInsta.jpg" />
+              <InstagramFeed />
             </div>
-          </HomeLink>
+          </figure>
         </div>
 
         {/* projects */}
