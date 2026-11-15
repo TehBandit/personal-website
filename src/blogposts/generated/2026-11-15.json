@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 4,
+  "meta": {
+    "title": "Devlog: November 8, 2026 - November 15, 2026",
+    "description": "a redesigned blog, stronger chat attention controls, and ongoing onboarding work across this week's projects.",
+    "slug": "building-in-public-2026-11-15",
+    "tag": "Development",
+    "date": "2026-11-15",
+    "periodStart": "2026-11-08T12:00:00-05:00",
+    "periodEnd": "2026-11-15T12:00:00-05:00",
+    "headerPhotos": []
+  },
+  "projects": [
+    {
+      "name": "Due or Die",
+      "url": "https://apps.apple.com/us/app/due-or-die-to-do-app-blocker/id6792173694",
+      "image": "/build-in-public/2026-11-15/due-or-die-1.png",
+      "changes": {
+        "additions": 14978,
+        "deletions": 3470
+      },
+      "bullets": [
+        {
+          "text": "continued the onboarding and screen time presentation rebuild, including faster mascot narration and a more dramatic usage reveal, with device review still pending.",
+          "evidenceIds": [
+            "e11"
+          ]
+        },
+        {
+          "text": "expanded coverage around onboarding and screen time flows while continuing broader interface work.",
+          "evidenceIds": [
+            "e1",
+            "e4",
+            "e11"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i spent a lot of this week getting the main onboarding experience into shape. the source work is there, but i still need to see how it actually feels on a device before calling it done.",
+        "evidenceIds": [
+          "e11"
+        ]
+      }
+    },
+    {
+      "name": "Personal Website",
+      "url": "https://www.marcustaylor.org/",
+      "image": "/build-in-public/2026-11-15/personal-website-2.png",
+      "changes": {
+        "additions": 3370,
+        "deletions": 626
+      },
+      "bullets": [
+        {
+          "text": "published a screen time debugging article and improved blog discovery with crawlable pages, search metadata, and a sitemap.",
+          "evidenceIds": [
+            "e3"
+          ]
+        },
+        {
+          "text": "refined article reading pages, related-post navigation, photo controls, and dark-mode browser branding.",
+          "evidenceIds": [
+            "e5",
+            "e6"
+          ]
+        },
+        {
+          "text": "refreshed the site with a notebook-inspired visual system and added blog search, multi-tag filtering, result counts, and empty states.",
+          "evidenceIds": [
+            "e7"
+          ]
+        },
+        {
+          "text": "replaced the fixed homepage instagram card with a feed that can show new artwork without a site edit.",
+          "evidenceIds": [
+            "e9"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "the site got a slightly unreasonable amount of attention this week, which is probably appropriate for a personal website. it should now be easier to browse, search, and keep current without treating every new post like a small migration.",
+        "evidenceIds": [
+          "e3",
+          "e5",
+          "e6",
+          "e7",
+          "e9"
+        ]
+      }
+    },
+    {
+      "name": "Stoplight",
+      "url": null,
+      "image": null,
+      "changes": {
+        "additions": 1104,
+        "deletions": 88
+      },
+      "bullets": [
+        {
+          "text": "expanded the red status category to cover chats that need attention, including stopped work and completed replies that still need a response.",
+          "evidenceIds": [
+            "e8"
+          ]
+        },
+        {
+          "text": "added ways to acknowledge attention from the dashboard, preserve those acknowledgments across restarts, and keep saved chats available for later review.",
+          "evidenceIds": [
+            "e8"
+          ]
+        },
+        {
+          "text": "added compatibility controls and reporting for newer local integration versions, with warnings and validation when status data cannot be safely used.",
+          "evidenceIds": [
+            "e10"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i made stoplight a little less naggy and a little more honest about what needs attention. the compatibility work is also there to make future updates less of a mystery box.",
+        "evidenceIds": [
+          "e8",
+          "e10"
+        ]
+      }
+    }
+  ]
+}
