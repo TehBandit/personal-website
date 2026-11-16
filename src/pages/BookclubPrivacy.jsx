@@ -69,7 +69,7 @@ export default function BookclubPrivacy() {
       <p>We may update this policy as Bookclubr changes. The updated policy will appear here with a revised date. Material changes will be communicated as appropriate.</p>
 
       <h2>Contact</h2>
-      <p>For privacy questions or requests, contact Marcus Taylor at <a href="mailto:taylor.marcus99@gmail.com?subject=Bookclubr%20privacy">taylor.marcus99@gmail.com</a>. You can also visit <Link to="/bookclub/support">Bookclubr Support</Link>.</p>
+      <p>For privacy questions or requests, contact Marcus Taylor at <a href="mailto:knibldotnet@gmail.com?subject=Bookclubr%20privacy">knibldotnet@gmail.com</a>. You can also visit <Link to="/bookclub/support">Bookclubr Support</Link>.</p>
     </article>
   </BookclubPage>;
 }

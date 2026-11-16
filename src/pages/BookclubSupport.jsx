@@ -1,6 +1,6 @@
 import BookclubPage from "../components/BookclubPage.jsx";
 
-const supportEmail = "taylor.marcus99@gmail.com";
+const supportEmail = "knibldotnet@gmail.com";
 
 export default function BookclubSupport() {
   return <BookclubPage
