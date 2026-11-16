@@ -1,6 +1,12 @@
 {
   "headers": [
     {
+      "source": "/",
+      "headers": [
+        { "key": "Link", "value": "<https://www.marcustaylor.org/>; rel=\"canonical\"" }
+      ]
+    },
+    {
       "source": "/oauth/instagram-callback.html",
       "headers": [
         { "key": "Cache-Control", "value": "no-store" },

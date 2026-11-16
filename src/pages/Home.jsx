@@ -6,6 +6,7 @@ import SectionDoodle from "../components/SectionDoodle.jsx";
 import BackgroundDoodle from "../components/BackgroundDoodle.jsx";
 import useBackgroundDoodles from "../components/doodles/useBackgroundDoodles.js";
 import InstagramFeed from "../components/InstagramFeed.jsx";
+import { SITE_URL } from "../seo/blog-seo.js";
 
 function HomeLink({ href, children, ...props }) {
   return href.startsWith("/") ? (
@@ -216,6 +217,14 @@ const projects = [
 ];
 
 function Home() {
+  useEffect(() => {
+    const canonical = document.createElement("link");
+    canonical.rel = "canonical";
+    canonical.href = `${SITE_URL}/`;
+    document.head.append(canonical);
+    return () => canonical.remove();
+  }, []);
+
   const hero = useDrawn();
   const backgroundDoodles = useBackgroundDoodles();
   const [headingDoodles] = useState(() => {
