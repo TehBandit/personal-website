@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 4,
+  "meta": {
+    "title": "Devlog: November 15, 2026 - November 22, 2026",
+    "description": "a week of search visibility work, new club meeting tools, video-editor improvements, and a synchronized creative library.",
+    "slug": "building-in-public-2026-11-22",
+    "tag": "Development",
+    "date": "2026-11-22",
+    "periodStart": "2026-11-15T12:00:00-05:00",
+    "periodEnd": "2026-11-22T12:00:00-05:00",
+    "headerPhotos": []
+  },
+  "projects": [
+    {
+      "name": "Personal Website",
+      "url": "https://www.marcustaylor.org/",
+      "image": null,
+      "changes": {
+        "additions": 18,
+        "deletions": 3
+      },
+      "bullets": [
+        {
+          "text": "shipped a canonical homepage declaration so search engines have a clearer preferred version of the site.",
+          "evidenceIds": [
+            "e1"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i cleaned up a small but important search visibility issue on the homepage. not glamorous, but neither is explaining duplicate pages to a search console.",
+        "evidenceIds": [
+          "e1"
+        ]
+      }
+    },
+    {
+      "name": "Private Project 3",
+      "url": null,
+      "image": null,
+      "changes": {
+        "additions": 822,
+        "deletions": 89
+      },
+      "bullets": [
+        {
+          "text": "released club reading goals as scheduled discussion meetings, with configurable duration and rotating meeting locations.",
+          "evidenceIds": [
+            "e3"
+          ]
+        },
+        {
+          "text": "released meeting rsvps so members can respond, revise or clear their attendance while seeing the group’s responses.",
+          "evidenceIds": [
+            "e3"
+          ]
+        },
+        {
+          "text": "released calendar export for meeting details and reminders for members who have not declined.",
+          "evidenceIds": [
+            "e3"
+          ]
+        },
+        {
+          "text": "made vote results easier to understand with clearer point breakdowns, winner explanations, and club-specific guest-vote sharing copy.",
+          "evidenceIds": [
+            "e3",
+            "e4"
+          ]
+        },
+        {
+          "text": "standardized emoji reactions around a searchable picker across posts, reviews, and reading-goal completions.",
+          "evidenceIds": [
+            "e3"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i spent most of this week making book-club goals feel more like actual plans people can show up to. the vote and reaction cleanup should also make the social parts of the app a little less mysterious.",
+        "evidenceIds": [
+          "e3",
+          "e4"
+        ]
+      }
+    },
+    {
+      "name": "Private Project 7",
+      "url": null,
+      "image": null,
+      "changes": {
+        "additions": 28655,
+        "deletions": 926
+      },
+      "bullets": [
+        {
+          "text": "continued developing the video editor, including effects work and a broader set of social publishing integrations.",
+          "evidenceIds": [
+            "e9",
+            "e10"
+          ]
+        },
+        {
+          "text": "improved clip review so compatible source footage can open within saved clip boundaries before a new preview is prepared, with fallbacks when direct playback is unsuitable.",
+          "evidenceIds": [
+            "e12"
+          ]
+        },
+        {
+          "text": "added multi-select workflows across clip and slide libraries, including bulk analysis, approval, and deletion with confirmation and retry support.",
+          "evidenceIds": [
+            "e12"
+          ]
+        },
+        {
+          "text": "continued work on shared playback controls and timeline behavior across editing and review views.",
+          "evidenceIds": [
+            "e7",
+            "e8",
+            "e12"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "this is still very much in progress, but the editor is starting to behave more like a place to work through a library instead of a collection of one-off screens. bulk actions and faster review are doing a lot of the heavy lifting.",
+        "evidenceIds": [
+          "e7",
+          "e8",
+          "e9",
+          "e10",
+          "e12"
+        ]
+      }
+    },
+    {
+      "name": "Private Project 8",
+      "url": null,
+      "image": "/build-in-public/2026-11-22/private-project-8-4.jpg",
+      "changes": {
+        "additions": 77334,
+        "deletions": 1886
+      },
+      "bullets": [
+        {
+          "text": "synchronized the video library and creative assets across five production batches, including completed and draft creative outputs.",
+          "evidenceIds": [
+            "e13",
+            "e14",
+            "e15",
+            "e16",
+            "e17"
+          ]
+        }
+      ],
+      "summary": {
+        "text": "i brought a large set of creative work into the production library this week. mostly a big organizing pass, which is less exciting than making something new but makes the next thing much easier to find.",
+        "evidenceIds": [
+          "e13",
+          "e14",
+          "e15",
+          "e16",
+          "e17"
+        ]
+      }
+    }
+  ]
+}
